@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SharedLayout = () => {
@@ -29,6 +29,9 @@ const SharedLayout = () => {
                     <Link to="/quotes"><FileText className="mr-2 h-4 w-4"/>Penawaran</Link>
                 </Button>
                 <Button variant="ghost" asChild>
+                    <Link to="/invoices"><Receipt className="mr-2 h-4 w-4"/>Faktur</Link>
+                </Button>
+                <Button variant="ghost" asChild>
                     <Link to="/clients"><Users className="mr-2 h-4 w-4"/>Klien</Link>
                 </Button>
                 <Button variant="ghost" asChild>
@@ -47,6 +50,7 @@ const SharedLayout = () => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/dashboard">Dashboard</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/quotes">Penawaran</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/invoices">Faktur</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/clients">Klien</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/items">Barang & Jasa</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/profile">Profil</Link></DropdownMenuItem>

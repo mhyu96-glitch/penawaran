@@ -18,6 +18,9 @@ import Dashboard from "./pages/Dashboard";
 import ItemList from "./pages/ItemList";
 import Settings from "./pages/Settings";
 import ClientDetail from "./pages/ClientDetail";
+import InvoiceList from "./pages/InvoiceList";
+import InvoiceGenerator from "./pages/InvoiceGenerator";
+import InvoiceView from "./pages/InvoiceView";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,10 @@ const App = () => (
                 <Route path="/clients" element={<ClientList />} />
                 <Route path="/client/:id" element={<ClientDetail />} />
                 <Route path="/items" element={<ItemList />} />
+                <Route path="/invoices" element={<InvoiceList />} />
+                <Route path="/invoice/new" element={<InvoiceGenerator />} />
+                <Route path="/invoice/edit/:id" element={<InvoiceGenerator />} />
+                <Route path="/invoice/:id" element={<InvoiceView />} />
               </Route>
             </Route>
 
