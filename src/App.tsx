@@ -29,6 +29,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/quotes" element={<QuoteList />} />
               <Route path="/quote/new" element={<QuoteGenerator />} />
+              <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
               <Route path="/quote/:id" element={<QuoteView />} />
               <Route path="/profile" element={<Profile />} />
             </Route>

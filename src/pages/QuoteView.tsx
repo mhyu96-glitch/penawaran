@@ -1,12 +1,24 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { showError, showSuccess } from '@/utils/toast';
 
 type QuoteDetails = {
   id: string;
@@ -31,6 +43,7 @@ type QuoteDetails = {
 
 const QuoteView = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [quote, setQuote] = useState<QuoteDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +59,8 @@ const QuoteView = () => {
 
       if (error) {
         console.error('Error fetching quote:', error);
+        showError('Penawaran tidak ditemukan.');
+        navigate('/quotes');
       } else {
         setQuote(data as QuoteDetails);
       }
@@ -53,7 +68,18 @@ const QuoteView = () => {
     };
 
     fetchQuote();
-  }, [id]);
+  }, [id, navigate]);
+
+  const handleDeleteQuote = async () => {
+    if (!id) return;
+    const { error } = await supabase.from('quotes').delete().match({ id });
+    if (error) {
+      showError('Gagal menghapus penawaran.');
+    } else {
+      showSuccess('Penawaran berhasil dihapus.');
+      navigate('/quotes');
+    }
+  };
 
   const subtotal = useMemo(() => {
     if (!quote) return 0;
@@ -73,7 +99,7 @@ const QuoteView = () => {
   }
 
   if (!quote) {
-    return <div className="text-center p-8">Penawaran tidak ditemukan.</div>;
+    return null; // Already handled with navigation
   }
 
   const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
@@ -84,7 +110,29 @@ const QuoteView = () => {
             <Button asChild variant="outline">
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link>
             </Button>
-            <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
+            <div className="flex items-center gap-2">
+                <Button asChild variant="outline">
+                    <Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link>
+                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
+            </div>
         </div>
       <Card className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
         <CardHeader className="bg-gray-50 p-8">

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { Trash2, PlusCircle, Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Item = {
   description: string;
@@ -22,8 +23,12 @@ type Item = {
 };
 
 const QuoteGenerator = () => {
+  const { id: quoteId } = useParams<{ id: string }>();
+  const isEditMode = !!quoteId;
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(isEditMode);
   const [fromCompany, setFromCompany] = useState("");
   const [fromAddress, setFromAddress] = useState("");
   const [fromWebsite, setFromWebsite] = useState("");
@@ -40,26 +45,54 @@ const QuoteGenerator = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchProfileAndPreFill = async () => {
-      if (!user) return;
-
+    const fetchQuoteForEdit = async () => {
+      if (!quoteId || !user) return;
+      setLoading(true);
       const { data, error } = await supabase
-        .from('profiles')
-        .select('company_name, company_address, company_website')
-        .eq('id', user.id)
+        .from('quotes')
+        .select('*, quote_items(*)')
+        .eq('id', quoteId)
+        .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile for pre-fill:', error.message);
-      } else if (data) {
-        if (data.company_name) setFromCompany(data.company_name);
-        if (data.company_address) setFromAddress(data.company_address);
-        if (data.company_website) setFromWebsite(data.company_website);
+      if (error || !data) {
+        showError("Gagal memuat penawaran untuk diedit.");
+        navigate('/quotes');
+        return;
+      }
+
+      setFromCompany(data.from_company || "");
+      setFromAddress(data.from_address || "");
+      setFromWebsite(data.from_website || "");
+      setToClient(data.to_client || "");
+      setToAddress(data.to_address || "");
+      setToPhone(data.to_phone || "");
+      setQuoteNumber(data.quote_number || "");
+      setQuoteDate(data.quote_date ? parseISO(data.quote_date) : undefined);
+      setValidUntil(data.valid_until ? parseISO(data.valid_until) : undefined);
+      setItems(data.quote_items.length > 0 ? data.quote_items : [{ description: "", quantity: 1, unit_price: 0 }]);
+      setDiscount(data.discount_percentage || 0);
+      setTax(data.tax_percentage || 0);
+      setTerms(data.terms || "");
+      setLoading(false);
+    };
+
+    const fetchProfileForNew = async () => {
+      if (isEditMode || !user) return;
+      const { data } = await supabase.from('profiles').select('company_name, company_address, company_website').eq('id', user.id).single();
+      if (data) {
+        setFromCompany(data.company_name || "");
+        setFromAddress(data.company_address || "");
+        setFromWebsite(data.company_website || "");
       }
     };
 
-    fetchProfileAndPreFill();
-  }, [user]);
+    if (isEditMode) {
+      fetchQuoteForEdit();
+    } else {
+      fetchProfileForNew();
+    }
+  }, [quoteId, user, navigate, isEditMode]);
 
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
@@ -67,79 +100,74 @@ const QuoteGenerator = () => {
     setItems(newItems);
   };
 
-  const addItem = () => {
-    setItems([...items, { description: "", quantity: 1, unit_price: 0 }]);
-  };
+  const addItem = () => setItems([...items, { description: "", quantity: 1, unit_price: 0 }]);
+  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
-  const removeItem = (index: number) => {
-    const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems);
-  };
-
-  const subtotal = useMemo(() => {
-    return items.reduce((acc, item) => acc + Number(item.quantity) * Number(item.unit_price), 0);
-  }, [items]);
-
+  const subtotal = useMemo(() => items.reduce((acc, item) => acc + Number(item.quantity) * Number(item.unit_price), 0), [items]);
   const discountAmount = useMemo(() => subtotal * (discount / 100), [subtotal, discount]);
   const taxAmount = useMemo(() => (subtotal - discountAmount) * (tax / 100), [subtotal, discountAmount, tax]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
 
   const handleSubmit = async () => {
-    if (!user) {
-      showError("Anda harus masuk untuk membuat penawaran.");
-      return;
-    }
+    if (!user) return;
     setIsSubmitting(true);
 
-    const { data: quoteData, error: quoteError } = await supabase
-      .from('quotes')
-      .insert([{
-        user_id: user.id,
-        from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
-        to_client: toClient, to_address: toAddress, to_phone: toPhone,
-        quote_number: quoteNumber, quote_date: quoteDate?.toISOString(), valid_until: validUntil?.toISOString(),
-        discount_percentage: discount, tax_percentage: tax, terms: terms,
-      }])
-      .select().single();
+    const quotePayload = {
+      user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
+      to_client: toClient, to_address: toAddress, to_phone: toPhone, quote_number: quoteNumber,
+      quote_date: quoteDate?.toISOString(), valid_until: validUntil?.toISOString(),
+      discount_percentage: discount, tax_percentage: tax, terms: terms,
+    };
 
-    if (quoteError || !quoteData) {
-      showError("Gagal membuat penawaran. Silakan coba lagi.");
-      console.error("Quote Error:", quoteError);
-      setIsSubmitting(false);
+    if (isEditMode) {
+      // Update logic
+      const { error: quoteUpdateError } = await supabase.from('quotes').update(quotePayload).match({ id: quoteId });
+      if (quoteUpdateError) {
+        showError("Gagal memperbarui penawaran.");
+        setIsSubmitting(false); return;
+      }
+      await supabase.from('quote_items').delete().match({ quote_id: quoteId });
+    } else {
+      // Insert logic
+      const { data: newQuote, error: quoteInsertError } = await supabase.from('quotes').insert(quotePayload).select().single();
+      if (quoteInsertError || !newQuote) {
+        showError("Gagal membuat penawaran.");
+        setIsSubmitting(false); return;
+      }
+      const newQuoteId = newQuote.id;
+      const quoteItemsPayload = items.map(item => ({ ...item, quote_id: newQuoteId }));
+      await supabase.from('quote_items').insert(quoteItemsPayload);
+      showSuccess("Penawaran berhasil dibuat!");
+      navigate(`/quote/${newQuoteId}`);
       return;
     }
 
-    const quoteItems = items.map(item => ({
-      quote_id: quoteData.id,
-      description: item.description,
-      quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
-    }));
-
-    const { error: itemsError } = await supabase.from('quote_items').insert(quoteItems);
-
-    if (itemsError) {
-      showError("Gagal menyimpan item penawaran.");
-      console.error("Items Error:", itemsError);
-      await supabase.from('quotes').delete().match({ id: quoteData.id });
-      setIsSubmitting(false);
-      return;
-    }
-
-    showSuccess("Penawaran berhasil dibuat!");
+    const quoteItemsPayload = items.map(item => ({ ...item, quote_id: quoteId }));
+    await supabase.from('quote_items').insert(quoteItemsPayload);
+    showSuccess("Penawaran berhasil diperbarui!");
     setIsSubmitting(false);
-    navigate(`/quote/${quoteData.id}`);
+    navigate(`/quote/${quoteId}`);
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4 md:p-8">
+        <Card className="w-full max-w-4xl mx-auto">
+          <CardHeader><Skeleton className="h-8 w-64" /></CardHeader>
+          <CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl">Generator Penawaran</CardTitle>
-          <CardDescription>Isi detail di bawah untuk membuat penawaran baru.</CardDescription>
+          <CardTitle className="text-3xl">{isEditMode ? "Edit Penawaran" : "Generator Penawaran"}</CardTitle>
+          <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : "Isi detail di bawah untuk membuat penawaran baru."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
-          {/* Company & Client Info */}
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <h3 className="font-semibold">Dari:</h3>
@@ -154,10 +182,7 @@ const QuoteGenerator = () => {
               <Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} />
             </div>
           </div>
-
           <Separator />
-
-          {/* Quote Details */}
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Nomor Penawaran</Label>
@@ -188,10 +213,7 @@ const QuoteGenerator = () => {
               </Popover>
             </div>
           </div>
-
           <Separator />
-
-          {/* Items */}
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
             <div className="space-y-2">
@@ -207,10 +229,7 @@ const QuoteGenerator = () => {
             </div>
             <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
           </div>
-
           <Separator />
-
-          {/* Totals */}
           <div className="flex justify-end">
             <div className="w-full max-w-sm space-y-4">
               <div className="flex justify-between">
@@ -240,10 +259,7 @@ const QuoteGenerator = () => {
               </div>
             </div>
           </div>
-
           <Separator />
-
-          {/* Terms */}
           <div className="space-y-2">
             <Label>Syarat & Ketentuan</Label>
             <Textarea placeholder="Contoh: Pembayaran 50% di muka..." value={terms} onChange={e => setTerms(e.target.value)} />
@@ -251,7 +267,7 @@ const QuoteGenerator = () => {
         </CardContent>
         <CardFooter>
           <Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Menyimpan..." : "Buat & Lihat Penawaran"}
+            {isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Buat & Lihat Penawaran")}
           </Button>
         </CardFooter>
       </Card>
