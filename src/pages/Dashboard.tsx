@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 type Quote = {
   id: string;
   status: string;
-  quote_items: { quantity: number; unit_price: number }[];
+  quote_items: { quantity: number; unit_price: number; cost_price: number; }[];
   to_client: string;
   created_at: string;
 };
@@ -29,7 +29,7 @@ const Dashboard = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, status, to_client, created_at, quote_items(quantity, unit_price)')
+        .select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -47,13 +47,13 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     const totalQuotes = quotes.length;
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
-    const totalRevenue = acceptedQuotes.reduce((acc, quote) => {
-      const quoteTotal = quote.quote_items.reduce((qAcc, item) => qAcc + item.quantity * item.unit_price, 0);
-      return acc + quoteTotal;
+    const totalProfit = acceptedQuotes.reduce((acc, quote) => {
+      const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
+      return acc + quoteProfit;
     }, 0);
     const pendingQuotes = quotes.filter(q => q.status === 'Terkirim').length;
 
-    return { totalQuotes, totalRevenue, acceptedQuotesCount: acceptedQuotes.length, pendingQuotes };
+    return { totalQuotes, totalProfit, acceptedQuotesCount: acceptedQuotes.length, pendingQuotes };
   }, [quotes]);
 
   const chartData = useMemo(() => {
@@ -91,11 +91,11 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Keuntungan</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalRevenue.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <div className="text-2xl font-bold">{stats.totalProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
             <p className="text-xs text-muted-foreground">Dari {stats.acceptedQuotesCount} penawaran diterima</p>
           </CardContent>
         </Card>

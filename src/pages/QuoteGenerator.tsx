@@ -32,6 +32,7 @@ type Item = {
   quantity: number;
   unit: string;
   unit_price: number;
+  cost_price: number;
 };
 
 const QuoteGenerator = () => {
@@ -51,7 +52,7 @@ const QuoteGenerator = () => {
   const [quoteNumber, setQuoteNumber] = useState("");
   const [quoteDate, setQuoteDate] = useState<Date | undefined>(new Date());
   const [validUntil, setValidUntil] = useState<Date | undefined>();
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
   const [terms, setTerms] = useState("");
@@ -96,8 +97,8 @@ const QuoteGenerator = () => {
       setValidUntil(data.valid_until ? parseISO(data.valid_until) : undefined);
       setStatus(data.status || "Draf");
       
-      const itemsWithUnit = data.quote_items.map((item: any) => ({ ...item, unit: item.unit || '' }));
-      setItems(itemsWithUnit.length > 0 ? itemsWithUnit : [{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+      const itemsWithDefaults = data.quote_items.map((item: any) => ({ ...item, unit: item.unit || '', cost_price: item.cost_price || 0 }));
+      setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
 
       setDiscount(data.discount_percentage || 0);
       setTax(data.tax_percentage || 0);
@@ -137,12 +138,12 @@ const QuoteGenerator = () => {
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const removeItem = (index: number) => {
     if (items.length > 1) {
         setItems(items.filter((_, i) => i !== index));
     } else {
-        setItems([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+        setItems([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
     }
   };
 
@@ -151,9 +152,9 @@ const QuoteGenerator = () => {
         description: item.description,
         quantity: 1,
         unit: item.unit || '',
-        unit_price: item.unit_price
+        unit_price: item.unit_price,
+        cost_price: item.cost_price || 0,
     }));
-    // Remove the initial empty item if it's still there
     const existingItems = items.filter(item => item.description.trim() !== '');
     setItems([...existingItems, ...newItems]);
   };
@@ -227,6 +228,7 @@ const QuoteGenerator = () => {
           <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : "Isi detail di bawah untuk membuat penawaran baru."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
+          {/* From/To sections remain the same */}
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <h3 className="font-semibold">Dari:</h3>
@@ -252,6 +254,7 @@ const QuoteGenerator = () => {
             </div>
           </div>
           <Separator />
+          {/* Quote details sections remain the same */}
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Nomor Penawaran</Label>
@@ -305,10 +308,11 @@ const QuoteGenerator = () => {
                     <TableRow>
                     <TableHead className="w-[50px] text-center">No.</TableHead>
                     <TableHead className="min-w-[200px]">Deskripsi</TableHead>
-                    <TableHead className="w-[120px] text-center">Jumlah</TableHead>
-                    <TableHead className="w-[120px]">Satuan</TableHead>
-                    <TableHead className="w-[170px] text-right">Harga Satuan</TableHead>
-                    <TableHead className="w-[170px] text-right">Total</TableHead>
+                    <TableHead className="w-[100px] text-center">Jumlah</TableHead>
+                    <TableHead className="w-[100px]">Satuan</TableHead>
+                    <TableHead className="w-[150px] text-right">Harga Modal</TableHead>
+                    <TableHead className="w-[150px] text-right">Harga Jual</TableHead>
+                    <TableHead className="w-[150px] text-right">Total</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
@@ -316,46 +320,13 @@ const QuoteGenerator = () => {
                     {items.map((item, index) => (
                     <TableRow key={index}>
                         <TableCell className="text-center font-medium">{index + 1}</TableCell>
-                        <TableCell>
-                        <Input 
-                            placeholder="Deskripsi Barang/Jasa" 
-                            value={item.description} 
-                            onChange={e => handleItemChange(index, 'description', e.target.value)} 
-                        />
-                        </TableCell>
-                        <TableCell>
-                        <Input 
-                            type="number" 
-                            placeholder="1" 
-                            value={item.quantity} 
-                            onChange={e => handleItemChange(index, 'quantity', e.target.value)} 
-                            className="w-full text-center"
-                        />
-                        </TableCell>
-                        <TableCell>
-                        <Input 
-                            placeholder="Pcs" 
-                            value={item.unit} 
-                            onChange={e => handleItemChange(index, 'unit', e.target.value)} 
-                        />
-                        </TableCell>
-                        <TableCell>
-                        <Input 
-                            type="number" 
-                            placeholder="0" 
-                            value={item.unit_price} 
-                            onChange={e => handleItemChange(index, 'unit_price', e.target.value)} 
-                            className="w-full text-right"
-                        />
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                        {(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}
-                        </TableCell>
-                        <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                        </TableCell>
+                        <TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell>
+                        <TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell>
+                        <TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell>
+                        <TableCell className="text-right font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell>
+                        <TableCell className="text-center"><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                     </TableRow>
                     ))}
                 </TableBody>
@@ -367,6 +338,7 @@ const QuoteGenerator = () => {
             </div>
           </div>
           <Separator />
+          {/* Calculation section remains the same */}
           <div className="flex justify-end">
             <div className="w-full max-w-sm space-y-4">
               <div className="flex justify-between">

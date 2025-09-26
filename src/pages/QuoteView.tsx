@@ -43,6 +43,7 @@ type QuoteDetails = {
     quantity: number;
     unit: string;
     unit_price: number;
+    cost_price: number;
   }[];
 };
 
@@ -129,9 +130,16 @@ const QuoteView = () => {
     return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
   }, [quote]);
 
+  const totalCost = useMemo(() => {
+    if (!quote) return 0;
+    return quote.quote_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0);
+  }, [quote]);
+
   const discountAmount = useMemo(() => subtotal * ((quote?.discount_percentage || 0) / 100), [subtotal, quote]);
   const taxAmount = useMemo(() => (subtotal - discountAmount) * ((quote?.tax_percentage || 0) / 100), [subtotal, discountAmount, quote]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const profit = useMemo(() => total - totalCost - (total - subtotal + discountAmount), [total, totalCost, subtotal, discountAmount]);
+
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -253,7 +261,10 @@ const QuoteView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Diskon ({quote.discount_percentage}%)</span><span>- {formatCurrency(discountAmount)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak ({quote.tax_percentage}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
-              <div className="flex justify-between font-bold text-xl"><span >Total</span><span>{formatCurrency(total)}</span></div>
+              <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
+              <Separator />
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
+              <div className="flex justify-between font-semibold text-green-600"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
             </div>
           </div>
           

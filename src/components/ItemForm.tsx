@@ -27,6 +27,7 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
   const [description, setDescription] = useState('');
   const [unit, setUnit] = useState('');
   const [unitPrice, setUnitPrice] = useState(0);
+  const [costPrice, setCostPrice] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -34,10 +35,12 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
       setDescription(item.description);
       setUnit(item.unit || '');
       setUnitPrice(item.unit_price || 0);
+      setCostPrice(item.cost_price || 0);
     } else {
       setDescription('');
       setUnit('');
       setUnitPrice(0);
+      setCostPrice(0);
     }
   }, [item, isOpen]);
 
@@ -53,6 +56,7 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
       description,
       unit,
       unit_price: unitPrice,
+      cost_price: costPrice,
     };
 
     let error;
@@ -90,7 +94,11 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
             <Input id="unit" value={unit} onChange={(e) => setUnit(e.target.value)} className="col-span-3" placeholder="Contoh: Pcs, Kg, Jam" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="unitPrice" className="text-right">Harga Satuan</Label>
+            <Label htmlFor="costPrice" className="text-right">Harga Modal</Label>
+            <Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="unitPrice" className="text-right">Harga Jual</Label>
             <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
         </div>

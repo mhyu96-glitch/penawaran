@@ -25,6 +25,7 @@ export type Item = {
   description: string;
   unit: string | null;
   unit_price: number;
+  cost_price: number;
 };
 
 const ItemList = () => {
@@ -39,7 +40,7 @@ const ItemList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('items')
-      .select('id, description, unit, unit_price')
+      .select('id, description, unit, unit_price, cost_price')
       .eq('user_id', user.id)
       .order('description', { ascending: true });
 
@@ -76,6 +77,8 @@ const ItemList = () => {
     setIsFormOpen(false);
     fetchItems();
   };
+  
+  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -106,7 +109,7 @@ const ItemList = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Deskripsi</TableHead>
-                  <TableHead>Satuan</TableHead>
+                  <TableHead>Harga Modal</TableHead>
                   <TableHead>Harga Satuan</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -115,8 +118,8 @@ const ItemList = () => {
                 {items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.description}</TableCell>
-                    <TableCell>{item.unit || '-'}</TableCell>
-                    <TableCell>{item.unit_price.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell>
+                    <TableCell>{formatCurrency(item.cost_price)}</TableCell>
+                    <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button variant="outline" size="sm" onClick={() => handleOpenForm(item)}>
                         <Pencil className="h-4 w-4" />
