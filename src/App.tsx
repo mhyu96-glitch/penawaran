@@ -13,6 +13,7 @@ import QuoteList from "./pages/QuoteList";
 import QuoteView from "./pages/QuoteView";
 import Profile from "./pages/Profile";
 import SharedLayout from "./components/SharedLayout";
+import ClientList from "./pages/ClientList";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
                 <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
                 <Route path="/quote/:id" element={<QuoteView />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/clients" element={<ClientList />} />
               </Route>
             </Route>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
@@ -20,19 +20,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
+import { Badge } from '@/components/ui/badge';
 
 type Quote = {
   id: string;
   quote_number: string;
   to_client: string;
   created_at: string;
+  status: string;
 };
 
 const QuoteList = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchQuotes = async () => {
@@ -40,7 +41,7 @@ const QuoteList = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, quote_number, to_client, created_at')
+        .select('id, quote_number, to_client, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -64,6 +65,16 @@ const QuoteList = () => {
     } else {
       showSuccess('Penawaran berhasil dihapus.');
       setQuotes(quotes.filter(q => q.id !== quoteId));
+    }
+  };
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'Diterima': return 'default';
+      case 'Terkirim': return 'secondary';
+      case 'Ditolak': return 'destructive';
+      case 'Draf': return 'outline';
+      default: return 'outline';
     }
   };
 
@@ -102,6 +113,7 @@ const QuoteList = () => {
                 <TableRow>
                   <TableHead>Nomor Penawaran</TableHead>
                   <TableHead>Klien</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Tanggal Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -111,6 +123,9 @@ const QuoteList = () => {
                   <TableRow key={quote.id}>
                     <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                     <TableCell>{quote.to_client}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(quote.status)}>{quote.status || 'Draf'}</Badge>
+                    </TableCell>
                     <TableCell>{format(new Date(quote.created_at), 'PPP')}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button asChild variant="outline" size="sm">

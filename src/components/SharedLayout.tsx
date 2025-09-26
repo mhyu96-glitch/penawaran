@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText } from 'lucide-react';
+import { CircleUser, FileText, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SharedLayout = () => {
@@ -23,7 +23,10 @@ const SharedLayout = () => {
           <div className="flex items-center gap-4">
             <nav className="hidden md:flex gap-2">
                 <Button variant="ghost" asChild>
-                    <Link to="/quotes">Penawaran Saya</Link>
+                    <Link to="/quotes">Penawaran</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                    <Link to="/clients">Klien</Link>
                 </Button>
                 <Button variant="ghost" asChild>
                     <Link to="/profile">Profil</Link>
@@ -40,7 +43,10 @@ const SharedLayout = () => {
                 <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="md:hidden">
-                    <Link to="/quotes">Penawaran Saya</Link>
+                    <Link to="/quotes">Penawaran</Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild className="md:hidden">
+                    <Link to="/clients">Klien</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                     <Link to="/profile">Profil</Link>

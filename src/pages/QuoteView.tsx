@@ -21,6 +21,7 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Badge } from '@/components/ui/badge';
 
 type QuoteDetails = {
   id: string;
@@ -36,6 +37,7 @@ type QuoteDetails = {
   discount_percentage: number;
   tax_percentage: number;
   terms: string;
+  status: string;
   quote_items: {
     description: string;
     quantity: number;
@@ -82,7 +84,6 @@ const QuoteView = () => {
     html2canvas(quoteRef.current, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        // F4 size in points: 210mm x 330mm -> [595, 935]
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -131,6 +132,16 @@ const QuoteView = () => {
   const discountAmount = useMemo(() => subtotal * ((quote?.discount_percentage || 0) / 100), [subtotal, quote]);
   const taxAmount = useMemo(() => (subtotal - discountAmount) * ((quote?.tax_percentage || 0) / 100), [subtotal, discountAmount, quote]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'Diterima': return 'default';
+      case 'Terkirim': return 'secondary';
+      case 'Ditolak': return 'destructive';
+      case 'Draf': return 'outline';
+      default: return 'outline';
+    }
+  };
 
   if (loading) {
     return (
@@ -187,8 +198,9 @@ const QuoteView = () => {
               <p className="text-muted-foreground">{quote.from_address}</p>
               <p className="text-muted-foreground">{quote.from_website}</p>
             </div>
-            <div className="text-right">
+            <div className="text-right space-y-1">
               <h2 className="text-4xl font-bold uppercase text-gray-400">Penawaran</h2>
+              <Badge variant={getStatusVariant(quote.status)} className="text-sm">{quote.status || 'Draf'}</Badge>
               <p className="text-muted-foreground">No: {quote.quote_number}</p>
               <p className="text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP')}</p>
             </div>

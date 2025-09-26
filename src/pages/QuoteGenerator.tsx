@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Client } from "./ClientList";
 
 type Item = {
   description: string;
@@ -30,6 +32,7 @@ const QuoteGenerator = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(isEditMode);
+  const [clients, setClients] = useState<Client[]>([]);
   const [fromCompany, setFromCompany] = useState("");
   const [fromAddress, setFromAddress] = useState("");
   const [fromWebsite, setFromWebsite] = useState("");
@@ -43,7 +46,17 @@ const QuoteGenerator = () => {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
   const [terms, setTerms] = useState("");
+  const [status, setStatus] = useState("Draf");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      if (!user) return;
+      const { data } = await supabase.from('clients').select('*').eq('user_id', user.id);
+      if (data) setClients(data);
+    };
+    fetchClients();
+  }, [user]);
 
   useEffect(() => {
     const fetchQuoteForEdit = async () => {
@@ -71,6 +84,7 @@ const QuoteGenerator = () => {
       setQuoteNumber(data.quote_number || "");
       setQuoteDate(data.quote_date ? parseISO(data.quote_date) : undefined);
       setValidUntil(data.valid_until ? parseISO(data.valid_until) : undefined);
+      setStatus(data.status || "Draf");
       
       const itemsWithUnit = data.quote_items.map((item: any) => ({ ...item, unit: item.unit || '' }));
       setItems(itemsWithUnit.length > 0 ? itemsWithUnit : [{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
@@ -98,6 +112,15 @@ const QuoteGenerator = () => {
     }
   }, [quoteId, user, navigate, isEditMode]);
 
+  const handleClientSelect = (clientId: string) => {
+    const selected = clients.find(c => c.id === clientId);
+    if (selected) {
+      setToClient(selected.name);
+      setToAddress(selected.address || "");
+      setToPhone(selected.phone || "");
+    }
+  };
+
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
     (newItems[index] as any)[field] = value;
@@ -120,11 +143,12 @@ const QuoteGenerator = () => {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone, quote_number: quoteNumber,
       quote_date: quoteDate?.toISOString(), valid_until: validUntil?.toISOString(),
-      discount_percentage: discount, tax_percentage: tax, terms: terms,
+      discount_percentage: discount, tax_percentage: tax, terms: terms, status: status,
     };
 
+    let currentQuoteId = quoteId;
+
     if (isEditMode) {
-      // Update logic
       const { error: quoteUpdateError } = await supabase.from('quotes').update(quotePayload).match({ id: quoteId });
       if (quoteUpdateError) {
         showError("Gagal memperbarui penawaran.");
@@ -132,25 +156,26 @@ const QuoteGenerator = () => {
       }
       await supabase.from('quote_items').delete().match({ quote_id: quoteId });
     } else {
-      // Insert logic
       const { data: newQuote, error: quoteInsertError } = await supabase.from('quotes').insert(quotePayload).select().single();
       if (quoteInsertError || !newQuote) {
         showError("Gagal membuat penawaran.");
         setIsSubmitting(false); return;
       }
-      const newQuoteId = newQuote.id;
-      const quoteItemsPayload = items.map(item => ({ ...item, quote_id: newQuoteId }));
-      await supabase.from('quote_items').insert(quoteItemsPayload);
-      showSuccess("Penawaran berhasil dibuat!");
-      navigate(`/quote/${newQuoteId}`);
-      return;
+      currentQuoteId = newQuote.id;
     }
 
-    const quoteItemsPayload = items.map(item => ({ ...item, quote_id: quoteId }));
-    await supabase.from('quote_items').insert(quoteItemsPayload);
-    showSuccess("Penawaran berhasil diperbarui!");
+    const quoteItemsPayload = items.map(item => ({ ...item, quote_id: currentQuoteId }));
+    const { error: itemsError } = await supabase.from('quote_items').insert(quoteItemsPayload);
+
+    if (itemsError) {
+        showError("Gagal menyimpan item penawaran.");
+        setIsSubmitting(false);
+        return;
+    }
+
+    showSuccess(`Penawaran berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
     setIsSubmitting(false);
-    navigate(`/quote/${quoteId}`);
+    navigate(`/quote/${currentQuoteId}`);
   };
 
   if (loading) {
@@ -181,6 +206,16 @@ const QuoteGenerator = () => {
             </div>
             <div className="space-y-4">
               <h3 className="font-semibold">Untuk:</h3>
+              <Select onValueChange={handleClientSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} />
               <Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} />
               <Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} />
@@ -216,6 +251,20 @@ const QuoteGenerator = () => {
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={validUntil} onSelect={setValidUntil} /></PopoverContent>
               </Popover>
             </div>
+          </div>
+          <div className="space-y-2 md:w-1/3">
+            <Label>Status Penawaran</Label>
+            <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Draf">Draf</SelectItem>
+                    <SelectItem value="Terkirim">Terkirim</SelectItem>
+                    <SelectItem value="Diterima">Diterima</SelectItem>
+                    <SelectItem value="Ditolak">Ditolak</SelectItem>
+                </SelectContent>
+            </Select>
           </div>
           <Separator />
           <div className="space-y-4">
