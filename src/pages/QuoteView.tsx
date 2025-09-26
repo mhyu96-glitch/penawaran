@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -182,6 +182,12 @@ const QuoteView = () => {
     }
   };
 
+  const handleShareLink = () => {
+    const link = `${window.location.origin}/quote/public/${id}`;
+    navigator.clipboard.writeText(link);
+    showSuccess('Tautan publik telah disalin ke clipboard!');
+  };
+
   const subtotal = useMemo(() => {
     if (!quote) return 0;
     return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
@@ -229,6 +235,11 @@ const QuoteView = () => {
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link>
             </Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+                {quote.status === 'Terkirim' && (
+                  <Button onClick={handleShareLink} variant="secondary">
+                    <Share2 className="mr-2 h-4 w-4" /> Bagikan Tautan
+                  </Button>
+                )}
                 {quote.status === 'Diterima' && (
                   <Button onClick={handleCreateInvoice}>
                     <Receipt className="mr-2 h-4 w-4" /> Buat Faktur

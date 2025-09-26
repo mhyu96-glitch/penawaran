@@ -24,6 +24,7 @@ import InvoiceView from "./pages/InvoiceView";
 import ExpenseList from "./pages/ExpenseList";
 import Reports from "./pages/Reports";
 import ProfitabilityReports from "./pages/ProfitabilityReports";
+import PublicQuoteView from "./pages/PublicQuoteView";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/quote/public/:id" element={<PublicQuoteView />} />
             
             <Route element={<ProtectedRoute />}>
               <Route element={<SharedLayout />}>
