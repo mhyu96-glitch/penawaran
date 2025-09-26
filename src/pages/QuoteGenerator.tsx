@@ -10,6 +10,7 @@ import { Trash2, PlusCircle, Calendar as CalendarIcon, Library } from "lucide-re
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
+import { id as localeId } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/SessionContext";
@@ -266,7 +267,7 @@ const QuoteGenerator = () => {
                 <PopoverTrigger asChild>
                   <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !quoteDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {quoteDate ? format(quoteDate, "PPP") : <span>Pilih tanggal</span>}
+                    {quoteDate ? format(quoteDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={quoteDate} onSelect={setQuoteDate} initialFocus /></PopoverContent>
@@ -278,7 +279,7 @@ const QuoteGenerator = () => {
                 <PopoverTrigger asChild>
                   <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !validUntil && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {validUntil ? format(validUntil, "PPP") : <span>Pilih tanggal</span>}
+                    {validUntil ? format(validUntil, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={validUntil} onSelect={setValidUntil} /></PopoverContent>

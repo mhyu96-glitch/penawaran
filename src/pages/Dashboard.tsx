@@ -8,6 +8,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recha
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 
 type Quote = {
@@ -166,7 +167,7 @@ const Dashboard = () => {
                                 <Link to={`/quote/${quote.id}`} className="font-medium hover:underline">{quote.to_client}</Link>
                             </TableCell>
                             <TableCell><Badge variant="outline">{quote.status}</Badge></TableCell>
-                            <TableCell>{format(new Date(quote.created_at), 'dd MMM yyyy')}</TableCell>
+                            <TableCell>{format(new Date(quote.created_at), 'dd MMM yyyy', { locale: localeId })}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

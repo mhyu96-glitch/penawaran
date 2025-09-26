@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Eye, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,7 +127,7 @@ const QuoteList = () => {
                     <TableCell>
                       <Badge variant={getStatusVariant(quote.status)}>{quote.status || 'Draf'}</Badge>
                     </TableCell>
-                    <TableCell>{format(new Date(quote.created_at), 'PPP')}</TableCell>
+                    <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button asChild variant="outline" size="sm">
                         <Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link>

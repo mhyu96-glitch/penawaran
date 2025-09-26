@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -216,7 +217,7 @@ const QuoteView = () => {
               <h2 className="text-4xl font-bold uppercase text-gray-400">Penawaran</h2>
               <Badge variant={getStatusVariant(quote.status)} className="text-sm">{quote.status || 'Draf'}</Badge>
               <p className="text-muted-foreground">No: {quote.quote_number}</p>
-              <p className="text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP')}</p>
+              <p className="text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
             </div>
           </div>
         </CardHeader>
@@ -230,7 +231,7 @@ const QuoteView = () => {
             </div>
             <div className="text-right">
                 <h3 className="font-semibold text-gray-500 mb-2">Berlaku Hingga:</h3>
-                <p>{quote.valid_until ? format(new Date(quote.valid_until), 'PPP') : 'N/A'}</p>
+                <p>{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
             </div>
           </div>
 
