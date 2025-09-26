@@ -206,23 +206,23 @@ const QuoteView = () => {
             </div>
           </div>
 
-          <div>
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-3 text-left font-semibold text-gray-600">Deskripsi</th>
-                  <th className="p-3 text-right font-semibold text-gray-600">Jumlah</th>
-                  <th className="p-3 text-right font-semibold text-gray-600">Harga Satuan</th>
-                  <th className="p-3 text-right font-semibold text-gray-600">Total</th>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr className="border-b">
+                  <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
+                  <th className="p-3 text-right font-medium text-gray-700 w-[120px]">Jumlah</th>
+                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>
+                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {quote.quote_items.map((item, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-3">{item.description}</td>
-                    <td className="p-3 text-right">{item.quantity}</td>
-                    <td className="p-3 text-right">{formatCurrency(item.unit_price)}</td>
-                    <td className="p-3 text-right">{formatCurrency(item.quantity * item.unit_price)}</td>
+                  <tr key={index} className="border-b last:border-none">
+                    <td className="p-3 align-top">{item.description}</td>
+                    <td className="p-3 text-right align-top">{item.quantity}</td>
+                    <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>
+                    <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
                   </tr>
                 ))}
               </tbody>

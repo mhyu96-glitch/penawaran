@@ -216,13 +216,19 @@ const QuoteGenerator = () => {
           <Separator />
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
+            <div className="hidden md:grid grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center px-1 text-sm font-medium text-muted-foreground">
+                <div>Deskripsi</div>
+                <div className="text-right">Jumlah</div>
+                <div className="text-right">Harga Satuan</div>
+                <div className="text-right pr-2">Total</div>
+            </div>
             <div className="space-y-2">
               {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-[1fr_100px_100px_100px_auto] gap-2 items-center">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center">
                   <Input placeholder="Deskripsi Barang/Jasa" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} />
-                  <Input type="number" placeholder="Jumlah" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
-                  <Input type="number" placeholder="Harga Satuan" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} />
-                  <div className="text-right font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+                  <Input type="number" placeholder="Jumlah" className="text-right" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
+                  <Input type="number" placeholder="Harga Satuan" className="text-right" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} />
+                  <div className="text-right font-medium pr-2">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
                   <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
@@ -238,7 +244,7 @@ const QuoteGenerator = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Diskon (%)</span>
-                <Input type="number" className="w-24" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} />
+                <Input type="number" className="w-24 text-right" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} />
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Jumlah Diskon</span>
@@ -246,7 +252,7 @@ const QuoteGenerator = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Pajak (%)</span>
-                <Input type="number" className="w-24" value={tax} onChange={e => setTax(parseFloat(e.target.value) || 0)} />
+                <Input type="number" className="w-24 text-right" value={tax} onChange={e => setTax(parseFloat(e.target.value) || 0)} />
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Jumlah Pajak</span>
