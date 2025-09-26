@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
+import { User } from 'lucide-react';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -104,7 +105,10 @@ const Profile = () => {
     <div className="container mx-auto p-4 md:p-8">
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl">Profil Saya</CardTitle>
+          <div className="flex items-center gap-3">
+            <User className="h-7 w-7" />
+            <CardTitle className="text-3xl">Profil Saya</CardTitle>
+          </div>
           <CardDescription>Perbarui informasi pribadi dan perusahaan Anda di sini.</CardDescription>
         </CardHeader>
         <form onSubmit={handleUpdateProfile}>

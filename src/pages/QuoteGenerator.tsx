@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
@@ -262,7 +262,10 @@ const QuoteGenerator = () => {
       <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
       <Card className="w-full max-w-5xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl">{isEditMode ? "Edit Penawaran" : "Generator Penawaran"}</CardTitle>
+          <div className="flex items-center gap-3">
+            {isEditMode ? <FileEdit className="h-7 w-7" /> : <FilePlus2 className="h-7 w-7" />}
+            <CardTitle className="text-3xl">{isEditMode ? "Edit Penawaran" : "Generator Penawaran"}</CardTitle>
+          </div>
           <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : "Isi detail di bawah untuk membuat penawaran baru."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">

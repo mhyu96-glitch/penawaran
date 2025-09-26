@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, CheckCircle, Clock, Calendar as CalendarIcon, AlertCircle, Receipt } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -142,7 +142,10 @@ const Dashboard = () => {
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <div className="flex items-center gap-4">
+                <LayoutDashboard className="h-8 w-8 text-muted-foreground" />
+                <h1 className="text-3xl font-bold">Dashboard</h1>
+            </div>
             <Popover>
                 <PopoverTrigger asChild>
                 <Button id="date" variant={"outline"} className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}>

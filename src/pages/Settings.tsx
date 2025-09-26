@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -87,7 +88,10 @@ const Settings = () => {
     <div className="container mx-auto p-4 md:p-8">
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-3xl">Pengaturan Default</CardTitle>
+          <div className="flex items-center gap-3">
+            <SettingsIcon className="h-7 w-7" />
+            <CardTitle className="text-3xl">Pengaturan Default</CardTitle>
+          </div>
           <CardDescription>
             Atur nilai default untuk penawaran baru untuk menghemat waktu.
           </CardDescription>

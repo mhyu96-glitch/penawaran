@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, UserCircle } from 'lucide-react';
 import { Client } from './ClientList';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -93,7 +93,10 @@ const ClientDetail = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl">{client.name}</CardTitle>
+          <div className="flex items-center gap-3">
+            <UserCircle className="h-8 w-8 text-muted-foreground" />
+            <CardTitle className="text-3xl">{client.name}</CardTitle>
+          </div>
           <CardDescription>Detail kontak dan informasi klien.</CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-4">

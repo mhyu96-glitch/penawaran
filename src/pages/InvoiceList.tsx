@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -85,7 +85,10 @@ const InvoiceList = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-3xl">Faktur Saya</CardTitle>
+            <div className="flex items-center gap-3">
+              <Receipt className="h-7 w-7" />
+              <CardTitle className="text-3xl">Faktur Saya</CardTitle>
+            </div>
             <CardDescription>Kelola semua faktur Anda di sini.</CardDescription>
           </div>
           <Button asChild>

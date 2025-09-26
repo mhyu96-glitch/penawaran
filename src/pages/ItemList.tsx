@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, Package } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,7 +85,10 @@ const ItemList = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-3xl">Pustaka Barang & Jasa</CardTitle>
+            <div className="flex items-center gap-3">
+              <Package className="h-7 w-7" />
+              <CardTitle className="text-3xl">Pustaka Barang & Jasa</CardTitle>
+            </div>
             <CardDescription>Kelola item yang sering Anda gunakan untuk penawaran.</CardDescription>
           </div>
           <Button onClick={() => handleOpenForm()}>
