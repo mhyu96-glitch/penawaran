@@ -21,6 +21,7 @@ import ClientDetail from "./pages/ClientDetail";
 import InvoiceList from "./pages/InvoiceList";
 import InvoiceGenerator from "./pages/InvoiceGenerator";
 import InvoiceView from "./pages/InvoiceView";
+import ExpenseList from "./pages/ExpenseList";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/invoice/new" element={<InvoiceGenerator />} />
                 <Route path="/invoice/edit/:id" element={<InvoiceGenerator />} />
                 <Route path="/invoice/:id" element={<InvoiceView />} />
+                <Route path="/expenses" element={<ExpenseList />} />
               </Route>
             </Route>
 

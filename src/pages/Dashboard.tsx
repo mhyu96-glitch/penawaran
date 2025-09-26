@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -33,10 +33,15 @@ type Invoice = {
     invoice_items: { quantity: number; unit_price: number; }[];
 };
 
+type Expense = {
+    amount: number;
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
@@ -51,33 +56,26 @@ const Dashboard = () => {
       const fromDate = date?.from ? date.from.toISOString() : undefined;
       const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
 
-      const quoteQuery = supabase
-        .from('quotes')
-        .select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-      const invoiceQuery = supabase
-        .from('invoices')
-        .select('id, status, due_date, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)')
-        .eq('user_id', user.id);
+      const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
+      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)').eq('user_id', user.id);
+      const expenseQuery = supabase.from('expenses').select('amount').eq('user_id', user.id);
 
       if (fromDate) {
         quoteQuery.gte('created_at', fromDate);
         invoiceQuery.gte('created_at', fromDate);
+        expenseQuery.gte('expense_date', fromDate);
       }
       if (toDate) {
         quoteQuery.lt('created_at', toDate);
         invoiceQuery.lt('created_at', toDate);
+        expenseQuery.lt('expense_date', toDate);
       }
 
-      const [quoteRes, invoiceRes] = await Promise.all([quoteQuery, invoiceQuery]);
+      const [quoteRes, invoiceRes, expenseRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery]);
 
-      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error);
-      else setQuotes(quoteRes.data as Quote[]);
-
-      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error);
-      else setInvoices(invoiceRes.data as Invoice[]);
+      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
+      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
+      if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
       
       setLoading(false);
     };
@@ -85,19 +83,21 @@ const Dashboard = () => {
     fetchData();
   }, [user, date]);
 
-  const quoteStats = useMemo(() => {
+  const { totalProfit, acceptedQuotesCount } = useMemo(() => {
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
-    const totalProfit = acceptedQuotes.reduce((acc, quote) => {
+    const profit = acceptedQuotes.reduce((acc, quote) => {
       const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
       return acc + quoteProfit;
     }, 0);
-    return { totalProfit, acceptedQuotesCount: acceptedQuotes.length };
+    return { totalProfit: profit, acceptedQuotesCount: acceptedQuotes.length };
   }, [quotes]);
+
+  const totalExpenses = useMemo(() => expenses.reduce((acc, exp) => acc + exp.amount, 0), [expenses]);
+  const netProfit = totalProfit - totalExpenses;
 
   const invoiceStats = useMemo(() => {
     let unpaidAmount = 0;
     let overdueAmount = 0;
-
     invoices.forEach(invoice => {
         if (invoice.status !== 'Lunas') {
             const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
@@ -105,7 +105,6 @@ const Dashboard = () => {
             const tax = (subtotal - discount) * (invoice.tax_percentage / 100);
             const total = subtotal - discount + tax;
             unpaidAmount += total;
-
             if (invoice.due_date && isPast(new Date(invoice.due_date))) {
                 overdueAmount += total;
             }
@@ -161,12 +160,22 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Keuntungan</CardTitle>
+            <CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle>
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{quoteStats.totalProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
-            <p className="text-xs text-muted-foreground">Dari {quoteStats.acceptedQuotesCount} penawaran diterima</p>
+            <div className="text-2xl font-bold">{netProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran diterima</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle>
+            <Wallet className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalExpenses.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <p className="text-xs text-muted-foreground">Dalam rentang waktu yang dipilih</p>
           </CardContent>
         </Card>
         <Card>
@@ -187,16 +196,6 @@ const Dashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{invoiceStats.overdueAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
             <p className="text-xs text-muted-foreground">Total dari faktur yang terlambat</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Penawaran</CardTitle>
-            <FileText className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{quotes.length}</div>
-            <p className="text-xs text-muted-foreground">Jumlah penawaran dalam rentang waktu</p>
           </CardContent>
         </Card>
       </div>
