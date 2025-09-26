@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import QuoteList from "./pages/QuoteList";
 import QuoteView from "./pages/QuoteView";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/quotes" element={<QuoteList />} />
               <Route path="/quote/new" element={<QuoteGenerator />} />
               <Route path="/quote/:id" element={<QuoteView />} />
+              <Route path="/profile" element={<Profile />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

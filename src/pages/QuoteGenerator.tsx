@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,28 @@ const QuoteGenerator = () => {
   const [tax, setTax] = useState(0);
   const [terms, setTerms] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchProfileAndPreFill = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('company_name, company_address, company_website')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile for pre-fill:', error.message);
+      } else if (data) {
+        if (data.company_name) setFromCompany(data.company_name);
+        if (data.company_address) setFromAddress(data.company_address);
+        if (data.company_website) setFromWebsite(data.company_website);
+      }
+    };
+
+    fetchProfileAndPreFill();
+  }, [user]);
 
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];

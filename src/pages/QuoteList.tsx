@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye } from 'lucide-react';
+import { PlusCircle, Eye, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 type Quote = {
@@ -14,7 +14,6 @@ type Quote = {
   quote_number: string;
   to_client: string;
   created_at: string;
-  // We will calculate total on the client side if needed, or just display basic info
 };
 
 const QuoteList = () => {
@@ -51,12 +50,20 @@ const QuoteList = () => {
             <CardTitle className="text-3xl">Penawaran Saya</CardTitle>
             <CardDescription>Lihat dan kelola semua penawaran Anda di sini.</CardDescription>
           </div>
-          <Button asChild>
-            <Link to="/quote/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Buat Penawaran Baru
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+              <Link to="/profile">
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profil
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/quote/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Buat Penawaran Baru
+              </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
