@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type Item = {
   description: string;
   quantity: number;
+  unit: string;
   unit_price: number;
 };
 
@@ -38,7 +39,7 @@ const QuoteGenerator = () => {
   const [quoteNumber, setQuoteNumber] = useState("");
   const [quoteDate, setQuoteDate] = useState<Date | undefined>(new Date());
   const [validUntil, setValidUntil] = useState<Date | undefined>();
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit_price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
   const [terms, setTerms] = useState("");
@@ -70,7 +71,10 @@ const QuoteGenerator = () => {
       setQuoteNumber(data.quote_number || "");
       setQuoteDate(data.quote_date ? parseISO(data.quote_date) : undefined);
       setValidUntil(data.valid_until ? parseISO(data.valid_until) : undefined);
-      setItems(data.quote_items.length > 0 ? data.quote_items : [{ description: "", quantity: 1, unit_price: 0 }]);
+      
+      const itemsWithUnit = data.quote_items.map((item: any) => ({ ...item, unit: item.unit || '' }));
+      setItems(itemsWithUnit.length > 0 ? itemsWithUnit : [{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+
       setDiscount(data.discount_percentage || 0);
       setTax(data.tax_percentage || 0);
       setTerms(data.terms || "");
@@ -100,7 +104,7 @@ const QuoteGenerator = () => {
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { description: "", quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + Number(item.quantity) * Number(item.unit_price), 0), [items]);
@@ -162,7 +166,7 @@ const QuoteGenerator = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <Card className="w-full max-w-4xl mx-auto">
+      <Card className="w-full max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle className="text-3xl">{isEditMode ? "Edit Penawaran" : "Generator Penawaran"}</CardTitle>
           <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : "Isi detail di bawah untuk membuat penawaran baru."}</CardDescription>
@@ -216,17 +220,21 @@ const QuoteGenerator = () => {
           <Separator />
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
-            <div className="hidden md:grid grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center px-1 text-sm font-medium text-muted-foreground">
+            <div className="hidden md:grid grid-cols-[40px_1fr_100px_100px_150px_150px_auto] gap-2 items-center px-1 text-sm font-medium text-muted-foreground">
+                <div className="text-center">No.</div>
                 <div>Deskripsi</div>
                 <div className="text-center">Jumlah</div>
+                <div className="text-center">Satuan</div>
                 <div className="text-right">Harga Satuan</div>
                 <div className="text-center">Total</div>
             </div>
             <div className="space-y-2">
               {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-[40px_1fr_100px_100px_150px_150px_auto] gap-2 items-center">
+                  <div className="text-center text-muted-foreground">{index + 1}</div>
                   <Input placeholder="Deskripsi Barang/Jasa" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} />
                   <Input type="number" placeholder="Jumlah" className="text-center" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
+                  <Input placeholder="Pcs" className="text-center" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} />
                   <Input type="number" placeholder="Harga Satuan" className="text-right" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} />
                   <div className="text-center font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
                   <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
