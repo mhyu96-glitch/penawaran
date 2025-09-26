@@ -17,6 +17,7 @@ import ClientList from "./pages/ClientList";
 import Dashboard from "./pages/Dashboard";
 import ItemList from "./pages/ItemList";
 import Settings from "./pages/Settings";
+import ClientDetail from "./pages/ClientDetail";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/clients" element={<ClientList />} />
+                <Route path="/client/:id" element={<ClientDetail />} />
                 <Route path="/items" element={<ItemList />} />
               </Route>
             </Route>

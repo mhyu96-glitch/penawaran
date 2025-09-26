@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import ClientForm from '@/components/ClientForm';
+import { Link } from 'react-router-dom';
 
 export type Client = {
   id: string;
@@ -116,7 +117,9 @@ const ClientList = () => {
               <TableBody>
                 {clients.map((client) => (
                   <TableRow key={client.id}>
-                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/client/${client.id}`} className="hover:underline">{client.name}</Link>
+                    </TableCell>
                     <TableCell>{client.email || '-'}</TableCell>
                     <TableCell>{client.phone || '-'}</TableCell>
                     <TableCell className="text-right space-x-2">

@@ -44,6 +44,7 @@ const QuoteGenerator = () => {
 
   const [loading, setLoading] = useState(isEditMode);
   const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [fromCompany, setFromCompany] = useState("");
   const [fromAddress, setFromAddress] = useState("");
   const [fromWebsite, setFromWebsite] = useState("");
@@ -71,6 +72,33 @@ const QuoteGenerator = () => {
   }, [user]);
 
   useEffect(() => {
+    const generateNewQuoteNumber = async () => {
+        if (!user) return;
+        const year = new Date().getFullYear();
+        const { data, error } = await supabase
+            .from('quotes')
+            .select('quote_number')
+            .eq('user_id', user.id)
+            .like('quote_number', `%${year}%`)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) {
+            console.error("Error fetching last quote number", error);
+            setQuoteNumber(`Q-${year}-001`);
+            return;
+        }
+        
+        let nextNumber = 1;
+        if (data && data.length > 0 && data[0].quote_number) {
+            const lastNumberStr = data[0].quote_number.split('-').pop();
+            if (lastNumberStr) {
+                nextNumber = parseInt(lastNumberStr, 10) + 1;
+            }
+        }
+        setQuoteNumber(`Q-${year}-${String(nextNumber).padStart(3, '0')}`);
+    };
+
     const fetchQuoteForEdit = async () => {
       if (!quoteId || !user) return;
       setLoading(true);
@@ -97,6 +125,7 @@ const QuoteGenerator = () => {
       setQuoteDate(data.quote_date ? parseISO(data.quote_date) : undefined);
       setValidUntil(data.valid_until ? parseISO(data.valid_until) : undefined);
       setStatus(data.status || "Draf");
+      setSelectedClientId(data.client_id);
       
       const itemsWithDefaults = data.quote_items.map((item: any) => ({ ...item, unit: item.unit || '', cost_price: item.cost_price || 0 }));
       setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
@@ -118,6 +147,9 @@ const QuoteGenerator = () => {
         setTax(data.default_tax_percentage || 0);
         setDiscount(data.default_discount_percentage || 0);
       }
+      if (!quoteNumber) {
+        generateNewQuoteNumber();
+      }
     };
 
     if (isEditMode) {
@@ -125,7 +157,7 @@ const QuoteGenerator = () => {
     } else {
       fetchProfileForNew();
     }
-  }, [quoteId, user, navigate, isEditMode]);
+  }, [quoteId, user, navigate, isEditMode, quoteNumber]);
 
   const handleClientSelect = (clientId: string) => {
     const selected = clients.find(c => c.id === clientId);
@@ -133,6 +165,7 @@ const QuoteGenerator = () => {
       setToClient(selected.name);
       setToAddress(selected.address || "");
       setToPhone(selected.phone || "");
+      setSelectedClientId(selected.id);
     }
   };
 
@@ -177,6 +210,7 @@ const QuoteGenerator = () => {
       to_client: toClient, to_address: toAddress, to_phone: toPhone, quote_number: quoteNumber,
       quote_date: quoteDate?.toISOString(), valid_until: validUntil?.toISOString(),
       discount_percentage: discount, tax_percentage: tax, terms: terms, status: status,
+      client_id: selectedClientId,
     };
 
     let currentQuoteId = quoteId;
@@ -242,7 +276,7 @@ const QuoteGenerator = () => {
             </div>
             <div className="space-y-4">
               <h3 className="font-semibold">Untuk:</h3>
-              <Select onValueChange={handleClientSelect}>
+              <Select onValueChange={handleClientSelect} value={selectedClientId || undefined}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" />
                 </SelectTrigger>
