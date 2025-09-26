@@ -182,18 +182,18 @@ const QuoteList = () => {
                     </TableCell>
                     <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
                     <TableCell className="text-right space-x-2">
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link>
+                      <Button asChild variant="outline" size="icon">
+                        <Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4 text-blue-500" /></Link>
                       </Button>
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link>
+                      <Button asChild variant="outline" size="icon">
+                        <Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4 text-yellow-500" /></Link>
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDuplicateQuote(quote.id)}>
-                        <Copy className="h-4 w-4" />
+                      <Button variant="outline" size="icon" onClick={() => handleDuplicateQuote(quote.id)}>
+                        <Copy className="h-4 w-4 text-green-500" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>

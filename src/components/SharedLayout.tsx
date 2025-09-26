@@ -17,7 +17,7 @@ const SharedLayout = () => {
       <header className="bg-background border-b sticky top-0 z-10">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8">
           <Link to="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
-            <FileText className="h-6 w-6" />
+            <FileText className="h-6 w-6 text-primary" />
             <span>QuoteApp</span>
           </Link>
           <div className="flex items-center gap-4">
