@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { Settings as SettingsIcon } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ const Settings = () => {
   const [defaultTerms, setDefaultTerms] = useState('');
   const [defaultTax, setDefaultTax] = useState(0);
   const [defaultDiscount, setDefaultDiscount] = useState(0);
+  const [paymentInstructions, setPaymentInstructions] = useState('');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -25,7 +27,7 @@ const Settings = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('default_terms, default_tax_percentage, default_discount_percentage')
+        .select('default_terms, default_tax_percentage, default_discount_percentage, payment_instructions')
         .eq('id', user.id)
         .single();
 
@@ -36,6 +38,7 @@ const Settings = () => {
         setDefaultTerms(data.default_terms || '');
         setDefaultTax(data.default_tax_percentage || 0);
         setDefaultDiscount(data.default_discount_percentage || 0);
+        setPaymentInstructions(data.payment_instructions || '');
       }
       setLoading(false);
     };
@@ -54,6 +57,7 @@ const Settings = () => {
         default_terms: defaultTerms,
         default_tax_percentage: defaultTax,
         default_discount_percentage: defaultDiscount,
+        payment_instructions: paymentInstructions,
       })
       .eq('id', user.id);
 
@@ -90,43 +94,65 @@ const Settings = () => {
         <CardHeader>
           <div className="flex items-center gap-3">
             <SettingsIcon className="h-7 w-7" />
-            <CardTitle className="text-3xl">Pengaturan Default</CardTitle>
+            <CardTitle className="text-3xl">Pengaturan</CardTitle>
           </div>
           <CardDescription>
-            Atur nilai default untuk penawaran baru untuk menghemat waktu.
+            Atur nilai default dan informasi penting lainnya untuk menghemat waktu.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleUpdateSettings}>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="defaultTerms">Syarat & Ketentuan Default</Label>
-              <Textarea
-                id="defaultTerms"
-                placeholder="Contoh: Pembayaran 50% di muka..."
-                value={defaultTerms}
-                onChange={(e) => setDefaultTerms(e.target.value)}
-                rows={5}
-              />
+            <div>
+                <h3 className="text-lg font-medium">Default Penawaran & Faktur</h3>
+                <div className="space-y-4 mt-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="defaultTerms">Syarat & Ketentuan Default</Label>
+                        <Textarea
+                            id="defaultTerms"
+                            placeholder="Contoh: Pembayaran 50% di muka..."
+                            value={defaultTerms}
+                            onChange={(e) => setDefaultTerms(e.target.value)}
+                            rows={5}
+                        />
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="defaultTax">Pajak Default (%)</Label>
+                            <Input
+                            id="defaultTax"
+                            type="number"
+                            value={defaultTax}
+                            onChange={(e) => setDefaultTax(parseFloat(e.target.value) || 0)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="defaultDiscount">Diskon Default (%)</Label>
+                            <Input
+                            id="defaultDiscount"
+                            type="number"
+                            value={defaultDiscount}
+                            onChange={(e) => setDefaultDiscount(parseFloat(e.target.value) || 0)}
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="defaultTax">Pajak Default (%)</Label>
-                <Input
-                  id="defaultTax"
-                  type="number"
-                  value={defaultTax}
-                  onChange={(e) => setDefaultTax(parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="defaultDiscount">Diskon Default (%)</Label>
-                <Input
-                  id="defaultDiscount"
-                  type="number"
-                  value={defaultDiscount}
-                  onChange={(e) => setDefaultDiscount(parseFloat(e.target.value) || 0)}
-                />
-              </div>
+            <Separator />
+            <div>
+                <h3 className="text-lg font-medium">Pengaturan Pembayaran</h3>
+                <div className="space-y-2 mt-2">
+                    <Label htmlFor="paymentInstructions">Instruksi Pembayaran</Label>
+                    <Textarea
+                        id="paymentInstructions"
+                        placeholder="Contoh: Mohon transfer ke Bank ABC, No. Rek: 123456789 a/n Perusahaan Anda..."
+                        value={paymentInstructions}
+                        onChange={(e) => setPaymentInstructions(e.target.value)}
+                        rows={5}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                        Informasi ini akan ditampilkan kepada klien ketika mereka mengklik tombol "Bayar Sekarang" di portal faktur.
+                    </p>
+                </div>
             </div>
           </CardContent>
           <CardFooter>

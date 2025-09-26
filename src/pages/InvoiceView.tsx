@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -111,6 +111,12 @@ const InvoiceView = () => {
     }
   };
 
+  const handleShareLink = () => {
+    const link = `${window.location.origin}/invoice/public/${id}`;
+    navigator.clipboard.writeText(link);
+    showSuccess('Tautan publik faktur telah disalin!');
+  };
+
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
   const discountAmount = useMemo(() => subtotal * ((invoice?.discount_percentage || 0) / 100), [subtotal, invoice]);
   const taxAmount = useMemo(() => (subtotal - discountAmount) * ((invoice?.tax_percentage || 0) / 100), [subtotal, discountAmount, invoice]);
@@ -139,6 +145,7 @@ const InvoiceView = () => {
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
             <Button asChild variant="outline"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Bagikan Tautan</Button>
                 {invoice.status !== 'Lunas' && <Button onClick={() => setIsPaymentFormOpen(true)}><Landmark className="mr-2 h-4 w-4" /> Catat Pembayaran</Button>}
                 <Button asChild variant="outline"><Link to={`/invoice/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
