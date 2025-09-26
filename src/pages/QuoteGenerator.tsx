@@ -218,7 +218,7 @@ const QuoteGenerator = () => {
             <h3 className="font-semibold">Barang & Jasa</h3>
             <div className="hidden md:grid grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center px-1 text-sm font-medium text-muted-foreground">
                 <div>Deskripsi</div>
-                <div className="text-right">Jumlah</div>
+                <div className="text-center">Jumlah</div>
                 <div className="text-right">Harga Satuan</div>
                 <div className="text-right pr-2">Total</div>
             </div>
@@ -226,7 +226,7 @@ const QuoteGenerator = () => {
               {items.map((item, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_100px_150px_150px_auto] gap-2 items-center">
                   <Input placeholder="Deskripsi Barang/Jasa" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} />
-                  <Input type="number" placeholder="Jumlah" className="text-right" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
+                  <Input type="number" placeholder="Jumlah" className="text-center" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
                   <Input type="number" placeholder="Harga Satuan" className="text-right" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} />
                   <div className="text-right font-medium pr-2">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
                   <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>

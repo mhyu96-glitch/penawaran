@@ -211,7 +211,7 @@ const QuoteView = () => {
               <thead className="bg-gray-100">
                 <tr className="border-b">
                   <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[120px]">Jumlah</th>
+                  <th className="p-3 text-center font-medium text-gray-700 w-[120px]">Jumlah</th>
                   <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>
                   <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
                 </tr>
@@ -220,7 +220,7 @@ const QuoteView = () => {
                 {quote.quote_items.map((item, index) => (
                   <tr key={index} className="border-b last:border-none">
                     <td className="p-3 align-top">{item.description}</td>
-                    <td className="p-3 text-right align-top">{item.quantity}</td>
+                    <td className="p-3 text-center align-top">{item.quantity}</td>
                     <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>
                     <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
                   </tr>
