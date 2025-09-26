@@ -3,11 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, CheckCircle, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { DollarSign, FileText, CheckCircle, Clock, Calendar as CalendarIcon, AlertCircle, Receipt } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isPast } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { DateRange } from 'react-day-picker';
@@ -24,9 +24,19 @@ type Quote = {
   created_at: string;
 };
 
+type Invoice = {
+    id: string;
+    status: string;
+    due_date: string;
+    discount_percentage: number;
+    tax_percentage: number;
+    invoice_items: { quantity: number; unit_price: number; }[];
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
@@ -34,51 +44,75 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    const fetchQuotes = async () => {
+    const fetchData = async () => {
       if (!user) return;
       setLoading(true);
 
-      let query = supabase
+      const fromDate = date?.from ? date.from.toISOString() : undefined;
+      const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
+
+      const quoteQuery = supabase
         .from('quotes')
         .select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      const invoiceQuery = supabase
+        .from('invoices')
+        .select('id, status, due_date, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)')
         .eq('user_id', user.id);
 
-      if (date?.from) {
-        query = query.gte('created_at', date.from.toISOString());
+      if (fromDate) {
+        quoteQuery.gte('created_at', fromDate);
+        invoiceQuery.gte('created_at', fromDate);
       }
-      if (date?.to) {
-        // Add one day to the end date to include the whole day
-        const toDate = new Date(date.to);
-        toDate.setDate(toDate.getDate() + 1);
-        query = query.lt('created_at', toDate.toISOString());
+      if (toDate) {
+        quoteQuery.lt('created_at', toDate);
+        invoiceQuery.lt('created_at', toDate);
       }
 
-      query = query.order('created_at', { ascending: false });
+      const [quoteRes, invoiceRes] = await Promise.all([quoteQuery, invoiceQuery]);
 
-      const { data, error } = await query;
+      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error);
+      else setQuotes(quoteRes.data as Quote[]);
 
-      if (error) {
-        console.error('Error fetching dashboard data:', error);
-      } else {
-        setQuotes(data as Quote[]);
-      }
+      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error);
+      else setInvoices(invoiceRes.data as Invoice[]);
+      
       setLoading(false);
     };
 
-    fetchQuotes();
+    fetchData();
   }, [user, date]);
 
-  const stats = useMemo(() => {
-    const totalQuotes = quotes.length;
+  const quoteStats = useMemo(() => {
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
     const totalProfit = acceptedQuotes.reduce((acc, quote) => {
       const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
       return acc + quoteProfit;
     }, 0);
-    const pendingQuotes = quotes.filter(q => q.status === 'Terkirim').length;
-
-    return { totalQuotes, totalProfit, acceptedQuotesCount: acceptedQuotes.length, pendingQuotes };
+    return { totalProfit, acceptedQuotesCount: acceptedQuotes.length };
   }, [quotes]);
+
+  const invoiceStats = useMemo(() => {
+    let unpaidAmount = 0;
+    let overdueAmount = 0;
+
+    invoices.forEach(invoice => {
+        if (invoice.status !== 'Lunas') {
+            const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
+            const discount = subtotal * (invoice.discount_percentage / 100);
+            const tax = (subtotal - discount) * (invoice.tax_percentage / 100);
+            const total = subtotal - discount + tax;
+            unpaidAmount += total;
+
+            if (invoice.due_date && isPast(new Date(invoice.due_date))) {
+                overdueAmount += total;
+            }
+        }
+    });
+    return { unpaidAmount, overdueAmount };
+  }, [invoices]);
 
   const chartData = useMemo(() => {
     const statusCounts = quotes.reduce((acc, quote) => {
@@ -86,7 +120,6 @@ const Dashboard = () => {
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     return Object.entries(statusCounts).map(([name, total]) => ({ name, total }));
   }, [quotes]);
 
@@ -96,14 +129,11 @@ const Dashboard = () => {
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
+          <Skeleton className="h-32" /> <Skeleton className="h-32" />
+          <Skeleton className="h-32" /> <Skeleton className="h-32" />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-            <Skeleton className="h-80" />
-            <Skeleton className="h-80" />
+            <Skeleton className="h-80" /> <Skeleton className="h-80" />
         </div>
       </div>
     );
@@ -115,38 +145,13 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <Popover>
                 <PopoverTrigger asChild>
-                <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn(
-                    "w-full sm:w-[300px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                    )}
-                >
+                <Button id="date" variant={"outline"} className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                    date.to ? (
-                        <>
-                        {format(date.from, "LLL dd, y")} -{" "}
-                        {format(date.to, "LLL dd, y")}
-                        </>
-                    ) : (
-                        format(date.from, "LLL dd, y")
-                    )
-                    ) : (
-                    <span>Pilih rentang tanggal</span>
-                    )}
+                    {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>Pilih rentang tanggal</span>)}
                 </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                />
+                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/>
                 </PopoverContent>
             </Popover>
         </div>
@@ -157,28 +162,28 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
-            <p className="text-xs text-muted-foreground">Dari {stats.acceptedQuotesCount} penawaran diterima</p>
+            <div className="text-2xl font-bold">{quoteStats.totalProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <p className="text-xs text-muted-foreground">Dari {quoteStats.acceptedQuotesCount} penawaran diterima</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Penawaran Diterima</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{stats.acceptedQuotesCount}</div>
-            <p className="text-xs text-muted-foreground">Total penawaran yang disetujui</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Penawaran Tertunda</CardTitle>
+            <CardTitle className="text-sm font-medium">Tagihan Belum Dibayar</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingQuotes}</div>
-            <p className="text-xs text-muted-foreground">Penawaran yang telah terkirim</p>
+            <div className="text-2xl font-bold">{invoiceStats.unpaidAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <p className="text-xs text-muted-foreground">Dari semua faktur yang aktif</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{invoiceStats.overdueAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+            <p className="text-xs text-muted-foreground">Total dari faktur yang terlambat</p>
           </CardContent>
         </Card>
         <Card>
@@ -187,16 +192,14 @@ const Dashboard = () => {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalQuotes}</div>
-            <p className="text-xs text-muted-foreground">Jumlah semua penawaran yang dibuat</p>
+            <div className="text-2xl font-bold">{quotes.length}</div>
+            <p className="text-xs text-muted-foreground">Jumlah penawaran dalam rentang waktu</p>
           </CardContent>
         </Card>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Ringkasan Status Penawaran</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Ringkasan Status Penawaran</CardTitle></CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>
               <BarChart data={chartData}>
@@ -209,24 +212,18 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Penawaran Terbaru</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Penawaran Terbaru</CardTitle></CardHeader>
           <CardContent>
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Klien</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Klien</TableHead><TableHead>Status</TableHead><TableHead>Tanggal</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {recentQuotes.map(quote => (
                         <TableRow key={quote.id}>
-                            <TableCell>
-                                <Link to={`/quote/${quote.id}`} className="font-medium hover:underline">{quote.to_client}</Link>
-                            </TableCell>
+                            <TableCell><Link to={`/quote/${quote.id}`} className="font-medium hover:underline">{quote.to_client}</Link></TableCell>
                             <TableCell><Badge variant="outline">{quote.status}</Badge></TableCell>
                             <TableCell>{format(new Date(quote.created_at), 'dd MMM yyyy', { locale: localeId })}</TableCell>
                         </TableRow>

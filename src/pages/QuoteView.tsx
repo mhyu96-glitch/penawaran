@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -23,15 +23,18 @@ import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/SessionContext';
 
 type QuoteDetails = {
   id: string;
+  user_id: string;
   from_company: string;
   from_address: string;
   from_website: string;
   to_client: string;
   to_address: string;
   to_phone: string;
+  client_id: string;
   quote_number: string;
   quote_date: string;
   valid_until: string;
@@ -50,6 +53,7 @@ type QuoteDetails = {
 
 const QuoteView = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [quote, setQuote] = useState<QuoteDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,11 +83,58 @@ const QuoteView = () => {
     fetchQuote();
   }, [id, navigate]);
 
+  const handleCreateInvoice = async () => {
+    if (!quote || !user) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: quoteId, created_at, quote_number, valid_until, status, quote_items, ...invoiceData } = quote;
+
+    const newInvoicePayload = {
+      ...invoiceData,
+      quote_id: quote.id,
+      status: 'Draf',
+      invoice_date: new Date().toISOString(),
+    };
+
+    const { data: newInvoice, error: invoiceError } = await supabase
+      .from('invoices')
+      .insert(newInvoicePayload)
+      .select('id')
+      .single();
+
+    if (invoiceError || !newInvoice) {
+      showError('Gagal membuat faktur dari penawaran.');
+      console.error(invoiceError);
+      return;
+    }
+
+    if (quote.quote_items && quote.quote_items.length > 0) {
+      const newInvoiceItemsPayload = quote.quote_items.map(item => ({
+        invoice_id: newInvoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+      }));
+
+      const { error: itemsError } = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
+
+      if (itemsError) {
+        showError('Gagal menyalin item ke faktur.');
+        await supabase.from('invoices').delete().match({ id: newInvoice.id });
+        console.error(itemsError);
+        return;
+      }
+    }
+
+    showSuccess('Faktur berhasil dibuat. Silakan periksa detailnya.');
+    navigate(`/invoice/edit/${newInvoice.id}`);
+  };
+
   const handleSaveAsPDF = () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
 
-    // Temporarily hide elements not intended for the PDF
     const elementsToHide = quoteRef.current.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
@@ -115,7 +166,6 @@ const QuoteView = () => {
         showError("Gagal membuat PDF.");
       })
       .finally(() => {
-        // Show the elements again
         elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
         setIsGeneratingPDF(false);
       });
@@ -179,6 +229,11 @@ const QuoteView = () => {
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link>
             </Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+                {quote.status === 'Diterima' && (
+                  <Button onClick={handleCreateInvoice}>
+                    <Receipt className="mr-2 h-4 w-4" /> Buat Faktur
+                  </Button>
+                )}
                 <Button asChild variant="outline">
                     <Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link>
                 </Button>
