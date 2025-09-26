@@ -15,7 +15,7 @@ const Index = () => {
     if (session) {
       return (
         <Button asChild size="lg">
-          <Link to="/quotes">Lihat Penawaran Saya</Link>
+          <Link to="/dashboard">Buka Dashboard</Link>
         </Button>
       );
     }

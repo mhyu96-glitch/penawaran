@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, Users } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SharedLayout = () => {
@@ -16,20 +16,23 @@ const SharedLayout = () => {
     <div className="flex flex-col min-h-screen">
       <header className="bg-background border-b sticky top-0 z-10">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8">
-          <Link to="/quotes" className="flex items-center gap-2 font-semibold text-lg">
+          <Link to="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
             <FileText className="h-6 w-6" />
             <span>QuoteApp</span>
           </Link>
           <div className="flex items-center gap-4">
             <nav className="hidden md:flex gap-2">
                 <Button variant="ghost" asChild>
-                    <Link to="/quotes">Penawaran</Link>
+                    <Link to="/dashboard"><LayoutDashboard className="mr-2 h-4 w-4"/>Dashboard</Link>
                 </Button>
                 <Button variant="ghost" asChild>
-                    <Link to="/clients">Klien</Link>
+                    <Link to="/quotes"><FileText className="mr-2 h-4 w-4"/>Penawaran</Link>
                 </Button>
                 <Button variant="ghost" asChild>
-                    <Link to="/profile">Profil</Link>
+                    <Link to="/clients"><Users className="mr-2 h-4 w-4"/>Klien</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                    <Link to="/items"><Package className="mr-2 h-4 w-4"/>Barang & Jasa</Link>
                 </Button>
             </nav>
             <DropdownMenu>
@@ -42,15 +45,11 @@ const SharedLayout = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="md:hidden">
-                    <Link to="/quotes">Penawaran</Link>
-                </DropdownMenuItem>
-                 <DropdownMenuItem asChild className="md:hidden">
-                    <Link to="/clients">Klien</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link to="/profile">Profil</Link>
-                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/dashboard">Dashboard</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/quotes">Penawaran</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/clients">Klien</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/items">Barang & Jasa</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/profile">Profil</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   Keluar
