@@ -2,8 +2,30 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/SessionContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
+  const { session, loading } = useAuth();
+
+  const renderContent = () => {
+    if (loading) {
+      return <Skeleton className="h-10 w-48" />;
+    }
+    if (session) {
+      return (
+        <Button asChild size="lg">
+          <Link to="/quote">Buat Penawaran Baru</Link>
+        </Button>
+      );
+    }
+    return (
+      <Button asChild size="lg">
+        <Link to="/login">Masuk untuk Memulai</Link>
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-2xl">
@@ -16,11 +38,9 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <p className="mb-6">
-              Klik tombol di bawah ini untuk mulai membuat penawaran baru untuk klien Anda.
+              {session ? "Klik tombol di bawah ini untuk mulai membuat penawaran baru untuk klien Anda." : "Masuk atau daftar untuk mulai membuat penawaran."}
             </p>
-            <Button asChild size="lg">
-              <Link to="/quote">Buat Penawaran Baru</Link>
-            </Button>
+            {renderContent()}
           </CardContent>
         </Card>
       </div>
