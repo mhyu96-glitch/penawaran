@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -19,6 +19,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 type QuoteDetails = {
   id: string;
@@ -46,6 +48,8 @@ const QuoteView = () => {
   const navigate = useNavigate();
   const [quote, setQuote] = useState<QuoteDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const quoteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -69,6 +73,42 @@ const QuoteView = () => {
 
     fetchQuote();
   }, [id, navigate]);
+
+  const handleSaveAsPDF = () => {
+    if (!quoteRef.current || !quote) return;
+    setIsGeneratingPDF(true);
+
+    html2canvas(quoteRef.current, { scale: 2, useCORS: true })
+      .then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        let imgWidth = pdfWidth;
+        let imgHeight = pdfWidth / ratio;
+
+        if (imgHeight > pdfHeight) {
+          imgHeight = pdfHeight;
+          imgWidth = imgHeight * ratio;
+        }
+
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = 0;
+
+        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
+      })
+      .catch(err => {
+        console.error("Error generating PDF", err);
+        showError("Gagal membuat PDF.");
+      })
+      .finally(() => {
+        setIsGeneratingPDF(false);
+      });
+  };
 
   const handleDeleteQuote = async () => {
     if (!id) return;
@@ -99,7 +139,7 @@ const QuoteView = () => {
   }
 
   if (!quote) {
-    return null; // Already handled with navigation
+    return null;
   }
 
   const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
@@ -110,7 +150,7 @@ const QuoteView = () => {
             <Button asChild variant="outline">
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link>
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
                 <Button asChild variant="outline">
                     <Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link>
                 </Button>
@@ -131,10 +171,13 @@ const QuoteView = () => {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
+                    {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}
+                </Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
-      <Card className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
+      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
         <CardHeader className="bg-gray-50 p-8">
           <div className="flex justify-between items-start">
             <div>
