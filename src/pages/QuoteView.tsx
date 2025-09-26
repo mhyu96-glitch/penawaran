@@ -262,9 +262,9 @@ const QuoteView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak ({quote.tax_percentage}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
-              <Separator />
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
-              <div className="flex justify-between font-semibold text-green-600"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
+              <Separator className="print:hidden" />
+              <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
+              <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
             </div>
           </div>
           
