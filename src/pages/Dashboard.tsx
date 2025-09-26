@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, Bell } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast } from 'date-fns';
+import { format, addDays, isPast, differenceInDays } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { DateRange } from 'react-day-picker';
@@ -28,6 +28,7 @@ type Invoice = {
     id: string;
     status: string;
     due_date: string;
+    to_client: string;
     discount_percentage: number;
     tax_percentage: number;
     invoice_items: { quantity: number; unit_price: number; }[];
@@ -57,7 +58,7 @@ const Dashboard = () => {
       const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
 
       const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
-      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)').eq('user_id', user.id);
+      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)').eq('user_id', user.id);
       const expenseQuery = supabase.from('expenses').select('amount').eq('user_id', user.id);
 
       if (fromDate) {
@@ -122,7 +123,24 @@ const Dashboard = () => {
     return Object.entries(statusCounts).map(([name, total]) => ({ name, total }));
   }, [quotes]);
 
-  const recentQuotes = quotes.slice(0, 5);
+  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim'), [quotes]);
+  const upcomingInvoices = useMemo(() => {
+    const today = new Date();
+    const next7Days = addDays(today, 7);
+    return invoices
+      .filter(inv => {
+        if (inv.status === 'Lunas' || !inv.due_date) return false;
+        const dueDate = new Date(inv.due_date);
+        return !isPast(dueDate) && dueDate <= next7Days;
+      })
+      .map(inv => {
+        const subtotal = inv.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
+        const discount = subtotal * (inv.discount_percentage / 100);
+        const tax = (subtotal - discount) * (inv.tax_percentage / 100);
+        const total = subtotal - discount + tax;
+        return { ...inv, total };
+      });
+  }, [invoices]);
 
   if (loading) {
     return (
@@ -199,8 +217,40 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Perlu Tindakan</CardTitle>
+                <CardDescription>Item yang membutuhkan perhatian Anda.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <h3 className="text-sm font-medium mb-2">Penawaran Menunggu Keputusan ({pendingQuotes.length})</h3>
+                    {pendingQuotes.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {pendingQuotes.slice(0, 3).map(q => (
+                                    <TableRow key={q.id}><TableCell><Link to={`/quote/${q.id}`} className="hover:underline">{q.to_client}</Link></TableCell><TableCell className="text-right text-xs text-muted-foreground">{format(new Date(q.created_at), 'dd MMM yyyy')}</TableCell></TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada penawaran yang menunggu.</p>}
+                </div>
+                <div>
+                    <h3 className="text-sm font-medium mb-2">Faktur Mendekati Jatuh Tempo ({upcomingInvoices.length})</h3>
+                    {upcomingInvoices.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {upcomingInvoices.slice(0, 3).map(inv => (
+                                    <TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right text-xs text-muted-foreground">Jatuh tempo dalam {differenceInDays(new Date(inv.due_date), new Date())} hari</TableCell></TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada faktur yang akan jatuh tempo.</p>}
+                </div>
+            </CardContent>
+        </Card>
+        <Card>
           <CardHeader><CardTitle>Ringkasan Status Penawaran</CardTitle></CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>
@@ -211,27 +261,6 @@ const Dashboard = () => {
                 <Bar dataKey="total" fill="currentColor" radius={[4, 4, 0, 0]} className="fill-primary" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader><CardTitle>Penawaran Terbaru</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Klien</TableHead><TableHead>Status</TableHead><TableHead>Tanggal</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {recentQuotes.map(quote => (
-                        <TableRow key={quote.id}>
-                            <TableCell><Link to={`/quote/${quote.id}`} className="font-medium hover:underline">{quote.to_client}</Link></TableCell>
-                            <TableCell><Badge variant="outline">{quote.status}</Badge></TableCell>
-                            <TableCell>{format(new Date(quote.created_at), 'dd MMM yyyy', { locale: localeId })}</TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
           </CardContent>
         </Card>
       </div>

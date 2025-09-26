@@ -27,6 +27,7 @@ export type Client = {
   address: string | null;
   phone: string | null;
   email: string | null;
+  notes: string | null;
 };
 
 const ClientList = () => {
@@ -41,7 +42,7 @@ const ClientList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('clients')
-      .select('id, name, address, phone, email')
+      .select('id, name, address, phone, email, notes')
       .eq('user_id', user.id)
       .order('name', { ascending: true });
 
