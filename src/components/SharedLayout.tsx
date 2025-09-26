@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SharedLayout = () => {
@@ -34,9 +34,21 @@ const SharedLayout = () => {
                 <Button variant="ghost" asChild>
                     <Link to="/expenses"><Wallet className="mr-2 h-4 w-4"/>Pengeluaran</Link>
                 </Button>
-                <Button variant="ghost" asChild>
-                    <Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan</Link>
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost">
+                            <AreaChart className="mr-2 h-4 w-4"/>Laporan
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem asChild>
+                            <Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="ghost" asChild>
                     <Link to="/clients"><Users className="mr-2 h-4 w-4"/>Klien</Link>
                 </Button>
@@ -58,7 +70,8 @@ const SharedLayout = () => {
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/quotes">Penawaran</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/invoices">Faktur</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/expenses">Pengeluaran</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild className="md:hidden"><Link to="/reports">Laporan</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/reports">Laporan Keuangan</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden"><Link to="/reports/profitability">Laporan Profitabilitas</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/clients">Klien</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/items">Barang & Jasa</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild>
