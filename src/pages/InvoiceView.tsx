@@ -22,7 +22,6 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Badge } from '@/components/ui/badge';
 
 type InvoiceDetails = {
   id: string;
@@ -134,16 +133,6 @@ const InvoiceView = () => {
   const taxAmount = useMemo(() => (subtotal - discountAmount) * ((invoice?.tax_percentage || 0) / 100), [subtotal, discountAmount, invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Lunas': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Jatuh Tempo': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto p-8">
@@ -201,7 +190,6 @@ const InvoiceView = () => {
             </div>
             <div className="text-right space-y-1">
               <h2 className="text-4xl font-bold uppercase text-gray-400">Faktur</h2>
-              <Badge variant={getStatusVariant(invoice.status)} className="text-sm">{invoice.status || 'Draf'}</Badge>
               <p className="text-muted-foreground">No: {invoice.invoice_number}</p>
               <p className="text-muted-foreground">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
             </div>
