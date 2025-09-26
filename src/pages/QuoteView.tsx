@@ -82,7 +82,8 @@ const QuoteView = () => {
     html2canvas(quoteRef.current, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        // F4 size in points: 210mm x 330mm -> [595, 935]
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         const canvasWidth = canvas.width;
