@@ -26,23 +26,31 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
   const { user } = useAuth();
   const [description, setDescription] = useState('');
   const [unit, setUnit] = useState('');
-  const [unitPrice, setUnitPrice] = useState(0);
-  const [costPrice, setCostPrice] = useState(0);
+  const [unitPrice, setUnitPrice] = useState('0');
+  const [costPrice, setCostPrice] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (item) {
       setDescription(item.description);
       setUnit(item.unit || '');
-      setUnitPrice(item.unit_price || 0);
-      setCostPrice(item.cost_price || 0);
+      setUnitPrice(String(item.unit_price || 0));
+      setCostPrice(String(item.cost_price || 0));
     } else {
       setDescription('');
       setUnit('');
-      setUnitPrice(0);
-      setCostPrice(0);
+      setUnitPrice('0');
+      setCostPrice('0');
     }
   }, [item, isOpen]);
+
+  const handlePriceChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+    // Allow only digits
+    const digitsOnly = value.replace(/\D/g, '');
+    // Remove leading zeros unless the value is just "0"
+    const sanitized = digitsOnly.replace(/^0+(?=\d)/, '');
+    setter(sanitized === '' ? '0' : sanitized);
+  };
 
   const handleSubmit = async () => {
     if (!user || !description) {
@@ -55,8 +63,8 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
       user_id: user.id,
       description,
       unit,
-      unit_price: unitPrice,
-      cost_price: costPrice,
+      unit_price: parseFloat(unitPrice) || 0,
+      cost_price: parseFloat(costPrice) || 0,
     };
 
     let error;
@@ -95,11 +103,25 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="costPrice" className="text-right">Harga Modal</Label>
-            <Input id="costPrice" type="number" value={costPrice} onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input
+              id="costPrice"
+              type="text"
+              inputMode="numeric"
+              value={costPrice}
+              onChange={(e) => handlePriceChange(setCostPrice, e.target.value)}
+              className="col-span-3"
+            />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="unitPrice" className="text-right">Harga Jual</Label>
-            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input
+              id="unitPrice"
+              type="text"
+              inputMode="numeric"
+              value={unitPrice}
+              onChange={(e) => handlePriceChange(setUnitPrice, e.target.value)}
+              className="col-span-3"
+            />
           </div>
         </div>
         <DialogFooter>
