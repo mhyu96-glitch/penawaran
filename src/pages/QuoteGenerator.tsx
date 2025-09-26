@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ type Item = {
 
 const QuoteGenerator = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [fromCompany, setFromCompany] = useState("");
   const [fromAddress, setFromAddress] = useState("");
   const [fromWebsite, setFromWebsite] = useState("");
@@ -73,7 +75,7 @@ const QuoteGenerator = () => {
         user_id: user.id,
         from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
         to_client: toClient, to_address: toAddress, to_phone: toPhone,
-        quote_number: quoteNumber, quote_date: quoteDate, valid_until: validUntil,
+        quote_number: quoteNumber, quote_date: quoteDate?.toISOString(), valid_until: validUntil?.toISOString(),
         discount_percentage: discount, tax_percentage: tax, terms: terms,
       }])
       .select().single();
@@ -103,8 +105,8 @@ const QuoteGenerator = () => {
     }
 
     showSuccess("Penawaran berhasil dibuat!");
-    // Here you might want to redirect or clear the form
     setIsSubmitting(false);
+    navigate(`/quote/${quoteData.id}`);
   };
 
   return (
@@ -227,7 +229,7 @@ const QuoteGenerator = () => {
         </CardContent>
         <CardFooter>
           <Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Menyimpan..." : "Buat Penawaran"}
+            {isSubmitting ? "Menyimpan..." : "Buat & Lihat Penawaran"}
           </Button>
         </CardFooter>
       </Card>

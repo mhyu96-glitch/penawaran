@@ -9,6 +9,8 @@ import QuoteGenerator from "./pages/QuoteGenerator";
 import { AuthProvider } from "./contexts/SessionContext";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
+import QuoteList from "./pages/QuoteList";
+import QuoteView from "./pages/QuoteView";
 
 const queryClient = new QueryClient();
 
@@ -24,7 +26,9 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             
             <Route element={<ProtectedRoute />}>
-              <Route path="/quote" element={<QuoteGenerator />} />
+              <Route path="/quotes" element={<QuoteList />} />
+              <Route path="/quote/new" element={<QuoteGenerator />} />
+              <Route path="/quote/:id" element={<QuoteView />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

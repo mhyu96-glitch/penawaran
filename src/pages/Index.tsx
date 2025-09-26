@@ -15,7 +15,7 @@ const Index = () => {
     if (session) {
       return (
         <Button asChild size="lg">
-          <Link to="/quote">Buat Penawaran Baru</Link>
+          <Link to="/quotes">Lihat Penawaran Saya</Link>
         </Button>
       );
     }
@@ -38,7 +38,7 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <p className="mb-6">
-              {session ? "Klik tombol di bawah ini untuk mulai membuat penawaran baru untuk klien Anda." : "Masuk atau daftar untuk mulai membuat penawaran."}
+              {session ? "Kelola semua penawaran Anda atau buat yang baru." : "Masuk atau daftar untuk mulai membuat penawaran."}
             </p>
             {renderContent()}
           </CardContent>

@@ -9,7 +9,7 @@ const Login = () => {
   const { session } = useAuth();
 
   if (session) {
-    return <Navigate to="/quote" replace />;
+    return <Navigate to="/quotes" replace />;
   }
 
   return (
