@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import QuoteList from "./pages/QuoteList";
 import QuoteView from "./pages/QuoteView";
 import Profile from "./pages/Profile";
+import SharedLayout from "./components/SharedLayout";
 
 const queryClient = new QueryClient();
 
@@ -27,11 +28,13 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             
             <Route element={<ProtectedRoute />}>
-              <Route path="/quotes" element={<QuoteList />} />
-              <Route path="/quote/new" element={<QuoteGenerator />} />
-              <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
-              <Route path="/quote/:id" element={<QuoteView />} />
-              <Route path="/profile" element={<Profile />} />
+              <Route element={<SharedLayout />}>
+                <Route path="/quotes" element={<QuoteList />} />
+                <Route path="/quote/new" element={<QuoteGenerator />} />
+                <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
+                <Route path="/quote/:id" element={<QuoteView />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
