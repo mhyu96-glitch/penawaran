@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const SharedLayout = () => {
@@ -50,6 +50,7 @@ const SharedLayout = () => {
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/clients">Klien</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild className="md:hidden"><Link to="/items">Barang & Jasa</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/profile">Profil</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/settings">Pengaturan</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   Keluar

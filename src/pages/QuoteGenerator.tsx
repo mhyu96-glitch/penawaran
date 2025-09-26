@@ -109,11 +109,14 @@ const QuoteGenerator = () => {
 
     const fetchProfileForNew = async () => {
       if (isEditMode || !user) return;
-      const { data } = await supabase.from('profiles').select('company_name, company_address, company_website').eq('id', user.id).single();
+      const { data } = await supabase.from('profiles').select('company_name, company_address, company_website, default_terms, default_tax_percentage, default_discount_percentage').eq('id', user.id).single();
       if (data) {
         setFromCompany(data.company_name || "");
         setFromAddress(data.company_address || "");
         setFromWebsite(data.company_website || "");
+        setTerms(data.default_terms || "");
+        setTax(data.default_tax_percentage || 0);
+        setDiscount(data.default_discount_percentage || 0);
       }
     };
 
