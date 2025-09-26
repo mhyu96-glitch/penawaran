@@ -82,6 +82,10 @@ const QuoteView = () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
 
+    // Temporarily hide elements not intended for the PDF
+    const elementsToHide = quoteRef.current.querySelectorAll('.no-pdf');
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
+
     html2canvas(quoteRef.current, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
@@ -110,6 +114,8 @@ const QuoteView = () => {
         showError("Gagal membuat PDF.");
       })
       .finally(() => {
+        // Show the elements again
+        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
         setIsGeneratingPDF(false);
       });
   };
@@ -262,9 +268,9 @@ const QuoteView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak ({quote.tax_percentage}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
-              <Separator className="print:hidden" />
-              <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
-              <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
+              <Separator className="print:hidden no-pdf" />
+              <div className="flex justify-between text-sm print:hidden no-pdf"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
+              <div className="flex justify-between font-semibold text-green-600 print:hidden no-pdf"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
             </div>
           </div>
           
