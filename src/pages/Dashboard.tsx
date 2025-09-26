@@ -1,15 +1,20 @@
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, CheckCircle, Clock } from 'lucide-react';
+import { DollarSign, FileText, CheckCircle, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { DateRange } from 'react-day-picker';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -23,16 +28,34 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: addDays(new Date(), -30),
+    to: new Date(),
+  });
 
   useEffect(() => {
     const fetchQuotes = async () => {
       if (!user) return;
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('quotes')
         .select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id);
+
+      if (date?.from) {
+        query = query.gte('created_at', date.from.toISOString());
+      }
+      if (date?.to) {
+        // Add one day to the end date to include the whole day
+        const toDate = new Date(date.to);
+        toDate.setDate(toDate.getDate() + 1);
+        query = query.lt('created_at', toDate.toISOString());
+      }
+
+      query = query.order('created_at', { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching dashboard data:', error);
@@ -43,7 +66,7 @@ const Dashboard = () => {
     };
 
     fetchQuotes();
-  }, [user]);
+  }, [user, date]);
 
   const stats = useMemo(() => {
     const totalQuotes = quotes.length;
@@ -88,7 +111,45 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <Popover>
+                <PopoverTrigger asChild>
+                <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn(
+                    "w-full sm:w-[300px] justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date?.from ? (
+                    date.to ? (
+                        <>
+                        {format(date.from, "LLL dd, y")} -{" "}
+                        {format(date.to, "LLL dd, y")}
+                        </>
+                    ) : (
+                        format(date.from, "LLL dd, y")
+                    )
+                    ) : (
+                    <span>Pilih rentang tanggal</span>
+                    )}
+                </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={date?.from}
+                    selected={date}
+                    onSelect={setDate}
+                    numberOfMonths={2}
+                />
+                </PopoverContent>
+            </Popover>
+        </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
