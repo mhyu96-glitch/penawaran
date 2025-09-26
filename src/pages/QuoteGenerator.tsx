@@ -220,7 +220,7 @@ const QuoteGenerator = () => {
                 <div>Deskripsi</div>
                 <div className="text-center">Jumlah</div>
                 <div className="text-right">Harga Satuan</div>
-                <div className="text-right pr-2">Total</div>
+                <div className="text-center">Total</div>
             </div>
             <div className="space-y-2">
               {items.map((item, index) => (
@@ -228,7 +228,7 @@ const QuoteGenerator = () => {
                   <Input placeholder="Deskripsi Barang/Jasa" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} />
                   <Input type="number" placeholder="Jumlah" className="text-center" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} />
                   <Input type="number" placeholder="Harga Satuan" className="text-right" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} />
-                  <div className="text-right font-medium pr-2">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
+                  <div className="text-center font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div>
                   <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
