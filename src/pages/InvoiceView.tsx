@@ -37,6 +37,7 @@ type Payment = {
 
 type InvoiceDetails = {
   id: string;
+  user_id: string;
   from_company: string;
   from_address: string;
   from_website: string;
@@ -64,6 +65,7 @@ const InvoiceView = () => {
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentInstructions, setPaymentInstructions] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
@@ -78,7 +80,19 @@ const InvoiceView = () => {
       navigate('/invoices');
       return;
     }
-    setInvoice(invoiceRes.data as InvoiceDetails);
+    const invoiceData = invoiceRes.data as InvoiceDetails;
+    setInvoice(invoiceData);
+
+    if (invoiceData.user_id) {
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('payment_instructions')
+            .eq('id', invoiceData.user_id)
+            .single();
+        if (profileData) {
+            setPaymentInstructions(profileData.payment_instructions || '');
+        }
+    }
 
     const paymentsRes = await supabase.from('payments').select('*').eq('invoice_id', id).order('payment_date', { ascending: false });
     if (paymentsRes.data) setPayments(paymentsRes.data as Payment[]);
@@ -245,6 +259,20 @@ const InvoiceView = () => {
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
             </div>
           </div>
+          
+          {paymentInstructions ? (
+            <div>
+                <h3 className="font-semibold text-gray-500 mb-2">Instruksi Pembayaran:</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{paymentInstructions}</p>
+            </div>
+            ) : (
+            <div className="print:hidden">
+                <p className="text-sm text-muted-foreground">
+                    Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.
+                </p>
+            </div>
+          )}
+
           {payments.length > 0 && (
             <div className="print:hidden">
                 <h3 className="font-semibold text-gray-500 mb-2">Riwayat Pembayaran:</h3>
