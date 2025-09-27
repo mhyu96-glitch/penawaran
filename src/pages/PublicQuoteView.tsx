@@ -135,31 +135,31 @@ const PublicQuoteView = () => {
                 </AlertDescription>
             </Alert>
         )}
-        <CardHeader className="bg-gray-50 p-8">
+        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">{quote.from_company}</h1>
-              <p className="text-muted-foreground">{quote.from_address}</p>
-              <p className="text-muted-foreground">{quote.from_website}</p>
+              <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>
+              <p className="text-sm text-muted-foreground">{quote.from_address}</p>
+              <p className="text-sm text-muted-foreground">{quote.from_website}</p>
             </div>
-            <div className="text-right space-y-1">
-              <h2 className="text-4xl font-bold uppercase text-gray-400">Penawaran</h2>
-              <p className="text-muted-foreground">No: {quote.quote_number}</p>
-              <p className="text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+            <div className="text-right">
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Penawaran</h2>
+              <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <h3 className="font-semibold text-gray-500 mb-2">Ditujukan Kepada:</h3>
+              <h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3>
               <p className="font-bold">{quote.to_client}</p>
-              <p>{quote.to_address}</p>
-              <p>{quote.to_phone}</p>
+              <p className="text-sm">{quote.to_address}</p>
+              <p className="text-sm">{quote.to_phone}</p>
             </div>
             <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2">Berlaku Hingga:</h3>
-                <p>{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3>
+                <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">

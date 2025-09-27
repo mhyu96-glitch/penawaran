@@ -205,30 +205,34 @@ const InvoiceView = () => {
             </div>
         </div>
       <Card ref={invoiceRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
-        <CardHeader className="bg-gray-50 p-8">
+        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">{invoice.from_company}</h1>
-              <p className="text-muted-foreground">{invoice.from_address}</p>
-              <p className="text-muted-foreground">{invoice.from_website}</p>
+              <h1 className="text-2xl font-bold text-gray-800">{invoice.from_company}</h1>
+              <p className="text-sm text-muted-foreground">{invoice.from_address}</p>
+              <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
             </div>
-            <div className="text-right space-y-1">
-              <h2 className="text-4xl font-bold uppercase text-gray-400">Faktur</h2>
-              <Badge variant={getStatusVariant(invoice.status)} className="text-sm">{invoice.status || 'Draf'}</Badge>
-              <p className="text-muted-foreground">No: {invoice.invoice_number}</p>
-              <p className="text-muted-foreground">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
+            <div className="text-right">
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Faktur</h2>
+              <div className="mt-1">
+                <Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">No: {invoice.invoice_number}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <h3 className="font-semibold text-gray-500 mb-2">Ditagihkan Kepada:</h3>
-              <p className="font-bold">{invoice.to_client}</p><p>{invoice.to_address}</p><p>{invoice.to_phone}</p>
+              <h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditagihkan Kepada:</h3>
+              <p className="font-bold">{invoice.to_client}</p>
+              <p className="text-sm">{invoice.to_address}</p>
+              <p className="text-sm">{invoice.to_phone}</p>
             </div>
             <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2">Jatuh Tempo:</h3>
-                <p>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p>
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3>
+                <p className="text-sm">{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">
