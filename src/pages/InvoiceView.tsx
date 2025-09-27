@@ -110,11 +110,20 @@ const InvoiceView = () => {
     html2canvas(invoiceRef.current, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
-        pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+        const pdfWidth = 595; // A4 width in points
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: [pdfWidth, pdfHeight]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
       })
-      .catch(err => showError("Gagal membuat PDF."))
+      .catch(err => {
+        console.error("Error generating PDF", err);
+        showError("Gagal membuat PDF.");
+      })
       .finally(() => setIsGeneratingPDF(false));
   };
 

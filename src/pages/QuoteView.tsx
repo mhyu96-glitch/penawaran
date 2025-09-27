@@ -141,24 +141,14 @@ const QuoteView = () => {
     html2canvas(quoteRef.current, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / canvasHeight;
-        let imgWidth = pdfWidth;
-        let imgHeight = pdfWidth / ratio;
-
-        if (imgHeight > pdfHeight) {
-          imgHeight = pdfHeight;
-          imgWidth = imgHeight * ratio;
-        }
-
-        const x = (pdfWidth - imgWidth) / 2;
-        const y = 0;
-
-        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        const pdfWidth = 595; // A4 width in points
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: [pdfWidth, pdfHeight]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
       })
       .catch(err => {
