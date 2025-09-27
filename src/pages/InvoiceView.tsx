@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -19,16 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import EditPaymentForm from '@/components/EditPaymentForm';
 
-export type Payment = {
+type Payment = {
     id: string;
     amount: number;
     payment_date: string;
@@ -71,8 +69,6 @@ const InvoiceView = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
-  const [isEditPaymentFormOpen, setIsEditPaymentFormOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const fetchInvoiceData = async () => {
@@ -108,170 +104,18 @@ const InvoiceView = () => {
     fetchInvoiceData();
   }, [id, navigate]);
 
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
-
   const handleSaveAsPDF = () => {
-    if (!invoice) return;
+    if (!invoiceRef.current || !invoice) return;
     setIsGeneratingPDF(true);
-
-    const doc = new jsPDF();
-    const pageHeight = doc.internal.pageSize.height;
-    const pageMargin = 20;
-    let y = pageMargin;
-
-    const splitText = (text: string, maxWidth: number) => doc.splitTextToSize(text, maxWidth);
-    const getLineHeight = (fontSize: number) => fontSize * 0.35;
-
-    // Header
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text(invoice.from_company, pageMargin, y);
-    y += getLineHeight(22) * 2;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const fromAddressLines = splitText(invoice.from_address, 80);
-    doc.text(fromAddressLines, pageMargin, y);
-    y += fromAddressLines.length * getLineHeight(10) * 1.5;
-    doc.text(invoice.from_website, pageMargin, y);
-
-    let headerRightY = pageMargin;
-    doc.setFontSize(28);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(150);
-    doc.text('FAKTUR', 210 - pageMargin, headerRightY, { align: 'right' });
-    headerRightY += getLineHeight(28) * 2;
-
-    y = Math.max(y, headerRightY) + 10;
-
-    // Invoice Details
-    const detailsStartY = y;
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    
-    let leftY = detailsStartY;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Ditagihkan Kepada:', pageMargin, leftY);
-    leftY += getLineHeight(10) * 2;
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoice.to_client, pageMargin, leftY);
-    leftY += getLineHeight(10) * 1.5;
-    const toAddressLines = splitText(invoice.to_address, 100);
-    doc.text(toAddressLines, pageMargin, leftY);
-    leftY += toAddressLines.length * getLineHeight(10) * 1.5;
-    doc.text(invoice.to_phone, pageMargin, leftY);
-
-    let rightY = detailsStartY;
-    const rightX = 130;
-    const rightXValue = 165;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nomor Faktur:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoice.invoice_number, rightXValue, rightY);
-    rightY += getLineHeight(10) * 2;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Tanggal Faktur:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(invoice.invoice_date), 'PPP', { locale: localeId }), rightXValue, rightY);
-    rightY += getLineHeight(10) * 2;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Jatuh Tempo:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A', rightXValue, rightY);
-
-    y = Math.max(leftY, rightY) + 15;
-
-    // Table
-    const tableColumn = ["No.", "Deskripsi", "Jumlah", "Satuan", "Harga Satuan", "Total"];
-    const tableRows = invoice.invoice_items.map((item, index) => [
-        index + 1,
-        item.description,
-        item.quantity,
-        item.unit || '-',
-        formatCurrency(item.unit_price),
-        formatCurrency(item.quantity * item.unit_price)
-    ]);
-
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: y,
-        theme: 'grid',
-        headStyles: { fillColor: [240, 240, 240], textColor: [0,0,0] },
-        columnStyles: {
-            0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' },
-            4: { halign: 'right' }, 5: { halign: 'right' },
-        }
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 10;
-
-    // Totals
-    const totalsX = 145;
-    const valueX = 200;
-    const lineSpacing = 6;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal:', totalsX, y, { align: 'right' });
-    doc.text(formatCurrency(subtotal), valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.text('Diskon:', totalsX, y, { align: 'right' });
-    doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.text('Pajak:', totalsX, y, { align: 'right' });
-    doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.setLineWidth(0.2);
-    doc.line(135, y, 200, y);
-    y += lineSpacing;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total Tagihan:', totalsX, y, { align: 'right' });
-    doc.text(formatCurrency(total), valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.setFont('helvetica', 'normal');
-    if (invoice.down_payment_amount > 0) {
-        doc.text('Uang Muka (DP):', totalsX, y, { align: 'right' });
-        doc.text(formatCurrency(invoice.down_payment_amount), valueX, y, { align: 'right' });
-        y += lineSpacing;
-    }
-    doc.text('Telah Dibayar:', totalsX, y, { align: 'right' });
-    doc.text(`- ${formatCurrency(totalPaid)}`, valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.setLineWidth(0.2);
-    doc.line(135, y, 200, y);
-    y += lineSpacing;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Sisa Tagihan:', totalsX, y, { align: 'right' });
-    doc.text(formatCurrency(balanceDue), valueX, y, { align: 'right' });
-    y += 15;
-
-    // Payment Instructions & Terms
-    const lineHeight = getLineHeight(10) * 1.5;
-    if (paymentInstructions) {
-        const paymentLines = splitText(paymentInstructions, 170);
-        if (y + (paymentLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
-        doc.setFont('helvetica', 'bold');
-        doc.text('Instruksi Pembayaran:', pageMargin, y);
-        y += lineHeight;
-        doc.setFont('helvetica', 'normal');
-        doc.text(paymentLines, pageMargin, y);
-        y += paymentLines.length * lineHeight + 5;
-    }
-
-    if (invoice.terms) {
-        const termsLines = splitText(invoice.terms, 170);
-        if (y + (termsLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
-        doc.setFont('helvetica', 'bold');
-        doc.text('Syarat & Ketentuan:', pageMargin, y);
-        y += lineHeight;
-        doc.setFont('helvetica', 'normal');
-        doc.text(termsLines, pageMargin, y);
-    }
-
-    doc.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
-    setIsGeneratingPDF(false);
+    html2canvas(invoiceRef.current, { scale: 2, useCORS: true })
+      .then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
+        pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+        pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+      })
+      .catch(err => showError("Gagal membuat PDF."))
+      .finally(() => setIsGeneratingPDF(false));
   };
 
   const handleDeleteInvoice = async () => {
@@ -298,11 +142,6 @@ const InvoiceView = () => {
         showSuccess(`Pembayaran berhasil ${newStatus === 'Lunas' ? 'dikonfirmasi' : 'ditolak'}.`);
         fetchInvoiceData(); // Refresh data
     }
-  };
-
-  const handleOpenEditPaymentForm = (payment: Payment) => {
-    setSelectedPayment(payment);
-    setIsEditPaymentFormOpen(true);
   };
 
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
@@ -333,18 +172,11 @@ const InvoiceView = () => {
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return null;
 
+  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
+
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
         <PaymentForm isOpen={isPaymentFormOpen} setIsOpen={setIsPaymentFormOpen} invoiceId={invoice.id} invoiceTotal={total} onSave={() => { setIsPaymentFormOpen(false); fetchInvoiceData(); }} />
-        <EditPaymentForm
-            isOpen={isEditPaymentFormOpen}
-            setIsOpen={setIsEditPaymentFormOpen}
-            payment={selectedPayment}
-            onSave={() => {
-                setIsEditPaymentFormOpen(false);
-                fetchInvoiceData();
-            }}
-        />
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
             <Button asChild variant="outline"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -429,13 +261,10 @@ const InvoiceView = () => {
           </div>
           
           {paymentInstructions ? (
-            <Alert>
-                <Landmark className="h-4 w-4" />
-                <AlertTitle>Instruksi Pembayaran</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap pt-2">
-                    {paymentInstructions}
-                </AlertDescription>
-            </Alert>
+            <div>
+                <h3 className="font-semibold text-gray-500 mb-2">Instruksi Pembayaran:</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{paymentInstructions}</p>
+            </div>
             ) : (
             <div className="print:hidden">
                 <p className="text-sm text-muted-foreground">
@@ -445,37 +274,30 @@ const InvoiceView = () => {
           )}
 
           {payments.length > 0 && (
-            <Card className="print:hidden">
-                <CardHeader>
-                    <CardTitle>Riwayat Pembayaran</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {payments.map(p => (<TableRow key={p.id}>
-                                <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
-                                <TableCell>{formatCurrency(p.amount)}</TableCell>
-                                <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
-                                <TableCell>
-                                    {p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}
-                                </TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    <Button size="sm" variant="outline" onClick={() => handleOpenEditPaymentForm(p)}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    {p.status === 'Pending' && (
-                                        <>
-                                            <Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button>
-                                        </>
-                                    )}
-                                </TableCell>
-                            </TableRow>))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <div className="print:hidden">
+                <h3 className="font-semibold text-gray-500 mb-2">Riwayat Pembayaran:</h3>
+                <Table>
+                    <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {payments.map(p => (<TableRow key={p.id}>
+                            <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
+                            <TableCell>{formatCurrency(p.amount)}</TableCell>
+                            <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
+                            <TableCell>
+                                {p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                                {p.status === 'Pending' && (
+                                    <>
+                                        <Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button>
+                                    </>
+                                )}
+                            </TableCell>
+                        </TableRow>))}
+                    </TableBody>
+                </Table>
+            </div>
           )}
           {invoice.terms && (
             <div>

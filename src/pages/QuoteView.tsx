@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
 
@@ -131,143 +131,44 @@ const QuoteView = () => {
     navigate(`/invoice/edit/${newInvoice.id}`);
   };
 
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
-
   const handleSaveAsPDF = () => {
-    if (!quote) return;
+    if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
 
-    const doc = new jsPDF();
-    const pageHeight = doc.internal.pageSize.height;
-    const pageMargin = 20;
-    let y = pageMargin;
+    const elementsToHide = quoteRef.current.querySelectorAll('.no-pdf');
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    const splitText = (text: string, maxWidth: number) => doc.splitTextToSize(text, maxWidth);
-    const getLineHeight = (fontSize: number) => fontSize * 0.35;
+    html2canvas(quoteRef.current, { scale: 2, useCORS: true })
+      .then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        let imgWidth = pdfWidth;
+        let imgHeight = pdfWidth / ratio;
 
-    // Header
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text(quote.from_company, pageMargin, y);
-    y += getLineHeight(22) * 2;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const fromAddressLines = splitText(quote.from_address, 80);
-    doc.text(fromAddressLines, pageMargin, y);
-    y += fromAddressLines.length * getLineHeight(10) * 1.5;
-    doc.text(quote.from_website, pageMargin, y);
-
-    let headerRightY = pageMargin;
-    doc.setFontSize(28);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(150);
-    doc.text('PENAWARAN', 210 - pageMargin, headerRightY, { align: 'right' });
-    headerRightY += getLineHeight(28) * 2;
-
-    y = Math.max(y, headerRightY) + 10;
-
-    // Details
-    const detailsStartY = y;
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    
-    let leftY = detailsStartY;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Ditujukan Kepada:', pageMargin, leftY);
-    leftY += getLineHeight(10) * 2;
-    doc.setFont('helvetica', 'normal');
-    doc.text(quote.to_client, pageMargin, leftY);
-    leftY += getLineHeight(10) * 1.5;
-    const toAddressLines = splitText(quote.to_address, 100);
-    doc.text(toAddressLines, pageMargin, leftY);
-    leftY += toAddressLines.length * getLineHeight(10) * 1.5;
-    doc.text(quote.to_phone, pageMargin, leftY);
-
-    let rightY = detailsStartY;
-    const rightX = 130;
-    const rightXValue = 165;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nomor Penawaran:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(quote.quote_number, rightXValue, rightY);
-    rightY += getLineHeight(10) * 2;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Tanggal Penawaran:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(quote.quote_date), 'PPP', { locale: localeId }), rightXValue, rightY);
-    rightY += getLineHeight(10) * 2;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Berlaku Hingga:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A', rightXValue, rightY);
-
-    y = Math.max(leftY, rightY) + 15;
-
-    // Table
-    const tableColumn = ["No.", "Deskripsi", "Jumlah", "Satuan", "Harga Satuan", "Total"];
-    const tableRows = quote.quote_items.map((item, index) => [
-        index + 1,
-        item.description,
-        item.quantity,
-        item.unit || '-',
-        formatCurrency(item.unit_price),
-        formatCurrency(item.quantity * item.unit_price)
-    ]);
-
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: y,
-        theme: 'grid',
-        headStyles: { fillColor: [240, 240, 240], textColor: [0,0,0] },
-        columnStyles: {
-            0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' },
-            4: { halign: 'right' }, 5: { halign: 'right' },
+        if (imgHeight > pdfHeight) {
+          imgHeight = pdfHeight;
+          imgWidth = imgHeight * ratio;
         }
-    });
 
-    y = (doc as any).lastAutoTable.finalY + 10;
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = 0;
 
-    // Totals
-    const totalsX = 145;
-    const valueX = 200;
-    const lineSpacing = 6;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal:', totalsX, y, { align: 'right' });
-    doc.text(formatCurrency(subtotal), valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.text('Diskon:', totalsX, y, { align: 'right' });
-    doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.text('Pajak:', totalsX, y, { align: 'right' });
-    doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
-    y += lineSpacing;
-    doc.setLineWidth(0.2);
-    doc.line(135, y, 200, y);
-    y += lineSpacing;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total:', totalsX, y, { align: 'right' });
-    doc.text(formatCurrency(total), valueX, y, { align: 'right' });
-    y += 15;
-
-    // Terms
-    const lineHeight = getLineHeight(10) * 1.5;
-    if (quote.terms) {
-        const termsLines = splitText(quote.terms, 170);
-        if (y + (termsLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
-        doc.setFont('helvetica', 'bold');
-        doc.text('Syarat & Ketentuan:', pageMargin, y);
-        y += lineHeight;
-        doc.setFont('helvetica', 'normal');
-        doc.text(termsLines, pageMargin, y);
-    }
-
-    doc.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
-    setIsGeneratingPDF(false);
+        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
+      })
+      .catch(err => {
+        console.error("Error generating PDF", err);
+        showError("Gagal membuat PDF.");
+      })
+      .finally(() => {
+        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+        setIsGeneratingPDF(false);
+      });
   };
 
   const handleDeleteQuote = async () => {
@@ -324,6 +225,8 @@ const QuoteView = () => {
   if (!quote) {
     return null;
   }
+
+  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
