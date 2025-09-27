@@ -108,7 +108,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         .from(config.table)
         .select(config.fields[0])
         .eq('user_id', user.id)
-        .like(config.fields[0], `%${year}%`)
+        .like(config.fields[0], `${config.numberPrefix}-${year}-%`)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -120,7 +120,9 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         let nextNumber = 1;
         if (data && data.length > 0 && data[0][config.fields[0]]) {
           const lastNumberStr = data[0][config.fields[0]].split('-').pop();
-          if (lastNumberStr) nextNumber = parseInt(lastNumberStr, 10) + 1;
+          if (lastNumberStr && !isNaN(parseInt(lastNumberStr, 10))) {
+            nextNumber = parseInt(lastNumberStr, 10) + 1;
+          }
         }
         newDocNumber = `${config.numberPrefix}-${year}-${String(nextNumber).padStart(3, '0')}`;
       }
