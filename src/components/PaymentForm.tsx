@@ -49,7 +49,7 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
       setAmount(String(payment.amount));
       setPaymentDate(new Date(payment.payment_date));
       setNotes(payment.notes || '');
-    } else {
+    } else if (!payment && isOpen) {
       setAmount('');
       setPaymentDate(new Date());
       setNotes('');
