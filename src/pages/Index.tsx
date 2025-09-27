@@ -31,8 +31,8 @@ const Index = () => {
       <div className="w-full max-w-2xl">
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-4xl font-bold mb-2">Selamat Datang di Aplikasi Penawaran Anda</CardTitle>
-            <CardDescription className="text-xl text-gray-600">
+            <CardTitle className="text-3xl md:text-4xl font-bold mb-2">Selamat Datang di Aplikasi Penawaran Anda</CardTitle>
+            <CardDescription className="text-lg md:text-xl text-gray-600">
               Hasilkan penawaran proyek secara instan.
             </CardDescription>
           </CardHeader>
