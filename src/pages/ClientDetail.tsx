@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, MapPin, UserCircle, DollarSign, Save } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, UserCircle, DollarSign, Save, Share2 } from 'lucide-react';
 import { Client } from './ClientList';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -22,7 +22,7 @@ type Quote = {
 
 const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<(Client & { access_key: string }) | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
@@ -70,6 +70,13 @@ const ClientDetail = () => {
     setIsSavingNotes(false);
   };
 
+  const handleCopyPortalLink = () => {
+    if (!client) return;
+    const link = `${window.location.origin}/portal/${client.access_key}`;
+    navigator.clipboard.writeText(link);
+    showSuccess('Tautan portal klien telah disalin!');
+  };
+
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'Diterima': return 'default';
@@ -96,9 +103,14 @@ const ClientDetail = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
-      <Button asChild variant="outline" size="sm">
-        <Link to="/clients"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar Klien</Link>
-      </Button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <Button asChild variant="outline" size="sm">
+                <Link to="/clients"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar Klien</Link>
+            </Button>
+            <Button onClick={handleCopyPortalLink} size="sm">
+                <Share2 className="mr-2 h-4 w-4" /> Salin Tautan Portal Klien
+            </Button>
+        </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
@@ -118,17 +130,17 @@ const ClientDetail = () => {
             </Card>
             <Card>
                 <CardHeader>
-                <CardTitle>Riwayat Penawaran</CardTitle>
-                <CardDescription>Semua penawaran yang terkait dengan {client.name}.</CardDescription>
+                <CardTitle>Riwayat Dokumen</CardTitle>
+                <CardDescription>Semua penawaran dan faktur yang terkait dengan {client.name}.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 {quotes.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">Belum ada penawaran untuk klien ini.</p>
+                    <p className="text-muted-foreground text-center py-4">Belum ada dokumen untuk klien ini.</p>
                 ) : (
                     <Table>
                     <TableHeader>
                         <TableRow>
-                        <TableHead>Nomor Penawaran</TableHead>
+                        <TableHead>Nomor Dokumen</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Tanggal Dibuat</TableHead>
                         <TableHead className="text-right">Aksi</TableHead>
