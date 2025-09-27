@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { showError, showSuccess } from '@/utils/toast';
 import ProjectForm, { Project } from '@/components/ProjectForm';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 
 type ProjectWithClient = Project & {
   clients: { name: string } | null;
@@ -109,7 +110,9 @@ const ProjectList = () => {
               <TableBody>
                 {projects.map((project) => (
                   <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/project/${project.id}`} className="hover:underline">{project.name}</Link>
+                    </TableCell>
                     <TableCell>{project.clients?.name || '-'}</TableCell>
                     <TableCell><Badge variant={getStatusVariant(project.status)}>{project.status}</Badge></TableCell>
                     <TableCell className="text-right space-x-2">

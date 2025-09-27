@@ -30,6 +30,7 @@ import ClientPortal from "./pages/ClientPortal";
 import { ThemeProvider } from "./components/ThemeProvider";
 import ExpenseReport from "./pages/ExpenseReport";
 import ProjectList from "./pages/ProjectList";
+import ProjectDetail from "./pages/ProjectDetail";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
                   <Route path="/reports/profitability" element={<ProfitabilityReports />} />
                   <Route path="/reports/expenses" element={<ExpenseReport />} />
                   <Route path="/projects" element={<ProjectList />} />
+                  <Route path="/project/:id" element={<ProjectDetail />} />
                 </Route>
               </Route>
 
