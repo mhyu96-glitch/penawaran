@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -26,8 +26,9 @@ import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import EditPaymentForm from '@/components/EditPaymentForm';
 
-type Payment = {
+export type Payment = {
     id: string;
     amount: number;
     payment_date: string;
@@ -70,6 +71,8 @@ const InvoiceView = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
+  const [isEditPaymentFormOpen, setIsEditPaymentFormOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const fetchInvoiceData = async () => {
@@ -145,6 +148,11 @@ const InvoiceView = () => {
     }
   };
 
+  const handleOpenEditPaymentForm = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsEditPaymentFormOpen(true);
+  };
+
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
@@ -178,6 +186,15 @@ const InvoiceView = () => {
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
         <PaymentForm isOpen={isPaymentFormOpen} setIsOpen={setIsPaymentFormOpen} invoiceId={invoice.id} invoiceTotal={total} onSave={() => { setIsPaymentFormOpen(false); fetchInvoiceData(); }} />
+        <EditPaymentForm
+            isOpen={isEditPaymentFormOpen}
+            setIsOpen={setIsEditPaymentFormOpen}
+            payment={selectedPayment}
+            onSave={() => {
+                setIsEditPaymentFormOpen(false);
+                fetchInvoiceData();
+            }}
+        />
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
             <Button asChild variant="outline"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -294,6 +311,9 @@ const InvoiceView = () => {
                                     {p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}
                                 </TableCell>
                                 <TableCell className="text-right space-x-2">
+                                    <Button size="sm" variant="outline" onClick={() => handleOpenEditPaymentForm(p)}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
                                     {p.status === 'Pending' && (
                                         <>
                                             <Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button>
