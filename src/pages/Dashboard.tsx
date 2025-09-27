@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, Bell, TrendingUp, Users, ArrowUp, ArrowDown } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, Bell, TrendingUp, Users } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -18,11 +18,11 @@ import { cn } from '@/lib/utils';
 type Quote = {
   id: string;
   status: string;
+  quote_items: { quantity: number; unit_price: number; cost_price: number; }[];
   to_client: string;
   created_at: string;
   clients: { name: string } | null;
   client_id: string;
-  quote_items: { quantity: number; unit_price: number; cost_price: number; }[];
 };
 
 type Invoice = {
@@ -45,30 +45,17 @@ type Payment = {
     payment_date: string;
 };
 
-const PercentageChange = ({ value }: { value: number }) => {
-    if (isNaN(value) || !isFinite(value)) {
-      return null;
-    }
-    const isPositive = value >= 0;
-    return (
-      <p className={cn("text-xs text-muted-foreground flex items-center", isPositive ? "text-emerald-600" : "text-red-600")}>
-        {isPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
-        {Math.abs(value).toFixed(1)}% dari periode sebelumnya
-      </p>
-    );
-};
-
 const Dashboard = () => {
   const { user } = useAuth();
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -29),
     to: new Date(),
   });
-
-  const [currentData, setCurrentData] = useState({ quotes: [] as Quote[], expenses: [] as Expense[], payments: [] as Payment[] });
-  const [previousData, setPreviousData] = useState({ quotes: [] as Quote[], expenses: [] as Expense[], payments: [] as Payment[] });
-  const [activeInvoices, setActiveInvoices] = useState<Invoice[]>([]);
 
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('id-ID', {
@@ -81,42 +68,36 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !date?.from || !date?.to) return;
+      if (!user) return;
       setLoading(true);
 
-      const duration = differenceInDays(date.to, date.from);
-      const prevPeriod = {
-        from: addDays(date.from, -(duration + 1)),
-        to: addDays(date.from, -1),
-      };
+      const fromDate = date?.from ? date.from.toISOString() : undefined;
+      const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
 
-      const fetchPeriodData = async (period: { from: Date, to: Date }) => {
-        const fromDate = period.from.toISOString();
-        const toDate = addDays(period.to, 1).toISOString();
-        
-        const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).gte('created_at', fromDate).lt('created_at', toDate);
-        const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id).gte('expense_date', fromDate).lt('expense_date', toDate);
-        const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas').gte('payment_date', fromDate).lt('payment_date', toDate);
-        
-        const [quoteRes, expenseRes, paymentRes] = await Promise.all([quoteQuery, expenseQuery, paymentQuery]);
-        return {
-            quotes: (quoteRes.data as Quote[]) || [],
-            expenses: (expenseRes.data as Expense[]) || [],
-            payments: (paymentRes.data as Payment[]) || [],
-        };
-      };
+      const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
+      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
+      const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
+      const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
 
-      const activeInvoicesQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id).neq('status', 'Lunas');
-      
-      const [current, previous, activeInvoicesRes] = await Promise.all([
-        fetchPeriodData(date as { from: Date, to: Date }),
-        fetchPeriodData(prevPeriod),
-        activeInvoicesQuery
-      ]);
+      if (fromDate) {
+        quoteQuery.gte('created_at', fromDate);
+        invoiceQuery.gte('created_at', fromDate);
+        expenseQuery.gte('expense_date', fromDate);
+        paymentQuery.gte('payment_date', fromDate);
+      }
+      if (toDate) {
+        quoteQuery.lt('created_at', toDate);
+        invoiceQuery.lt('created_at', toDate);
+        expenseQuery.lt('expense_date', toDate);
+        paymentQuery.lt('payment_date', toDate);
+      }
 
-      setCurrentData(current);
-      setPreviousData(previous);
-      setActiveInvoices((activeInvoicesRes.data as Invoice[]) || []);
+      const [quoteRes, invoiceRes, expenseRes, paymentRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery]);
+
+      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
+      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
+      if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
+      if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(paymentRes.data as Payment[]);
       
       setLoading(false);
     };
@@ -124,39 +105,40 @@ const Dashboard = () => {
     fetchData();
   }, [user, date]);
 
-  const calculateStats = (data: { quotes: Quote[], expenses: Expense[], payments: Payment[] }) => {
-    const totalRevenue = data.payments.reduce((acc, p) => acc + p.amount, 0);
-    const totalExpenses = data.expenses.reduce((acc, exp) => acc + exp.amount, 0);
-    const netProfit = totalRevenue - totalExpenses;
-    
-    const sentOrRespondedQuotes = data.quotes.filter(q => ['Terkirim', 'Diterima', 'Ditolak'].includes(q.status));
-    const acceptedCount = data.quotes.filter(q => q.status === 'Diterima').length;
-    const quoteConversionRate = sentOrRespondedQuotes.length > 0 ? (acceptedCount / sentOrRespondedQuotes.length) * 100 : 0;
+  const { totalProfit, acceptedQuotesCount } = useMemo(() => {
+    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
+    const profit = acceptedQuotes.reduce((acc, quote) => {
+      const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
+      return acc + quoteProfit;
+    }, 0);
+    return { totalProfit: profit, acceptedQuotesCount: acceptedQuotes.length };
+  }, [quotes]);
 
-    return { totalRevenue, totalExpenses, netProfit, quoteConversionRate };
-  };
+  const totalExpenses = useMemo(() => expenses.reduce((acc, exp) => acc + exp.amount, 0), [expenses]);
+  const netProfit = totalProfit - totalExpenses;
 
-  const currentStats = useMemo(() => calculateStats(currentData), [currentData]);
-  const previousStats = useMemo(() => calculateStats(previousData), [previousData]);
+  const invoiceStats = useMemo(() => {
+    let unpaidAmount = 0;
+    let overdueAmount = 0;
+    invoices.forEach(invoice => {
+        if (invoice.status !== 'Lunas') {
+            const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
+            const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
+            unpaidAmount += total;
+            if (invoice.due_date && isPast(new Date(invoice.due_date))) {
+                overdueAmount += total;
+            }
+        }
+    });
+    return { unpaidAmount, overdueAmount };
+  }, [invoices]);
 
-  const calculatePercentageChange = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? Infinity : 0;
-    return ((current - previous) / previous) * 100;
-  };
-
-  const revenueChange = calculatePercentageChange(currentStats.totalRevenue, previousStats.totalRevenue);
-  const expensesChange = calculatePercentageChange(currentStats.totalExpenses, previousStats.totalExpenses);
-  const netProfitChange = calculatePercentageChange(currentStats.netProfit, previousStats.netProfit);
-  const conversionChange = currentStats.quoteConversionRate - previousStats.quoteConversionRate;
-
-  const overdueAmount = useMemo(() => {
-    return activeInvoices
-      .filter(invoice => invoice.due_date && isPast(new Date(invoice.due_date)))
-      .reduce((acc, invoice) => {
-        const subtotal = invoice.invoice_items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-        return acc + (subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0));
-      }, 0);
-  }, [activeInvoices]);
+  const quoteConversionRate = useMemo(() => {
+    const sentOrAcceptedQuotes = quotes.filter(q => q.status === 'Terkirim' || q.status === 'Diterima' || q.status === 'Ditolak');
+    if (sentOrAcceptedQuotes.length === 0) return 0;
+    const acceptedCount = quotes.filter(q => q.status === 'Diterima').length;
+    return (acceptedCount / sentOrAcceptedQuotes.length) * 100;
+  }, [quotes]);
 
   const financialChartData = useMemo(() => {
     if (!date?.from || !date?.to) return [];
@@ -164,24 +146,39 @@ const Dashboard = () => {
     return days.map(day => {
         const formattedDate = format(day, 'dd MMM');
         const dayStart = startOfDay(day);
-        const dailyRevenue = currentData.payments.filter(p => startOfDay(new Date(p.payment_date)).getTime() === dayStart.getTime()).reduce((sum, p) => sum + p.amount, 0);
-        const dailyExpenses = currentData.expenses.filter(e => startOfDay(new Date(e.expense_date)).getTime() === dayStart.getTime()).reduce((sum, e) => sum + e.amount, 0);
+
+        const dailyRevenue = payments
+            .filter(p => startOfDay(new Date(p.payment_date)).getTime() === dayStart.getTime())
+            .reduce((sum, p) => sum + p.amount, 0);
+
+        const dailyExpenses = expenses
+            .filter(e => startOfDay(new Date(e.expense_date)).getTime() === dayStart.getTime())
+            .reduce((sum, e) => sum + e.amount, 0);
+
         return { name: formattedDate, Pendapatan: dailyRevenue, Pengeluaran: dailyExpenses };
     });
-  }, [currentData.payments, currentData.expenses, date]);
+  }, [payments, expenses, date]);
 
   const topClients = useMemo(() => {
     const clientProfit: Record<string, { name: string; totalProfit: number }> = {};
-    const acceptedQuotes = currentData.quotes.filter(q => q.status === 'Diterima');
+    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
+
     acceptedQuotes.forEach(quote => {
         const clientId = quote.client_id;
         const clientName = quote.clients?.name || quote.to_client;
-        if (!clientProfit[clientId]) clientProfit[clientId] = { name: clientName, totalProfit: 0 };
+        if (!clientProfit[clientId]) {
+            clientProfit[clientId] = { name: clientName, totalProfit: 0 };
+        }
         const quoteProfit = quote.quote_items.reduce((sum, item) => sum + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
         clientProfit[clientId].totalProfit += quoteProfit;
     });
+
     return Object.values(clientProfit).sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
-  }, [currentData.quotes]);
+  }, [quotes]);
+
+  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim'), [quotes]);
+  const upcomingInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && !isPast(new Date(inv.due_date)) && differenceInDays(new Date(inv.due_date), new Date()) <= 7).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()), [invoices]);
+  const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()), [invoices]);
 
   if (loading) {
     return (
@@ -202,11 +199,11 @@ const Dashboard = () => {
             </Popover>
         </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(currentStats.totalRevenue)}</div><PercentageChange value={revenueChange} /></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(currentStats.totalExpenses)}</div><PercentageChange value={expensesChange} /></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(currentStats.netProfit)}</div><PercentageChange value={netProfitChange} /></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle><AlertCircle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(overdueAmount)}</div><p className="text-xs text-muted-foreground">Total faktur terlambat</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tingkat Konversi</CardTitle><TrendingUp className="h-4 w-4 text-purple-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{currentStats.quoteConversionRate.toFixed(1)}%</div><p className={cn("text-xs text-muted-foreground flex items-center", conversionChange >= 0 ? "text-emerald-600" : "text-red-600")}>{conversionChange >= 0 ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}{Math.abs(conversionChange).toFixed(1)} pts dari periode sebelumnya</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(netProfit)}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div><p className="text-xs text-muted-foreground">Dalam rentang waktu</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Belum Dibayar</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.unpaidAmount)}</div><p className="text-xs text-muted-foreground">Dari semua faktur aktif</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle><AlertCircle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.overdueAmount)}</div><p className="text-xs text-muted-foreground">Total faktur terlambat</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tingkat Konversi</CardTitle><TrendingUp className="h-4 w-4 text-purple-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{quoteConversionRate.toFixed(1)}%</div><p className="text-xs text-muted-foreground">Penawaran diterima</p></CardContent></Card>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
