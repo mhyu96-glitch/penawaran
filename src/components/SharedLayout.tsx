@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import NotificationBell from './NotificationBell';
 
 const SharedLayout = () => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const SharedLayout = () => {
               <span>QuoteApp</span>
             </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <nav className="hidden md:flex gap-1">
                 <Button variant="ghost" asChild size="sm">
                     <Link to="/dashboard">Dashboard</Link>
@@ -105,6 +106,7 @@ const SharedLayout = () => {
                     <Link to="/items">Barang & Jasa</Link>
                 </Button>
             </nav>
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">

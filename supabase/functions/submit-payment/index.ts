@@ -34,7 +34,7 @@ serve(async (req) => {
     // 1. Ambil invoice untuk mendapatkan user_id
     const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from('invoices')
-      .select('user_id')
+      .select('user_id, to_client, invoice_number')
       .eq('id', invoiceId)
       .single()
     if (invoiceError) throw invoiceError
@@ -63,6 +63,14 @@ serve(async (req) => {
     }
     const { error: insertError } = await supabaseAdmin.from('payments').insert(paymentPayload)
     if (insertError) throw insertError
+
+    // 5. Create a notification for the user
+    const message = `Klien "${invoice.to_client}" telah mengirimkan konfirmasi pembayaran untuk faktur #${invoice.invoice_number}.`;
+    await supabaseAdmin.from('notifications').insert({
+        user_id: invoice.user_id,
+        message: message,
+        link: `/invoice/${invoiceId}`
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

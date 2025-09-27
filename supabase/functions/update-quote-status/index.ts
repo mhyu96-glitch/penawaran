@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
       .from('quotes')
       .update({ status: status })
       .eq('id', quoteId)
-      .select()
+      .select('user_id, to_client, quote_number')
       .single()
 
     if (error) {
@@ -48,6 +48,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Create a notification for the user
+    const statusText = status === 'Diterima' ? 'menerima' : 'menolak';
+    const message = `Klien "${data.to_client}" telah ${statusText} penawaran #${data.quote_number}.`;
+    await supabaseAdmin.from('notifications').insert({
+        user_id: data.user_id,
+        message: message,
+        link: `/quote/${quoteId}`
+    });
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
