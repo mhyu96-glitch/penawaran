@@ -80,20 +80,21 @@ const InvoiceGenerator = () => {
             .order('created_at', { ascending: false })
             .limit(1);
 
+        let newInvoiceNumber;
         if (error) {
             console.error("Error fetching last invoice number", error);
-            setInvoiceNumber(`INV-${year}-001`);
-            return;
-        }
-        
-        let nextNumber = 1;
-        if (data && data.length > 0 && data[0].invoice_number) {
-            const lastNumberStr = data[0].invoice_number.split('-').pop();
-            if (lastNumberStr) {
-                nextNumber = parseInt(lastNumberStr, 10) + 1;
+            newInvoiceNumber = `INV-${year}-001`;
+        } else {
+            let nextNumber = 1;
+            if (data && data.length > 0 && data[0].invoice_number) {
+                const lastNumberStr = data[0].invoice_number.split('-').pop();
+                if (lastNumberStr) {
+                    nextNumber = parseInt(lastNumberStr, 10) + 1;
+                }
             }
+            newInvoiceNumber = `INV-${year}-${String(nextNumber).padStart(3, '0')}`;
         }
-        setInvoiceNumber(`INV-${year}-${String(nextNumber).padStart(3, '0')}`);
+        setInvoiceNumber(currentNumber => currentNumber === '' ? newInvoiceNumber : currentNumber);
     };
 
     const fetchInvoiceForEdit = async () => {
@@ -134,7 +135,7 @@ const InvoiceGenerator = () => {
     };
 
     const fetchProfileForNew = async () => {
-      if (isEditMode || !user) return;
+      if (!user) return;
       const { data } = await supabase.from('profiles').select('company_name, company_address, company_website, default_terms, default_tax_amount, default_discount_amount').eq('id', user.id).single();
       if (data) {
         setFromCompany(data.company_name || "");
@@ -144,17 +145,15 @@ const InvoiceGenerator = () => {
         setTaxAmount(data.default_tax_amount || 0);
         setDiscountAmount(data.default_discount_amount || 0);
       }
-      if (!invoiceNumber) {
-        generateNewInvoiceNumber();
-      }
     };
 
     if (isEditMode) {
       fetchInvoiceForEdit();
     } else {
       fetchProfileForNew();
+      generateNewInvoiceNumber();
     }
-  }, [invoiceId, user, navigate, isEditMode, invoiceNumber]);
+  }, [invoiceId, user, navigate, isEditMode]);
 
   const handleClientSelect = (clientId: string) => {
     const selected = clients.find(c => c.id === clientId);

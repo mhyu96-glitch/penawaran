@@ -83,20 +83,21 @@ const QuoteGenerator = () => {
             .order('created_at', { ascending: false })
             .limit(1);
 
+        let newQuoteNumber;
         if (error) {
             console.error("Error fetching last quote number", error);
-            setQuoteNumber(`Q-${year}-001`);
-            return;
-        }
-        
-        let nextNumber = 1;
-        if (data && data.length > 0 && data[0].quote_number) {
-            const lastNumberStr = data[0].quote_number.split('-').pop();
-            if (lastNumberStr) {
-                nextNumber = parseInt(lastNumberStr, 10) + 1;
+            newQuoteNumber = `Q-${year}-001`;
+        } else {
+            let nextNumber = 1;
+            if (data && data.length > 0 && data[0].quote_number) {
+                const lastNumberStr = data[0].quote_number.split('-').pop();
+                if (lastNumberStr) {
+                    nextNumber = parseInt(lastNumberStr, 10) + 1;
+                }
             }
+            newQuoteNumber = `Q-${year}-${String(nextNumber).padStart(3, '0')}`;
         }
-        setQuoteNumber(`Q-${year}-${String(nextNumber).padStart(3, '0')}`);
+        setQuoteNumber(currentNumber => currentNumber === '' ? newQuoteNumber : currentNumber);
     };
 
     const fetchQuoteForEdit = async () => {
@@ -137,7 +138,7 @@ const QuoteGenerator = () => {
     };
 
     const fetchProfileForNew = async () => {
-      if (isEditMode || !user) return;
+      if (!user) return;
       const { data } = await supabase.from('profiles').select('company_name, company_address, company_website, default_terms, default_tax_amount, default_discount_amount').eq('id', user.id).single();
       if (data) {
         setFromCompany(data.company_name || "");
@@ -147,17 +148,15 @@ const QuoteGenerator = () => {
         setTaxAmount(data.default_tax_amount || 0);
         setDiscountAmount(data.default_discount_amount || 0);
       }
-      if (!quoteNumber) {
-        generateNewQuoteNumber();
-      }
     };
 
     if (isEditMode) {
       fetchQuoteForEdit();
     } else {
       fetchProfileForNew();
+      generateNewQuoteNumber();
     }
-  }, [quoteId, user, navigate, isEditMode, quoteNumber]);
+  }, [quoteId, user, navigate, isEditMode]);
 
   const handleClientSelect = (clientId: string) => {
     const selected = clients.find(c => c.id === clientId);
