@@ -22,7 +22,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import 'jspdf-autotable';
 import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -108,18 +108,146 @@ const InvoiceView = () => {
     fetchInvoiceData();
   }, [id, navigate]);
 
+  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
+
   const handleSaveAsPDF = () => {
-    if (!invoiceRef.current || !invoice) return;
+    if (!invoice) return;
     setIsGeneratingPDF(true);
-    html2canvas(invoiceRef.current, { scale: 2, useCORS: true })
-      .then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [595, 935] });
-        pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
-        pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
-      })
-      .catch(err => showError("Gagal membuat PDF."))
-      .finally(() => setIsGeneratingPDF(false));
+
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.height;
+    let y = 20;
+
+    const splitText = (text: string, maxWidth: number) => doc.splitTextToSize(text, maxWidth);
+
+    // Header
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text(invoice.from_company, 20, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(splitText(invoice.from_address, 80), 20, y);
+    y += 10;
+    doc.text(invoice.from_website, 20, y);
+
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(150);
+    doc.text('FAKTUR', 200, y - 10, { align: 'right' });
+    y += 5;
+
+    // Invoice Details
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ditagihkan Kepada:', 20, y);
+    doc.text('Nomor Faktur:', 130, y);
+    doc.text('Tanggal Faktur:', 130, y + 5);
+    doc.text('Jatuh Tempo:', 130, y + 10);
+
+    doc.setFont('helvetica', 'normal');
+    let initialY = y;
+    doc.text(invoice.to_client, 20, y + 5);
+    const toAddressLines = splitText(invoice.to_address, 80);
+    doc.text(toAddressLines, 20, y + 10);
+    y += toAddressLines.length * 5 + 5;
+    doc.text(invoice.to_phone, 20, y);
+
+    doc.text(invoice.invoice_number, 165, initialY);
+    doc.text(format(new Date(invoice.invoice_date), 'PPP', { locale: localeId }), 165, initialY + 5);
+    doc.text(invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A', 165, initialY + 10);
+
+    y += 15;
+
+    // Table
+    const tableColumn = ["No.", "Deskripsi", "Jumlah", "Satuan", "Harga Satuan", "Total"];
+    const tableRows = invoice.invoice_items.map((item, index) => [
+        index + 1,
+        item.description,
+        item.quantity,
+        item.unit || '-',
+        formatCurrency(item.unit_price),
+        formatCurrency(item.quantity * item.unit_price)
+    ]);
+
+    (doc as any).autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: y,
+        theme: 'grid',
+        headStyles: { fillColor: [240, 240, 240], textColor: [0,0,0] },
+        columnStyles: {
+            0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' },
+            4: { halign: 'right' }, 5: { halign: 'right' },
+        }
+    });
+
+    y = (doc as any).autoTable.previous.finalY + 10;
+
+    // Totals
+    const totalsX = 145;
+    const valueX = 200;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal:', totalsX, y, { align: 'right' });
+    doc.text(formatCurrency(subtotal), valueX, y, { align: 'right' });
+    y += 6;
+    doc.text('Diskon:', totalsX, y, { align: 'right' });
+    doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
+    y += 6;
+    doc.text('Pajak:', totalsX, y, { align: 'right' });
+    doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
+    y += 6;
+    doc.setLineWidth(0.2);
+    doc.line(135, y, 200, y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total Tagihan:', totalsX, y, { align: 'right' });
+    doc.text(formatCurrency(total), valueX, y, { align: 'right' });
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    if (invoice.down_payment_amount > 0) {
+        doc.text('Uang Muka (DP):', totalsX, y, { align: 'right' });
+        doc.text(formatCurrency(invoice.down_payment_amount), valueX, y, { align: 'right' });
+        y += 6;
+    }
+    doc.text('Telah Dibayar:', totalsX, y, { align: 'right' });
+    doc.text(`- ${formatCurrency(totalPaid)}`, valueX, y, { align: 'right' });
+    y += 6;
+    doc.setLineWidth(0.2);
+    doc.line(135, y, 200, y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Sisa Tagihan:', totalsX, y, { align: 'right' });
+    doc.text(formatCurrency(balanceDue), valueX, y, { align: 'right' });
+    y += 15;
+
+    // Payment Instructions & Terms
+    if (paymentInstructions) {
+        if (y > pageHeight - 50) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Instruksi Pembayaran:', 20, y);
+        y += 6;
+        doc.setFont('helvetica', 'normal');
+        const paymentLines = splitText(paymentInstructions, 170);
+        doc.text(paymentLines, 20, y);
+        y += paymentLines.length * 5 + 5;
+    }
+
+    if (invoice.terms) {
+        if (y > pageHeight - 40) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Syarat & Ketentuan:', 20, y);
+        y += 6;
+        doc.setFont('helvetica', 'normal');
+        const termsLines = splitText(invoice.terms, 170);
+        doc.text(termsLines, 20, y);
+    }
+
+    doc.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+    setIsGeneratingPDF(false);
   };
 
   const handleDeleteInvoice = async () => {
@@ -180,8 +308,6 @@ const InvoiceView = () => {
 
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return null;
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
