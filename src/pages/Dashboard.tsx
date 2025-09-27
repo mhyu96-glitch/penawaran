@@ -57,6 +57,15 @@ const Dashboard = () => {
     to: new Date(),
   });
 
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -190,10 +199,10 @@ const Dashboard = () => {
             </Popover>
         </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{netProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{totalExpenses.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div><p className="text-xs text-muted-foreground">Dalam rentang waktu</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Belum Dibayar</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{invoiceStats.unpaidAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div><p className="text-xs text-muted-foreground">Dari semua faktur aktif</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle><AlertCircle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{invoiceStats.overdueAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</div><p className="text-xs text-muted-foreground">Total faktur terlambat</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(netProfit)}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div><p className="text-xs text-muted-foreground">Dalam rentang waktu</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Belum Dibayar</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.unpaidAmount)}</div><p className="text-xs text-muted-foreground">Dari semua faktur aktif</p></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle><AlertCircle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.overdueAmount)}</div><p className="text-xs text-muted-foreground">Total faktur terlambat</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tingkat Konversi</CardTitle><TrendingUp className="h-4 w-4 text-purple-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{quoteConversionRate.toFixed(1)}%</div><p className="text-xs text-muted-foreground">Penawaran diterima</p></CardContent></Card>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
@@ -204,7 +213,7 @@ const Dashboard = () => {
               <LineChart data={financialChartData}>
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
-                <Tooltip formatter={(value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value as number)} />
+                <Tooltip formatter={(value) => formatCurrency(value as number)} />
                 <Legend />
                 <Line type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
@@ -220,7 +229,7 @@ const Dashboard = () => {
                         <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Laba</TableHead></TableRow></TableHeader>
                         <TableBody>
                             {topClients.map(client => (
-                                <TableRow key={client.name}><TableCell className="font-medium">{client.name}</TableCell><TableCell className="text-right">{client.totalProfit.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell></TableRow>
+                                <TableRow key={client.name}><TableCell className="font-medium">{client.name}</TableCell><TableCell className="text-right">{formatCurrency(client.totalProfit)}</TableCell></TableRow>
                             ))}
                         </TableBody>
                     </Table>
