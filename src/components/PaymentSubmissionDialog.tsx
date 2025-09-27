@@ -19,6 +19,8 @@ import { id as localeId } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0";
+
 interface PaymentSubmissionDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -56,6 +58,9 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
     try {
       const response = await fetch(`https://xukpisovkcflcwuhrzkx.supabase.co/functions/v1/submit-payment`, {
         method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+        },
         body: formData,
       });
 
@@ -80,7 +85,7 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
           <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
           <DialogDescription>
             Total tagihan: {totalDue.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}.
-            Isi detail dan unggah bukti pembayaran Anda.
+            Isi detail dan unggah bukti pembayaran.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
