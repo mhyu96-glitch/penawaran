@@ -87,7 +87,7 @@ const QuoteView = () => {
     if (!quote || !user) return;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: quoteId, created_at, quote_number, valid_until, status, quote_items, ...invoiceData } = quote;
+    const { id: quoteId, created_at, quote_number, quote_date, valid_until, status, quote_items, ...invoiceData } = quote;
 
     const newInvoicePayload = {
       ...invoiceData,
