@@ -116,61 +116,80 @@ const InvoiceView = () => {
 
     const doc = new jsPDF();
     const pageHeight = doc.internal.pageSize.height;
-    const pageWidth = doc.internal.pageSize.width;
-    const pageMargin = 15;
-    let y = 30;
-    const primaryColor = [76, 76, 158]; // A purple-ish blue color
+    const pageMargin = 20;
+    let y = pageMargin;
 
-    // --- HEADER ---
-    doc.setFontSize(20);
+    const splitText = (text: string, maxWidth: number) => doc.splitTextToSize(text, maxWidth);
+    const getLineHeight = (fontSize: number) => fontSize * 0.35;
+
+    // Header
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.text(invoice.from_company, pageMargin, y);
-    y += 8;
+    y += getLineHeight(22) * 2;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    const fromAddressLines = doc.splitTextToSize(invoice.from_address, 80);
+    const fromAddressLines = splitText(invoice.from_address, 80);
     doc.text(fromAddressLines, pageMargin, y);
-    y += fromAddressLines.length * 5 + 2;
+    y += fromAddressLines.length * getLineHeight(10) * 1.5;
     doc.text(invoice.from_website, pageMargin, y);
 
-    doc.setFontSize(32);
+    let headerRightY = pageMargin;
+    doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('INVOICE', pageWidth - pageMargin, 35, { align: 'right' });
+    doc.setTextColor(150);
+    doc.text('FAKTUR', 210 - pageMargin, headerRightY, { align: 'right' });
+    headerRightY += getLineHeight(28) * 2;
 
+    y = Math.max(y, headerRightY) + 10;
+
+    // Invoice Details
+    const detailsStartY = y;
     doc.setFontSize(10);
     doc.setTextColor(0);
-    doc.setFont('helvetica', 'normal');
-    let rightX = pageWidth - pageMargin;
-    let rightY = 45;
-    doc.text(`Invoice Number: ${invoice.invoice_number}`, rightX, rightY, { align: 'right' });
-    rightY += 6;
-    doc.text(`Invoice Date: ${format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}`, rightX, rightY, { align: 'right' });
-    rightY += 6;
-    doc.text(`Due Date: ${invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}`, rightX, rightY, { align: 'right' });
-
-    y = Math.max(y, rightY) + 20;
-
-    // --- BILL TO ---
+    
+    let leftY = detailsStartY;
     doc.setFont('helvetica', 'bold');
-    doc.text('BILL TO', pageMargin, y);
-    y += 6;
+    doc.text('Ditagihkan Kepada:', pageMargin, leftY);
+    leftY += getLineHeight(10) * 2;
     doc.setFont('helvetica', 'normal');
-    doc.text(invoice.to_client, pageMargin, y);
-    y += 5;
-    const toAddressLines = doc.splitTextToSize(invoice.to_address, 80);
-    doc.text(toAddressLines, pageMargin, y);
-    y += toAddressLines.length * 5 + 2;
-    doc.text(invoice.to_phone, pageMargin, y);
+    doc.text(invoice.to_client, pageMargin, leftY);
+    leftY += getLineHeight(10) * 1.5;
+    const toAddressLines = splitText(invoice.to_address, 100);
+    doc.text(toAddressLines, pageMargin, leftY);
+    leftY += toAddressLines.length * getLineHeight(10) * 1.5;
+    doc.text(invoice.to_phone, pageMargin, leftY);
 
-    y += 15;
+    let rightY = detailsStartY;
+    const rightX = 130;
+    const rightXValue = 165;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nomor Faktur:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.invoice_number, rightXValue, rightY);
+    rightY += getLineHeight(10) * 2;
 
-    // --- TABLE ---
-    const tableColumn = ["DESCRIPTION", "QTY", "UNIT PRICE", "AMOUNT"];
-    const tableRows = invoice.invoice_items.map((item) => [
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tanggal Faktur:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(new Date(invoice.invoice_date), 'PPP', { locale: localeId }), rightXValue, rightY);
+    rightY += getLineHeight(10) * 2;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Jatuh Tempo:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A', rightXValue, rightY);
+
+    y = Math.max(leftY, rightY) + 15;
+
+    // Table
+    const tableColumn = ["No.", "Deskripsi", "Jumlah", "Satuan", "Harga Satuan", "Total"];
+    const tableRows = invoice.invoice_items.map((item, index) => [
+        index + 1,
         item.description,
         item.quantity,
+        item.unit || '-',
         formatCurrency(item.unit_price),
         formatCurrency(item.quantity * item.unit_price)
     ]);
@@ -179,81 +198,77 @@ const InvoiceView = () => {
         head: [tableColumn],
         body: tableRows,
         startY: y,
-        theme: 'striped',
-        headStyles: {
-            fillColor: primaryColor,
-            textColor: [255, 255, 255],
-            fontStyle: 'bold'
-        },
+        theme: 'grid',
+        headStyles: { fillColor: [240, 240, 240], textColor: [0,0,0] },
         columnStyles: {
-            0: { cellWidth: 80 },
-            1: { halign: 'center' },
-            2: { halign: 'right' },
-            3: { halign: 'right' },
+            0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' },
+            4: { halign: 'right' }, 5: { halign: 'right' },
         }
     });
 
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // --- TOTALS ---
-    const totalsX = pageWidth - 80;
-    const valueX = pageWidth - pageMargin;
-    const lineSpacing = 7;
-
+    // Totals
+    const totalsX = 145;
+    const valueX = 200;
+    const lineSpacing = 6;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal:', totalsX, y, { align: 'left' });
+    doc.text('Subtotal:', totalsX, y, { align: 'right' });
     doc.text(formatCurrency(subtotal), valueX, y, { align: 'right' });
     y += lineSpacing;
-
-    if (discountAmount > 0) {
-        doc.text('Discount:', totalsX, y, { align: 'left' });
-        doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
-        y += lineSpacing;
-    }
-
-    if (taxAmount > 0) {
-        doc.text('Tax:', totalsX, y, { align: 'left' });
-        doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
-        y += lineSpacing;
-    }
-
-    doc.setLineWidth(0.2);
-    doc.line(totalsX - 2, y, valueX, y);
+    doc.text('Diskon:', totalsX, y, { align: 'right' });
+    doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
     y += lineSpacing;
-
-    doc.setFillColor(230, 230, 250); // Light lavender background for total
-    doc.rect(totalsX - 2, y - 5, (valueX - totalsX + 2), 10, 'F');
+    doc.text('Pajak:', totalsX, y, { align: 'right' });
+    doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
+    y += lineSpacing;
+    doc.setLineWidth(0.2);
+    doc.line(135, y, 200, y);
+    y += lineSpacing;
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('TOTAL:', totalsX, y, { align: 'left' });
+    doc.text('Total Tagihan:', totalsX, y, { align: 'right' });
     doc.text(formatCurrency(total), valueX, y, { align: 'right' });
-    y += lineSpacing + 5;
-
-    doc.setTextColor(0);
+    y += lineSpacing;
     doc.setFont('helvetica', 'normal');
-    doc.text('Paid:', totalsX, y, { align: 'left' });
+    if (invoice.down_payment_amount > 0) {
+        doc.text('Uang Muka (DP):', totalsX, y, { align: 'right' });
+        doc.text(formatCurrency(invoice.down_payment_amount), valueX, y, { align: 'right' });
+        y += lineSpacing;
+    }
+    doc.text('Telah Dibayar:', totalsX, y, { align: 'right' });
     doc.text(`- ${formatCurrency(totalPaid)}`, valueX, y, { align: 'right' });
     y += lineSpacing;
-
+    doc.setLineWidth(0.2);
+    doc.line(135, y, 200, y);
+    y += lineSpacing;
     doc.setFont('helvetica', 'bold');
-    doc.text('Balance Due:', totalsX, y, { align: 'left' });
+    doc.text('Sisa Tagihan:', totalsX, y, { align: 'right' });
     doc.text(formatCurrency(balanceDue), valueX, y, { align: 'right' });
-    
-    // --- FOOTER ---
-    const footerY = pageHeight - 35;
+    y += 15;
+
+    // Payment Instructions & Terms
+    const lineHeight = getLineHeight(10) * 1.5;
     if (paymentInstructions) {
-        doc.setFontSize(10);
+        const paymentLines = splitText(paymentInstructions, 170);
+        if (y + (paymentLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
         doc.setFont('helvetica', 'bold');
-        doc.text('Payment Info', pageMargin, footerY);
+        doc.text('Instruksi Pembayaran:', pageMargin, y);
+        y += lineHeight;
         doc.setFont('helvetica', 'normal');
-        const paymentLines = doc.splitTextToSize(paymentInstructions, 180);
-        doc.text(paymentLines, pageMargin, footerY + 6);
+        doc.text(paymentLines, pageMargin, y);
+        y += paymentLines.length * lineHeight + 5;
     }
 
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Thank you for your business!', pageWidth / 2, pageHeight - 15, { align: 'center' });
+    if (invoice.terms) {
+        const termsLines = splitText(invoice.terms, 170);
+        if (y + (termsLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Syarat & Ketentuan:', pageMargin, y);
+        y += lineHeight;
+        doc.setFont('helvetica', 'normal');
+        doc.text(termsLines, pageMargin, y);
+    }
 
     doc.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
     setIsGeneratingPDF(false);
