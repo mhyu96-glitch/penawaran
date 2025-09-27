@@ -4,13 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, XCircle, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatCurrency } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 type QuoteDetails = {
   id: string;
@@ -42,6 +43,8 @@ const PublicQuoteView = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionTaken, setActionTaken] = useState('');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const quoteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -90,6 +93,48 @@ const PublicQuoteView = () => {
     }
   };
 
+  const handleSaveAsPDF = () => {
+    if (!quoteRef.current || !quote) return;
+    setIsGeneratingPDF(true);
+    const input = quoteRef.current;
+    const originalWidth = input.style.width;
+    input.style.width = '1024px';
+
+    const elementsToHide = input.querySelectorAll('.no-pdf');
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
+
+    html2canvas(input, { scale: 2, useCORS: true })
+      .then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / pdfWidth;
+        const imgHeight = canvasHeight / ratio;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+          position -= pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+        
+        pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
+      })
+      .finally(() => {
+        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+        input.style.width = originalWidth;
+        setIsGeneratingPDF(false);
+      });
+  };
+
   const subtotal = useMemo(() => {
     if (!quote) return 0;
     return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
@@ -109,9 +154,14 @@ const PublicQuoteView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      <Card className="max-w-4xl mx-auto shadow-lg">
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end no-pdf">
+        <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
+          {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
+        </Button>
+      </div>
+      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg">
         {actionTaken === '' && quote.status === 'Terkirim' && (
-            <div className="p-6 bg-blue-50 border-b border-blue-200">
+            <div className="p-6 bg-blue-50 border-b border-blue-200 no-pdf">
                 <h3 className="font-semibold text-lg text-blue-800">Tinjau dan Konfirmasi Penawaran</h3>
                 <p className="text-sm text-blue-700 mt-1">Silakan tinjau detail di bawah ini. Jika Anda setuju dengan persyaratan, klik "Terima Penawaran".</p>
                 <div className="mt-4 flex gap-4">
@@ -125,7 +175,7 @@ const PublicQuoteView = () => {
             </div>
         )}
         {actionTaken && (
-            <Alert variant={actionTaken === 'Diterima' ? 'default' : 'destructive'} className="m-4 border-2">
+            <Alert variant={actionTaken === 'Diterima' ? 'default' : 'destructive'} className="m-4 border-2 no-pdf">
                 <AlertTitle className="font-bold flex items-center gap-2">
                     {actionTaken === 'Diterima' ? <><CheckCircle className="text-green-600"/>Anda Telah Menerima Penawaran Ini</> : <><XCircle className="text-red-600"/>Anda Telah Menolak Penawaran Ini</>}
                 </AlertTitle>
