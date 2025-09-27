@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
@@ -19,6 +19,7 @@ const SharedLayout = () => {
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/quotes", icon: FileText, label: "Penawaran" },
     { to: "/invoices", icon: Receipt, label: "Faktur" },
+    { to: "/projects", icon: FolderKanban, label: "Proyek" },
     { to: "/expenses", icon: Wallet, label: "Pengeluaran" },
     { to: "/clients", icon: Users, label: "Klien" },
     { to: "/items", icon: Package, label: "Barang & Jasa" },
@@ -55,12 +56,9 @@ const SharedLayout = () => {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        <DropdownMenuItem asChild>
-                            <Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link>
-                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 </nav>
@@ -73,68 +71,32 @@ const SharedLayout = () => {
           </div>
           <div className="flex items-center gap-2">
             <nav className="hidden md:flex gap-1">
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/dashboard">Dashboard</Link>
-                </Button>
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/quotes">Penawaran</Link>
-                </Button>
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/invoices">Faktur</Link>
-                </Button>
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/expenses">Pengeluaran</Link>
-                </Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/dashboard">Dashboard</Link></Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/quotes">Penawaran</Link></Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/invoices">Faktur</Link></Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/projects">Proyek</Link></Button>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                            Laporan
-                        </Button>
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Laporan</Button></DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        <DropdownMenuItem asChild>
-                            <Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link>
-                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/clients">Klien</Link>
-                </Button>
-                <Button variant="ghost" asChild size="sm">
-                    <Link to="/items">Barang & Jasa</Link>
-                </Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/clients">Klien</Link></Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/items">Barang & Jasa</Link></Button>
             </nav>
             <ThemeToggle />
             <NotificationBell />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="icon" className="rounded-full">
-                  <CircleUser className="h-5 w-5" />
-                  <span className="sr-only">Toggle user menu</span>
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="secondary" size="icon" className="rounded-full"><CircleUser className="h-5 w-5" /><span className="sr-only">Toggle user menu</span></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Pengaturan</span>
-                  </Link>
-                </DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/profile"><User className="mr-2 h-4 w-4" /><span>Profil</span></Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/settings"><Settings className="mr-2 h-4 w-4" /><span>Pengaturan</span></Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  Keluar
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>Keluar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

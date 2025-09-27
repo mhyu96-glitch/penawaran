@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Project } from './ProjectForm';
 
 export type Expense = {
   id: string;
@@ -28,6 +23,7 @@ export type Expense = {
   category: string | null;
   expense_date: string;
   notes: string | null;
+  project_id: string | null;
 };
 
 interface ExpenseFormProps {
@@ -44,7 +40,18 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave }: ExpenseFormProps) =
   const [category, setCategory] = useState('');
   const [expenseDate, setExpenseDate] = useState<Date | undefined>(new Date());
   const [notes, setNotes] = useState('');
+  const [projectId, setProjectId] = useState<string | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return;
+      const { data } = await supabase.from('projects').select('*').eq('user_id', user.id);
+      if (data) setProjects(data);
+    };
+    if (isOpen) fetchProjects();
+  }, [user, isOpen]);
 
   useEffect(() => {
     if (expense) {
@@ -53,12 +60,14 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave }: ExpenseFormProps) =
       setCategory(expense.category || '');
       setExpenseDate(new Date(expense.expense_date));
       setNotes(expense.notes || '');
+      setProjectId(expense.project_id || undefined);
     } else {
       setDescription('');
       setAmount('');
       setCategory('');
       setExpenseDate(new Date());
       setNotes('');
+      setProjectId(undefined);
     }
   }, [expense, isOpen]);
 
@@ -76,6 +85,7 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave }: ExpenseFormProps) =
       category,
       expense_date: expenseDate.toISOString(),
       notes,
+      project_id: projectId,
     };
 
     let error;
@@ -99,44 +109,18 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave }: ExpenseFormProps) =
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{expense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran Baru'}</DialogTitle>
-          <DialogDescription>
-            Isi detail pengeluaran di bawah ini. Klik simpan jika sudah selesai.
-          </DialogDescription>
+          <DialogDescription>Isi detail pengeluaran di bawah ini. Klik simpan jika sudah selesai.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="description">Deskripsi</Label>
-            <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="amount">Jumlah (IDR)</Label>
-            <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Tanggal Pengeluaran</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !expenseDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {expenseDate ? format(expenseDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="category">Kategori (Opsional)</Label>
-            <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Contoh: Sewa, Alat, Pemasaran" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="notes">Catatan (Opsional)</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+          <div className="space-y-2"><Label htmlFor="description">Deskripsi</Label><Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="amount">Jumlah (IDR)</Label><Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          <div className="space-y-2"><Label>Tanggal Pengeluaran</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !expenseDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{expenseDate ? format(expenseDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent></Popover></div>
+          <div className="space-y-2"><Label htmlFor="category">Kategori (Opsional)</Label><Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Contoh: Sewa, Alat, Pemasaran" /></div>
+          <div className="space-y-2"><Label htmlFor="project">Proyek (Opsional)</Label><Select value={projectId} onValueChange={setProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek terkait" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-2"><Label htmlFor="notes">Catatan (Opsional)</Label><Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-          </Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Menyimpan...' : 'Simpan'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

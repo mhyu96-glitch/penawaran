@@ -28,6 +28,8 @@ import PublicQuoteView from "./pages/PublicQuoteView";
 import PublicInvoiceView from "./pages/PublicInvoiceView";
 import ClientPortal from "./pages/ClientPortal";
 import { ThemeProvider } from "./components/ThemeProvider";
+import ExpenseReport from "./pages/ExpenseReport";
+import ProjectList from "./pages/ProjectList";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,8 @@ const App = () => (
                   <Route path="/expenses" element={<ExpenseList />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/profitability" element={<ProfitabilityReports />} />
+                  <Route path="/reports/expenses" element={<ExpenseReport />} />
+                  <Route path="/projects" element={<ProjectList />} />
                 </Route>
               </Route>
 

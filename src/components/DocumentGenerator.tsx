@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Client } from "@/pages/ClientList";
 import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Project } from "./ProjectForm";
 
 type Item = {
   description: string;
@@ -41,7 +42,9 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const [loading, setLoading] = useState(isEditMode);
   const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
   const [fromCompany, setFromCompany] = useState("");
   const [fromAddress, setFromAddress] = useState("");
   const [fromWebsite, setFromWebsite] = useState("");
@@ -92,12 +95,14 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   }[docType]), [docType]);
 
   useEffect(() => {
-    const fetchClients = async () => {
+    const fetchData = async () => {
       if (!user) return;
-      const { data } = await supabase.from('clients').select('*').eq('user_id', user.id);
-      if (data) setClients(data);
+      const { data: clientData } = await supabase.from('clients').select('*').eq('user_id', user.id);
+      if (clientData) setClients(clientData);
+      const { data: projectData } = await supabase.from('projects').select('*').eq('user_id', user.id);
+      if (projectData) setProjects(projectData);
     };
-    fetchClients();
+    fetchData();
   }, [user]);
 
   useEffect(() => {
@@ -156,6 +161,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setExpiryDate(data[config.fields[2]] ? parseISO(data[config.fields[2]]) : undefined);
       setStatus(data.status || "Draf");
       setSelectedClientId(data.client_id);
+      setSelectedProjectId(data.project_id || undefined);
       if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
       
       const itemsWithDefaults = data[config.itemTable].map((item: any) => ({ ...item, unit: item.unit || '', cost_price: item.cost_price || 0 }));
@@ -229,7 +235,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
-      client_id: selectedClientId,
+      client_id: selectedClientId, project_id: selectedProjectId,
     };
     docPayload[config.fields[0]] = docNumber;
     docPayload[config.fields[1]] = docDate?.toISOString();
@@ -289,12 +295,15 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <div className="space-y-4"><h3 className="font-semibold">Untuk:</h3><Select onValueChange={handleClientSelect} value={selectedClientId || undefined}><SelectTrigger><SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" /></SelectTrigger><SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent></Select><Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} /><Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} /><Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} /></div>
           </div>
           <Separator />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+          </div>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2"><Label>{config.numberLabel}</Label><Input value={docNumber} onChange={e => setDocNumber(e.target.value)} /></div>
             <div className="space-y-2"><Label>{config.dateLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !docDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{docDate ? format(docDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={docDate} onSelect={setDocDate} initialFocus /></PopoverContent></Popover></div>
             <div className="space-y-2"><Label>{config.expiryLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !expiryDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{expiryDate ? format(expiryDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent></Popover></div>
           </div>
-          <div className="space-y-2 md:w-1/3"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
           <Separator />
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
