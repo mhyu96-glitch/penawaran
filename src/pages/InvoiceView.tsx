@@ -48,6 +48,7 @@ type InvoiceDetails = {
   due_date: string;
   discount_amount: number;
   tax_amount: number;
+  down_payment_amount: number;
   terms: string;
   status: string;
   invoice_items: {
@@ -236,6 +237,9 @@ const InvoiceView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
+              {invoice.down_payment_amount > 0 && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>

@@ -55,6 +55,7 @@ const InvoiceGenerator = () => {
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
+  const [downPaymentAmount, setDownPaymentAmount] = useState(0);
   const [terms, setTerms] = useState("");
   const [status, setStatus] = useState("Draf");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,6 +131,7 @@ const InvoiceGenerator = () => {
 
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
+      setDownPaymentAmount(data.down_payment_amount || 0);
       setTerms(data.terms || "");
       setLoading(false);
     };
@@ -192,6 +194,7 @@ const InvoiceGenerator = () => {
       to_client: toClient, to_address: toAddress, to_phone: toPhone, invoice_number: invoiceNumber,
       invoice_date: invoiceDate?.toISOString(), due_date: dueDate?.toISOString(),
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
+      down_payment_amount: downPaymentAmount,
       client_id: selectedClientId,
     };
 
@@ -371,6 +374,10 @@ const InvoiceGenerator = () => {
               <div className="flex justify-between text-xl font-bold">
                 <span>Total</span>
                 <span>{total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Uang Muka (DP) (Rp)</span>
+                <Input type="number" className="w-32 text-right" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} />
               </div>
             </div>
           </div>
