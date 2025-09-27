@@ -113,6 +113,9 @@ const InvoiceView = () => {
     setIsGeneratingPDF(true);
 
     const input = invoiceRef.current;
+    const originalWidth = input.style.width;
+    input.style.width = '1024px'; // Force width for consistent PDF rendering
+
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
@@ -150,6 +153,7 @@ const InvoiceView = () => {
       })
       .finally(() => {
         elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+        input.style.width = originalWidth; // Restore original width
         setIsGeneratingPDF(false);
       });
   };
