@@ -149,7 +149,7 @@ const QuoteView = () => {
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    html2canvas(input, { scale: 2, useCORS: true, windowWidth: input.scrollWidth, windowHeight: input.scrollHeight })
+    html2canvas(input, { scale: 2, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
