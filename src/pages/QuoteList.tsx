@@ -25,6 +25,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +65,20 @@ const QuoteList = () => {
   useEffect(() => {
     fetchQuotes();
   }, [user]);
+
+  const handleStatusChange = async (quoteId: string, status: string) => {
+    const { error } = await supabase
+      .from('quotes')
+      .update({ status })
+      .eq('id', quoteId);
+
+    if (error) {
+      showError('Gagal memperbarui status.');
+    } else {
+      showSuccess('Status berhasil diperbarui.');
+      setQuotes(quotes.map(q => q.id === quoteId ? { ...q, status } : q));
+    }
+  };
 
   const handleDeleteQuote = async (quoteId: string) => {
     const { error } = await supabase.from('quotes').delete().match({ id: quoteId });
@@ -135,6 +151,27 @@ const QuoteList = () => {
     }
   };
 
+  const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
+
+  const renderStatusDropdown = (quote: Quote) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="p-0 h-auto">
+          <Badge variant={getStatusVariant(quote.status)} className="cursor-pointer">{quote.status || 'Draf'}</Badge>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {quoteStatuses.map(status => (
+          <DropdownMenuItem key={status} onClick={() => handleStatusChange(quote.id, status)}>
+            {status}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const renderActions = (quote: Quote) => (
     <>
       <DropdownMenuItem asChild><Link to={`/quote/${quote.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
@@ -197,9 +234,7 @@ const QuoteList = () => {
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                         <TableCell>{quote.to_client}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusVariant(quote.status)}>{quote.status || 'Draf'}</Badge>
-                        </TableCell>
+                        <TableCell>{renderStatusDropdown(quote)}</TableCell>
                         <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link></Button>
@@ -241,7 +276,7 @@ const QuoteList = () => {
                       </div>
                     </CardHeader>
                     <CardFooter className="flex justify-between text-sm">
-                      <Badge variant={getStatusVariant(quote.status)}>{quote.status || 'Draf'}</Badge>
+                      {renderStatusDropdown(quote)}
                       <span className="text-muted-foreground">{format(new Date(quote.created_at), 'dd MMM yyyy')}</span>
                     </CardFooter>
                   </Card>

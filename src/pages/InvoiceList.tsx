@@ -25,6 +25,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +67,20 @@ const InvoiceList = () => {
     fetchInvoices();
   }, [user]);
 
+  const handleStatusChange = async (invoiceId: string, status: string) => {
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status })
+      .eq('id', invoiceId);
+
+    if (error) {
+      showError('Gagal memperbarui status faktur.');
+    } else {
+      showSuccess('Status faktur berhasil diperbarui.');
+      setInvoices(invoices.map(i => i.id === invoiceId ? { ...i, status } : i));
+    }
+  };
+
   const handleDeleteInvoice = async (invoiceId: string) => {
     const { error } = await supabase.from('invoices').delete().match({ id: invoiceId });
 
@@ -85,6 +101,27 @@ const InvoiceList = () => {
       default: return 'outline';
     }
   };
+
+  const invoiceStatuses = ['Draf', 'Terkirim', 'Lunas', 'Jatuh Tempo'];
+
+  const renderStatusDropdown = (invoice: Invoice) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="p-0 h-auto">
+          <Badge variant={getStatusVariant(invoice.status)} className="cursor-pointer">{invoice.status || 'Draf'}</Badge>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {invoiceStatuses.map(status => (
+          <DropdownMenuItem key={status} onClick={() => handleStatusChange(invoice.id, status)}>
+            {status}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const renderActions = (invoice: Invoice) => (
     <>
@@ -144,7 +181,7 @@ const InvoiceList = () => {
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">{invoice.invoice_number || 'N/A'}</TableCell>
                         <TableCell>{invoice.to_client}</TableCell>
-                        <TableCell><Badge variant={getStatusVariant(invoice.status)}>{invoice.status || 'Draf'}</Badge></TableCell>
+                        <TableCell>{renderStatusDropdown(invoice)}</TableCell>
                         <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
@@ -185,7 +222,7 @@ const InvoiceList = () => {
                       </div>
                     </CardHeader>
                     <CardFooter className="flex justify-between text-sm">
-                      <Badge variant={getStatusVariant(invoice.status)}>{invoice.status || 'Draf'}</Badge>
+                      {renderStatusDropdown(invoice)}
                       <span className="text-muted-foreground">Jatuh Tempo: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : 'N/A'}</span>
                     </CardFooter>
                   </Card>
