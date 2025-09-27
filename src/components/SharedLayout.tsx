@@ -140,7 +140,7 @@ const SharedLayout = () => {
           </div>
         </div>
       </header>
-      <main className="flex-1 bg-muted/40">
+      <main className="flex-1">
         <Outlet />
       </main>
     </div>
