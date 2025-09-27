@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,20 +21,40 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
 
+type PaymentForForm = {
+  id: string;
+  amount: number;
+  payment_date: string;
+  notes: string | null;
+};
+
 interface PaymentFormProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   invoiceId: string;
   invoiceTotal: number;
+  payment: PaymentForForm | null;
   onSave: () => void;
 }
 
-const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: PaymentFormProps) => {
+const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSave }: PaymentFormProps) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (payment && isOpen) {
+      setAmount(String(payment.amount));
+      setPaymentDate(new Date(payment.payment_date));
+      setNotes(payment.notes || '');
+    } else {
+      setAmount('');
+      setPaymentDate(new Date());
+      setNotes('');
+    }
+  }, [payment, isOpen]);
 
   const handleSubmit = async () => {
     if (!user || !amount || !paymentDate) {
@@ -44,15 +64,24 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: Pay
     setIsSubmitting(true);
 
     const paymentPayload = {
-      invoice_id: invoiceId,
-      user_id: user.id,
       amount: parseFloat(amount),
       payment_date: paymentDate.toISOString(),
       notes,
-      status: 'Lunas', // Pembayaran yang dicatat manual oleh admin langsung dianggap lunas
     };
 
-    const { error } = await supabase.from('payments').insert(paymentPayload);
+    let error;
+
+    if (payment) {
+      ({ error } = await supabase.from('payments').update(paymentPayload).match({ id: payment.id }));
+    } else {
+      const insertPayload = {
+        ...paymentPayload,
+        invoice_id: invoiceId,
+        user_id: user.id,
+        status: 'Lunas',
+      };
+      ({ error } = await supabase.from('payments').insert(insertPayload));
+    }
 
     if (error) {
       showError(`Gagal menyimpan pembayaran: ${error.message}`);
@@ -64,11 +93,8 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: Pay
         await supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoiceId);
       }
       
-      showSuccess('Pembayaran berhasil dicatat!');
+      showSuccess(`Pembayaran berhasil ${payment ? 'diperbarui' : 'dicatat'}!`);
       onSave();
-      setAmount('');
-      setNotes('');
-      setPaymentDate(new Date());
     }
     setIsSubmitting(false);
   };
@@ -77,9 +103,9 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: Pay
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Catat Pembayaran</DialogTitle>
+          <DialogTitle>{payment ? 'Edit Pembayaran' : 'Catat Pembayaran'}</DialogTitle>
           <DialogDescription>
-            Masukkan detail pembayaran yang diterima untuk faktur ini.
+            {payment ? 'Perbarui detail pembayaran di bawah ini.' : 'Masukkan detail pembayaran yang diterima untuk faktur ini.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
