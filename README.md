@@ -36,16 +36,7 @@ Untuk menjalankan proyek ini di lingkungan pengembangan Anda, ikuti langkah-lang
     npm install
     ```
 
-3.  **Siapkan Environment Variables**
-    - Buat salinan dari file `.env.example` dan beri nama `.env`.
-    - Buka file `.env` yang baru dibuat dan isi dengan kredensial proyek Supabase Anda. Anda bisa menemukannya di dasbor proyek Supabase Anda di bawah "Project Settings" > "API".
-
-      ```env
-      VITE_SUPABASE_URL="URL_PROYEK_SUPABASE_ANDA"
-      VITE_SUPABASE_ANON_KEY="KUNCI_ANON_SUPABASE_ANDA"
-      ```
-
-4.  **Jalankan Aplikasi**
+3.  **Jalankan Aplikasi**
     ```bash
     npm run dev
     ```
