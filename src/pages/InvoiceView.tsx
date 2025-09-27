@@ -164,6 +164,16 @@ const InvoiceView = () => {
     }
   };
 
+  const handleDeletePayment = async (paymentId: string) => {
+    const { error } = await supabase.from('payments').delete().match({ id: paymentId });
+    if (error) {
+      showError('Gagal menghapus pembayaran.');
+    } else {
+      showSuccess('Pembayaran berhasil dihapus.');
+      fetchInvoiceData();
+    }
+  };
+
   const handleShareLink = () => {
     const link = `${window.location.origin}/invoice/public/${id}`;
     navigator.clipboard.writeText(link);
@@ -284,7 +294,7 @@ const InvoiceView = () => {
             </div>
           </div>
           {profile?.payment_instructions ? (<Alert className="no-pdf"><Landmark className="h-4 w-4" /><AlertTitle>Instruksi Pembayaran</AlertTitle><AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription></Alert>) : (<div className="print:hidden no-pdf"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>)}
-          {payments.length > 0 && (<Card className="print:hidden no-pdf"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4" /></Button>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
+          {payments.length > 0 && (<Card className="print:hidden no-pdf"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
           {invoice.terms && (<Alert variant="default" className="bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
         </CardContent>
       </Card>
