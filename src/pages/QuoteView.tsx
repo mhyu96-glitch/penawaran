@@ -145,20 +145,36 @@ const QuoteView = () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
 
-    const elementsToHide = quoteRef.current.querySelectorAll('.no-pdf');
+    const input = quoteRef.current;
+    const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    html2canvas(quoteRef.current, { scale: 2, useCORS: true })
+    html2canvas(input, { scale: 2, useCORS: true, windowWidth: input.scrollWidth, windowHeight: input.scrollHeight })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdfWidth = 595; // A4 width in points
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'pt',
-          format: [pdfWidth, pdfHeight]
-        });
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        
+        const ratio = canvasWidth / pdfWidth;
+        const imgHeight = canvasHeight / ratio;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+          position -= pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+        
         pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
       })
       .catch(err => {
