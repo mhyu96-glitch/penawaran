@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info } from 'lucide-react';
 import { format } from 'date-fns';
@@ -67,6 +67,10 @@ type ProfileInfo = {
     company_logo_url: string | null;
     brand_color: string | null;
     payment_instructions: string | null;
+    custom_footer: string | null;
+    show_quantity_column: boolean;
+    show_unit_column: boolean;
+    show_unit_price_column: boolean;
 };
 
 const InvoiceView = () => {
@@ -94,7 +98,7 @@ const InvoiceView = () => {
     setInvoice(invoiceData);
 
     if (invoiceData.user_id) {
-        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions').eq('id', invoiceData.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', invoiceData.user_id).single();
         setProfile(profileData);
     }
 
@@ -275,8 +279,8 @@ const InvoiceView = () => {
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
-              <tbody>{invoice.invoice_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td><td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td><td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
+              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
+              <tbody>{invoice.invoice_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
@@ -301,6 +305,11 @@ const InvoiceView = () => {
           {payments.length > 0 && (<Card className="print:hidden no-pdf"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
           {invoice.terms && (<Alert variant="default" className="bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
         </CardContent>
+        {profile?.custom_footer && (
+            <CardFooter className="p-8 pt-4 border-t">
+                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
+            </CardFooter>
+        )}
       </Card>
       <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>

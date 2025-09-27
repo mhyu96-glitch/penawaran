@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -55,6 +55,10 @@ type QuoteDetails = {
 type ProfileInfo = {
     company_logo_url: string | null;
     brand_color: string | null;
+    custom_footer: string | null;
+    show_quantity_column: boolean;
+    show_unit_column: boolean;
+    show_unit_price_column: boolean;
 };
 
 const QuoteView = () => {
@@ -83,7 +87,7 @@ const QuoteView = () => {
         navigate('/quotes');
       } else {
         setQuote(data as QuoteDetails);
-        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color').eq('id', data.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', data.user_id).single();
         setProfile(profileData);
       }
       setLoading(false);
@@ -285,8 +289,8 @@ const QuoteView = () => {
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
-              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td><td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td><td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
+              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
+              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
@@ -305,6 +309,11 @@ const QuoteView = () => {
           </div>
           {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
         </CardContent>
+        {profile?.custom_footer && (
+            <CardFooter className="p-8 pt-4 border-t">
+                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
+            </CardFooter>
+        )}
       </Card>
       <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>

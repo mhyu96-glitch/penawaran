@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('payment_instructions')
+      .select('payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column')
       .eq('id', invoice.user_id)
       .single()
 
@@ -50,7 +50,11 @@ Deno.serve(async (req) => {
 
     const responsePayload = {
         ...invoice,
-        payment_instructions: profile?.payment_instructions || 'Instruksi pembayaran belum diatur oleh penyedia jasa.'
+        payment_instructions: profile?.payment_instructions || 'Instruksi pembayaran belum diatur oleh penyedia jasa.',
+        custom_footer: profile?.custom_footer || null,
+        show_quantity_column: profile?.show_quantity_column ?? true,
+        show_unit_column: profile?.show_unit_column ?? true,
+        show_unit_price_column: profile?.show_unit_price_column ?? true,
     }
 
     return new Response(JSON.stringify(responsePayload), {

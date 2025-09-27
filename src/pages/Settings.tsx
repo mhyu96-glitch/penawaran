@@ -10,16 +10,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 
 const Settings = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Existing states
   const [defaultTerms, setDefaultTerms] = useState('');
   const [defaultTaxAmount, setDefaultTaxAmount] = useState(0);
   const [defaultDiscountAmount, setDefaultDiscountAmount] = useState(0);
   const [paymentInstructions, setPaymentInstructions] = useState('');
+
+  // New states for document customization
+  const [customFooter, setCustomFooter] = useState('');
+  const [showQuantity, setShowQuantity] = useState(true);
+  const [showUnit, setShowUnit] = useState(true);
+  const [showUnitPrice, setShowUnitPrice] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -27,7 +35,7 @@ const Settings = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('default_terms, default_tax_amount, default_discount_amount, payment_instructions')
+        .select('default_terms, default_tax_amount, default_discount_amount, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column')
         .eq('id', user.id)
         .single();
 
@@ -39,6 +47,10 @@ const Settings = () => {
         setDefaultTaxAmount(data.default_tax_amount || 0);
         setDefaultDiscountAmount(data.default_discount_amount || 0);
         setPaymentInstructions(data.payment_instructions || '');
+        setCustomFooter(data.custom_footer || '');
+        setShowQuantity(data.show_quantity_column ?? true);
+        setShowUnit(data.show_unit_column ?? true);
+        setShowUnitPrice(data.show_unit_price_column ?? true);
       }
       setLoading(false);
     };
@@ -58,6 +70,10 @@ const Settings = () => {
         default_tax_amount: defaultTaxAmount,
         default_discount_amount: defaultDiscountAmount,
         payment_instructions: paymentInstructions,
+        custom_footer: customFooter,
+        show_quantity_column: showQuantity,
+        show_unit_column: showUnit,
+        show_unit_price_column: showUnitPrice,
       })
       .eq('id', user.id);
 
@@ -152,6 +168,31 @@ const Settings = () => {
                     <p className="text-sm text-muted-foreground">
                         Informasi ini akan ditampilkan kepada klien ketika mereka mengklik tombol "Bayar Sekarang" di portal faktur.
                     </p>
+                </div>
+            </div>
+            <Separator />
+            <div>
+                <h3 className="text-lg font-medium">Kustomisasi Dokumen</h3>
+                <div className="space-y-4 mt-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="customFooter">Catatan Kaki (Footer) Kustom</Label>
+                        <Textarea
+                            id="customFooter"
+                            placeholder="Contoh: Terima kasih atas kepercayaan Anda."
+                            value={customFooter}
+                            onChange={(e) => setCustomFooter(e.target.value)}
+                            rows={3}
+                        />
+                        <p className="text-sm text-muted-foreground">Teks ini akan muncul di bagian bawah setiap penawaran dan faktur.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Tampilkan Kolom Tabel</Label>
+                        <div className="space-y-2 rounded-md border p-4">
+                            <div className="flex items-center justify-between"><Label htmlFor="show-qty">Kolom "Jumlah"</Label><Switch id="show-qty" checked={showQuantity} onCheckedChange={setShowQuantity} /></div>
+                            <div className="flex items-center justify-between"><Label htmlFor="show-unit">Kolom "Satuan"</Label><Switch id="show-unit" checked={showUnit} onCheckedChange={setShowUnit} /></div>
+                            <div className="flex items-center justify-between"><Label htmlFor="show-price">Kolom "Harga Satuan"</Label><Switch id="show-price" checked={showUnitPrice} onCheckedChange={setShowUnitPrice} /></div>
+                        </div>
+                    </div>
                 </div>
             </div>
           </CardContent>

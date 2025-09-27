@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Landmark } from 'lucide-react';
 import { format } from 'date-fns';
@@ -34,6 +34,10 @@ type InvoiceDetails = {
     unit_price: number;
   }[];
   payment_instructions: string;
+  custom_footer: string | null;
+  show_quantity_column: boolean;
+  show_unit_column: boolean;
+  show_unit_price_column: boolean;
 };
 
 const PublicInvoiceView = () => {
@@ -126,9 +130,9 @@ const PublicInvoiceView = () => {
                 <tr className="border-b">
                   <th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th>
                   <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>
+                  {invoice.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}
+                  {invoice.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}
+                  {invoice.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}
                   <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
                 </tr>
               </thead>
@@ -136,8 +140,10 @@ const PublicInvoiceView = () => {
                 {invoice.invoice_items.map((item, index) => (
                   <tr key={index} className="border-b last:border-none">
                     <td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>
-                    <td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td>
-                    <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
+                    {invoice.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}
+                    {invoice.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
+                    {invoice.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
+                    <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -167,6 +173,11 @@ const PublicInvoiceView = () => {
             </div>
           )}
         </CardContent>
+        {invoice.custom_footer && (
+            <CardFooter className="p-8 pt-4 border-t">
+                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{invoice.custom_footer}</p>
+            </CardFooter>
+        )}
       </Card>
     </div>
   );
