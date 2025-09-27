@@ -5,6 +5,7 @@ import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receip
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 
 const SharedLayout = () => {
   const navigate = useNavigate();
@@ -106,6 +107,7 @@ const SharedLayout = () => {
                     <Link to="/items">Barang & Jasa</Link>
                 </Button>
             </nav>
+            <ThemeToggle />
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
