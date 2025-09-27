@@ -49,6 +49,7 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: Pay
       amount: parseFloat(amount),
       payment_date: paymentDate.toISOString(),
       notes,
+      status: 'Lunas', // Pembayaran yang dicatat manual oleh admin langsung dianggap lunas
     };
 
     const { error } = await supabase.from('payments').insert(paymentPayload);
@@ -56,7 +57,7 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, onSave }: Pay
     if (error) {
       showError(`Gagal menyimpan pembayaran: ${error.message}`);
     } else {
-      const { data: payments } = await supabase.from('payments').select('amount').eq('invoice_id', invoiceId);
+      const { data: payments } = await supabase.from('payments').select('amount').eq('invoice_id', invoiceId).eq('status', 'Lunas');
       const totalPaid = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
       if (totalPaid >= invoiceTotal) {

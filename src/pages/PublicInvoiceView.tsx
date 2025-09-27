@@ -8,15 +8,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import PaymentSubmissionDialog from '@/components/PaymentSubmissionDialog';
 
 type InvoiceDetails = {
   id: string;
@@ -46,6 +38,7 @@ const PublicInvoiceView = () => {
   const { id } = useParams<{ id: string }>();
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -95,6 +88,7 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+      {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={total} />}
       <Card className="max-w-4xl mx-auto shadow-lg">
         <CardHeader className="bg-gray-50 p-8">
           <div className="flex justify-between items-start">
@@ -148,18 +142,7 @@ const PublicInvoiceView = () => {
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="w-full md:w-auto">
                 {invoice.status !== 'Lunas' && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button size="lg"><Landmark className="mr-2 h-4 w-4" /> Bayar Sekarang</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Instruksi Pembayaran</AlertDialogTitle>
-                                <AlertDialogDescription className="whitespace-pre-wrap pt-4">{invoice.payment_instructions}</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogAction>Mengerti</AlertDialogAction>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <Button size="lg" onClick={() => setIsPaymentDialogOpen(true)}><Landmark className="mr-2 h-4 w-4" /> Konfirmasi Pembayaran</Button>
                 )}
             </div>
             <div className="w-full max-w-xs space-y-2 self-end">

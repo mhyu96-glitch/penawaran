@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2 } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -31,6 +31,8 @@ type Payment = {
     amount: number;
     payment_date: string;
     notes: string;
+    proof_url: string | null;
+    status: string;
 };
 
 type InvoiceDetails = {
@@ -117,12 +119,28 @@ const InvoiceView = () => {
     showSuccess('Tautan publik faktur telah disalin!');
   };
 
+  const handlePaymentStatusUpdate = async (paymentId: string, newStatus: 'Lunas' | 'Ditolak') => {
+    const { error } = await supabase.from('payments').update({ status: newStatus }).eq('id', paymentId);
+    if (error) {
+        showError(`Gagal ${newStatus === 'Lunas' ? 'mengonfirmasi' : 'menolak'} pembayaran.`);
+    } else {
+        showSuccess(`Pembayaran berhasil ${newStatus === 'Lunas' ? 'dikonfirmasi' : 'ditolak'}.`);
+        fetchInvoiceData(); // Refresh data
+    }
+  };
+
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
-  const totalPaid = useMemo(() => payments.reduce((acc, p) => acc + p.amount, 0), [payments]);
+  const totalPaid = useMemo(() => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0), [payments]);
   const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+
+  useEffect(() => {
+    if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas') {
+        supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoice.id).then(() => fetchInvoiceData());
+    }
+  }, [balanceDue, invoice]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -130,6 +148,8 @@ const InvoiceView = () => {
       case 'Terkirim': return 'secondary';
       case 'Jatuh Tempo': return 'destructive';
       case 'Draf': return 'outline';
+      case 'Pending': return 'secondary';
+      case 'Ditolak': return 'destructive';
       default: return 'outline';
     }
   };
@@ -225,9 +245,24 @@ const InvoiceView = () => {
             <div className="print:hidden">
                 <h3 className="font-semibold text-gray-500 mb-2">Riwayat Pembayaran:</h3>
                 <Table>
-                    <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Catatan</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell>{p.notes}</TableCell></TableRow>))}
+                        {payments.map(p => (<TableRow key={p.id}>
+                            <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
+                            <TableCell>{formatCurrency(p.amount)}</TableCell>
+                            <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
+                            <TableCell>
+                                {p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                                {p.status === 'Pending' && (
+                                    <>
+                                        <Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button>
+                                    </>
+                                )}
+                            </TableCell>
+                        </TableRow>))}
                     </TableBody>
                 </Table>
             </div>
