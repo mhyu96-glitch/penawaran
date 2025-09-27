@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { formatCurrency } from '@/lib/utils';
 
 type Payment = {
     id: string;
@@ -184,8 +185,6 @@ const InvoiceView = () => {
 
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return null;
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">

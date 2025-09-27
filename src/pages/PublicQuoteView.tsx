@@ -10,6 +10,7 @@ import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { formatCurrency } from '@/lib/utils';
 
 type QuoteDetails = {
   id: string;
@@ -105,8 +106,6 @@ const PublicQuoteView = () => {
   if (!quote) {
     return <div className="container mx-auto p-8 text-center"><h1>Penawaran tidak ditemukan atau tidak valid.</h1></div>;
   }
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">

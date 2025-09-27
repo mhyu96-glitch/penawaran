@@ -12,6 +12,7 @@ import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { showError, showSuccess } from '@/utils/toast';
+import { formatCurrency } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -173,7 +174,7 @@ const ClientDetail = () => {
                 <CardContent className="space-y-2">
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Total Pendapatan</span>
-                        <span className="font-bold flex items-center gap-1"><DollarSign className="h-4 w-4 text-green-500" /> {financials.totalRevenue.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
+                        <span className="font-bold flex items-center gap-1"><DollarSign className="h-4 w-4 text-green-500" /> {formatCurrency(financials.totalRevenue)}</span>
                     </div>
                 </CardContent>
             </Card>

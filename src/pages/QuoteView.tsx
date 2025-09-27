@@ -24,6 +24,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
+import { formatCurrency } from '@/lib/utils';
 
 type QuoteDetails = {
   id: string;
@@ -224,8 +225,6 @@ const QuoteView = () => {
   if (!quote) {
     return null;
   }
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">

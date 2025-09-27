@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, Bell, TrendingUp, Users } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -13,7 +13,8 @@ import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 type Quote = {
   id: string;
@@ -57,15 +58,6 @@ const Dashboard = () => {
     to: new Date(),
   });
 
-  const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -80,14 +72,10 @@ const Dashboard = () => {
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
 
       if (fromDate) {
-        quoteQuery.gte('created_at', fromDate);
-        invoiceQuery.gte('created_at', fromDate);
         expenseQuery.gte('expense_date', fromDate);
         paymentQuery.gte('payment_date', fromDate);
       }
       if (toDate) {
-        quoteQuery.lt('created_at', toDate);
-        invoiceQuery.lt('created_at', toDate);
         expenseQuery.lt('expense_date', toDate);
         paymentQuery.lt('payment_date', toDate);
       }
@@ -176,9 +164,8 @@ const Dashboard = () => {
     return Object.values(clientProfit).sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
   }, [quotes]);
 
-  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim'), [quotes]);
-  const upcomingInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && !isPast(new Date(inv.due_date)) && differenceInDays(new Date(inv.due_date), new Date()) <= 7).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()), [invoices]);
-  const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()), [invoices]);
+  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
+  const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
 
   if (loading) {
     return (
@@ -234,6 +221,30 @@ const Dashboard = () => {
                         </TableBody>
                     </Table>
                 ) : <p className="text-sm text-muted-foreground text-center py-4">Belum ada data keuntungan.</p>}
+            </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+            <CardHeader><CardTitle>Faktur Jatuh Tempo</CardTitle><CardDescription>Faktur yang telah melewati tanggal jatuh tempo.</CardDescription></CardHeader>
+            <CardContent>
+                {overdueInvoices.length > 0 ? (
+                    <Table>
+                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Terlambat</TableHead></TableRow></TableHeader>
+                        <TableBody>{overdueInvoices.map(inv => (<TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="font-medium hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right"><Badge variant="destructive">{differenceInDays(new Date(), new Date(inv.due_date))} hari</Badge></TableCell></TableRow>))}</TableBody>
+                    </Table>
+                ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada faktur jatuh tempo.</p>}
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader><CardTitle>Penawaran Tertunda</CardTitle><CardDescription>Penawaran yang menunggu respons klien.</CardDescription></CardHeader>
+            <CardContent>
+                {pendingQuotes.length > 0 ? (
+                    <Table>
+                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Dikirim</TableHead></TableRow></TableHeader>
+                        <TableBody>{pendingQuotes.map(q => (<TableRow key={q.id}><TableCell><Link to={`/quote/${q.id}`} className="font-medium hover:underline">{q.to_client}</Link></TableCell><TableCell className="text-right">{format(new Date(q.created_at), 'PPP', { locale: localeId })}</TableCell></TableRow>))}</TableBody>
+                    </Table>
+                ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada penawaran yang tertunda.</p>}
             </CardContent>
         </Card>
       </div>

@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, UploadCloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0";
@@ -84,7 +84,7 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
         <DialogHeader>
           <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
           <DialogDescription>
-            Total tagihan: {totalDue.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}.
+            Total tagihan: {formatCurrency(totalDue)}.
             Isi detail dan unggah bukti pembayaran.
           </DialogDescription>
         </DialogHeader>

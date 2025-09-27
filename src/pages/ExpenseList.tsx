@@ -21,6 +21,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import ExpenseForm, { Expense } from '@/components/ExpenseForm';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { formatCurrency } from '@/lib/utils';
 
 const ExpenseList = () => {
   const { user } = useAuth();
@@ -69,8 +70,6 @@ const ExpenseList = () => {
     setIsFormOpen(false);
     fetchExpenses();
   };
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="container mx-auto p-4 md:p-8">

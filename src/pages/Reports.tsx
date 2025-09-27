@@ -11,7 +11,7 @@ import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Payment = {
   amount: number;
@@ -78,8 +78,6 @@ const Reports = () => {
       netProfit: revenue - expense,
     };
   }, [payments, expenses]);
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   if (loading) {
     return (

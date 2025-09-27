@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import ItemForm from '@/components/ItemForm';
+import { formatCurrency } from '@/lib/utils';
 
 export type Item = {
   id: string;
@@ -78,8 +79,6 @@ const ItemList = () => {
     fetchItems();
   };
   
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
-
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>

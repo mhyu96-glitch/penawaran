@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TrendingUp, Users, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils';
 
 type AcceptedQuote = {
   id: string;
@@ -82,8 +83,6 @@ const ProfitabilityReports = () => {
 
     return { clients: sortedClients, items: sortedItems };
   }, [acceptedQuotes]);
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   if (loading) {
     return (

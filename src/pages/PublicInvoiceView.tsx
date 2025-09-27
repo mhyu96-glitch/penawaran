@@ -9,6 +9,7 @@ import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import PaymentSubmissionDialog from '@/components/PaymentSubmissionDialog';
+import { formatCurrency } from '@/lib/utils';
 
 type InvoiceDetails = {
   id: string;
@@ -84,8 +85,6 @@ const PublicInvoiceView = () => {
 
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return <div className="container mx-auto p-8 text-center"><h1>Faktur tidak ditemukan atau tidak valid.</h1></div>;
-
-  const formatCurrency = (amount: number) => amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
