@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
 
@@ -217,7 +217,7 @@ const QuoteView = () => {
         formatCurrency(item.quantity * item.unit_price)
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: y,
@@ -229,7 +229,7 @@ const QuoteView = () => {
         }
     });
 
-    y = (doc as any).autoTable.previous.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 10;
 
     // Totals
     const totalsX = 145;
