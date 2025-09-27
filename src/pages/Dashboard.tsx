@@ -122,6 +122,7 @@ const Dashboard = () => {
   }, [quotes]);
 
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim'), [quotes]);
+  
   const upcomingInvoices = useMemo(() => {
     const today = new Date();
     const next7Days = addDays(today, 7);
@@ -131,11 +132,16 @@ const Dashboard = () => {
         const dueDate = new Date(inv.due_date);
         return !isPast(dueDate) && dueDate <= next7Days;
       })
-      .map(inv => {
-        const subtotal = inv.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-        const total = subtotal - (inv.discount_amount || 0) + (inv.tax_amount || 0);
-        return { ...inv, total };
-      });
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  }, [invoices]);
+
+  const overdueInvoices = useMemo(() => {
+    return invoices
+      .filter(inv => {
+        if (inv.status === 'Lunas' || !inv.due_date) return false;
+        return isPast(new Date(inv.due_date));
+      })
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
   }, [invoices]);
 
   if (loading) {
@@ -221,6 +227,30 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div>
+                    <h3 className="text-sm font-medium mb-2 text-red-600">Faktur Jatuh Tempo ({overdueInvoices.length})</h3>
+                    {overdueInvoices.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {overdueInvoices.slice(0, 3).map(inv => (
+                                    <TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right text-xs text-red-500">Terlambat {differenceInDays(new Date(), new Date(inv.due_date))} hari</TableCell></TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : <p className="text-sm text-muted-foreground text-center py-2">Tidak ada faktur yang jatuh tempo.</p>}
+                </div>
+                <div>
+                    <h3 className="text-sm font-medium mb-2 text-orange-600">Faktur Mendekati Jatuh Tempo ({upcomingInvoices.length})</h3>
+                    {upcomingInvoices.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {upcomingInvoices.slice(0, 3).map(inv => (
+                                    <TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right text-xs text-orange-500">Jatuh tempo dalam {differenceInDays(new Date(inv.due_date), new Date())} hari</TableCell></TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : <p className="text-sm text-muted-foreground text-center py-2">Tidak ada faktur yang akan jatuh tempo.</p>}
+                </div>
+                <div>
                     <h3 className="text-sm font-medium mb-2">Penawaran Menunggu Keputusan ({pendingQuotes.length})</h3>
                     {pendingQuotes.length > 0 ? (
                         <Table>
@@ -230,19 +260,7 @@ const Dashboard = () => {
                                 ))}
                             </TableBody>
                         </Table>
-                    ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada penawaran yang menunggu.</p>}
-                </div>
-                <div>
-                    <h3 className="text-sm font-medium mb-2">Faktur Mendekati Jatuh Tempo ({upcomingInvoices.length})</h3>
-                    {upcomingInvoices.length > 0 ? (
-                        <Table>
-                            <TableBody>
-                                {upcomingInvoices.slice(0, 3).map(inv => (
-                                    <TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right text-xs text-muted-foreground">Jatuh tempo dalam {differenceInDays(new Date(inv.due_date), new Date())} hari</TableCell></TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada faktur yang akan jatuh tempo.</p>}
+                    ) : <p className="text-sm text-muted-foreground text-center py-2">Tidak ada penawaran yang menunggu.</p>}
                 </div>
             </CardContent>
         </Card>
