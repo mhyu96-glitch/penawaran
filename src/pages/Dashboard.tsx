@@ -72,7 +72,7 @@ const Dashboard = () => {
         expenseQuery.lt('expense_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes] = await Promise.all([quoteQuery, invoiceQuery, expenseRes]);
+      const [quoteRes, invoiceRes, expenseRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery]);
 
       if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
       if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
