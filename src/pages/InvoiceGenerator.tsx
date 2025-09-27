@@ -33,6 +33,7 @@ type Item = {
   quantity: number;
   unit: string;
   unit_price: number;
+  cost_price: number;
 };
 
 const InvoiceGenerator = () => {
@@ -53,7 +54,7 @@ const InvoiceGenerator = () => {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date | undefined>(new Date());
   const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
@@ -128,8 +129,8 @@ const InvoiceGenerator = () => {
       setStatus(data.status || "Draf");
       setSelectedClientId(data.client_id);
       
-      const itemsWithDefaults = data.invoice_items.map((item: any) => ({ ...item, unit: item.unit || '' }));
-      setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+      const itemsWithDefaults = data.invoice_items.map((item: any) => ({ ...item, unit: item.unit || '', cost_price: item.cost_price || 0 }));
+      setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
 
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
@@ -175,12 +176,12 @@ const InvoiceGenerator = () => {
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const removeItem = (index: number) => {
     if (items.length > 1) {
         setItems(items.filter((_, i) => i !== index));
     } else {
-        setItems([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
+        setItems([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
     }
   };
 
@@ -190,6 +191,7 @@ const InvoiceGenerator = () => {
         quantity: 1,
         unit: item.unit || '',
         unit_price: item.unit_price,
+        cost_price: item.cost_price || 0,
     }));
     const existingItems = items.filter(item => item.description.trim() !== '');
     setItems([...existingItems, ...newItems]);
@@ -260,82 +262,21 @@ const InvoiceGenerator = () => {
       <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
       <Card className="w-full max-w-5xl mx-auto">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <ReceiptText className="h-7 w-7" />
-            <CardTitle className="text-3xl">{isEditMode ? "Edit Faktur" : "Buat Faktur Baru"}</CardTitle>
-          </div>
+          <div className="flex items-center gap-3"><ReceiptText className="h-7 w-7" /><CardTitle className="text-3xl">{isEditMode ? "Edit Faktur" : "Buat Faktur Baru"}</CardTitle></div>
           <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : "Isi detail di bawah untuk membuat faktur baru."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <h3 className="font-semibold">Dari:</h3>
-              <Input placeholder="Nama Perusahaan Anda" value={fromCompany} onChange={e => setFromCompany(e.target.value)} />
-              <Textarea placeholder="Alamat Perusahaan Anda" value={fromAddress} onChange={e => setFromAddress(e.target.value)} />
-              <Input placeholder="Website Perusahaan Anda" value={fromWebsite} onChange={e => setFromWebsite(e.target.value)} />
-            </div>
-            <div className="space-y-4">
-              <h3 className="font-semibold">Untuk:</h3>
-              <Select onValueChange={handleClientSelect} value={selectedClientId || undefined}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} />
-              <Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} />
-              <Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} />
-            </div>
+            <div className="space-y-4"><h3 className="font-semibold">Dari:</h3><Input placeholder="Nama Perusahaan Anda" value={fromCompany} onChange={e => setFromCompany(e.target.value)} /><Textarea placeholder="Alamat Perusahaan Anda" value={fromAddress} onChange={e => setFromAddress(e.target.value)} /><Input placeholder="Website Perusahaan Anda" value={fromWebsite} onChange={e => setFromWebsite(e.target.value)} /></div>
+            <div className="space-y-4"><h3 className="font-semibold">Untuk:</h3><Select onValueChange={handleClientSelect} value={selectedClientId || undefined}><SelectTrigger><SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" /></SelectTrigger><SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent></Select><Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} /><Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} /><Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} /></div>
           </div>
           <Separator />
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Nomor Faktur</Label>
-              <Input placeholder="Contoh: INV-2024-001" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tanggal Faktur</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !invoiceDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {invoiceDate ? format(invoiceDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={invoiceDate} onSelect={setInvoiceDate} initialFocus /></PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>Tanggal Jatuh Tempo</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} /></PopoverContent>
-              </Popover>
-            </div>
+            <div className="space-y-2"><Label>Nomor Faktur</Label><Input placeholder="Contoh: INV-2024-001" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Tanggal Faktur</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !invoiceDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{invoiceDate ? format(invoiceDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={invoiceDate} onSelect={setInvoiceDate} initialFocus /></PopoverContent></Popover></div>
+            <div className="space-y-2"><Label>Tanggal Jatuh Tempo</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dueDate ? format(dueDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} /></PopoverContent></Popover></div>
           </div>
-          <div className="space-y-2 md:w-1/3">
-            <Label>Status Faktur</Label>
-            <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Pilih status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="Draf">Draf</SelectItem>
-                    <SelectItem value="Terkirim">Terkirim</SelectItem>
-                    <SelectItem value="Lunas">Lunas</SelectItem>
-                    <SelectItem value="Jatuh Tempo">Jatuh Tempo</SelectItem>
-                </SelectContent>
-            </Select>
-          </div>
+          <div className="space-y-2 md:w-1/3"><Label>Status Faktur</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent><SelectItem value="Draf">Draf</SelectItem><SelectItem value="Terkirim">Terkirim</SelectItem><SelectItem value="Lunas">Lunas</SelectItem><SelectItem value="Jatuh Tempo">Jatuh Tempo</SelectItem></SelectContent></Select></div>
           <Separator />
           <div className="space-y-4">
             <h3 className="font-semibold">Item Faktur</h3>
@@ -347,7 +288,8 @@ const InvoiceGenerator = () => {
                     <TableHead className="min-w-[200px]">Deskripsi</TableHead>
                     <TableHead className="w-[100px] text-center">Jumlah</TableHead>
                     <TableHead className="w-[100px]">Satuan</TableHead>
-                    <TableHead className="w-[150px] text-right">Harga Satuan</TableHead>
+                    <TableHead className="w-[150px] text-right">Harga Modal</TableHead>
+                    <TableHead className="w-[150px] text-right">Harga Jual</TableHead>
                     <TableHead className="w-[150px] text-right">Total</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
@@ -359,6 +301,7 @@ const InvoiceGenerator = () => {
                         <TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
                         <TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell>
                         <TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell>
                         <TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell>
                         <TableCell className="text-right font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell>
                         <TableCell className="text-center"><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
@@ -367,48 +310,23 @@ const InvoiceGenerator = () => {
                 </TableBody>
                 </Table>
             </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
-                <Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button>
-            </div>
+            <div className="flex gap-2"><Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button><Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button></div>
           </div>
           <Separator />
           <div className="flex justify-end">
             <div className="w-full max-w-sm space-y-4">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-medium">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Diskon (Rp)</span>
-                <Input type="number" className="w-32 text-right" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Pajak (Rp)</span>
-                <Input type="number" className="w-32 text-right" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} />
-              </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted-foreground">Diskon (Rp)</span><Input type="number" className="w-32 text-right" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} /></div>
+              <div className="flex justify-between items-center"><span className="text-muted-foreground">Pajak (Rp)</span><Input type="number" className="w-32 text-right" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} /></div>
               <Separator />
-              <div className="flex justify-between text-xl font-bold">
-                <span>Total</span>
-                <span>{total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Uang Muka (DP) (Rp)</span>
-                <Input type="number" className="w-32 text-right" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} />
-              </div>
+              <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted-foreground">Uang Muka (DP) (Rp)</span><Input type="number" className="w-32 text-right" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} /></div>
             </div>
           </div>
           <Separator />
-          <div className="space-y-2">
-            <Label>Syarat & Ketentuan</Label>
-            <Textarea placeholder="Contoh: Pembayaran harus dilunasi dalam 30 hari..." value={terms} onChange={e => setTerms(e.target.value)} />
-          </div>
+          <div className="space-y-2"><Label>Syarat & Ketentuan</Label><Textarea placeholder="Contoh: Pembayaran harus dilunasi dalam 30 hari..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
         </CardContent>
-        <CardFooter>
-          <Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Buat & Lihat Faktur")}
-          </Button>
-        </CardFooter>
+        <CardFooter><Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : (isEditMode ? "Simpan Perubahan" : "Buat & Lihat Faktur")}</Button></CardFooter>
       </Card>
     </div>
   );

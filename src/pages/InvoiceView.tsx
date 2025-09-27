@@ -58,15 +58,22 @@ type InvoiceDetails = {
     quantity: number;
     unit: string;
     unit_price: number;
+    cost_price: number;
   }[];
+};
+
+type ProfileInfo = {
+    company_logo_url: string | null;
+    brand_color: string | null;
+    payment_instructions: string | null;
 };
 
 const InvoiceView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
+  const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [paymentInstructions, setPaymentInstructions] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
@@ -85,14 +92,8 @@ const InvoiceView = () => {
     setInvoice(invoiceData);
 
     if (invoiceData.user_id) {
-        const { data: profileData } = await supabase
-            .from('profiles')
-            .select('payment_instructions')
-            .eq('id', invoiceData.user_id)
-            .single();
-        if (profileData) {
-            setPaymentInstructions(profileData.payment_instructions || '');
-        }
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions').eq('id', invoiceData.user_id).single();
+        setProfile(profileData);
     }
 
     const paymentsRes = await supabase.from('payments').select('*').eq('invoice_id', id).order('payment_date', { ascending: false });
@@ -155,9 +156,11 @@ const InvoiceView = () => {
   };
 
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
+  const totalCost = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0) || 0, [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
   const totalPaid = useMemo(() => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0), [payments]);
   const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
 
@@ -195,10 +198,7 @@ const InvoiceView = () => {
                 <Button asChild variant="outline"><Link to={`/invoice/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteInvoice}>Hapus</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
+                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteInvoice}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
                 <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
@@ -208,15 +208,13 @@ const InvoiceView = () => {
         <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">{invoice.from_company}</h1>
+              {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{invoice.from_company}</h1>}
               <p className="text-sm text-muted-foreground">{invoice.from_address}</p>
               <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Faktur</h2>
-              <div className="mt-1">
-                <Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge>
-              </div>
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
+              <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge></div>
               <p className="text-sm text-muted-foreground mt-2">No: {invoice.invoice_number}</p>
               <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
             </div>
@@ -224,38 +222,13 @@ const InvoiceView = () => {
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditagihkan Kepada:</h3>
-              <p className="font-bold">{invoice.to_client}</p>
-              <p className="text-sm">{invoice.to_address}</p>
-              <p className="text-sm">{invoice.to_phone}</p>
-            </div>
-            <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3>
-                <p className="text-sm">{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p>
-            </div>
+            <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
+            <div className="text-right"><h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3><p className="text-sm">{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p></div>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr className="border-b">
-                  <th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th>
-                  <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.invoice_items.map((item, index) => (
-                  <tr key={index} className="border-b last:border-none">
-                    <td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>
-                    <td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td>
-                    <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
+              <tbody>{invoice.invoice_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td><td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td><td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
@@ -265,70 +238,18 @@ const InvoiceView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
-              {invoice.down_payment_amount > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>
-              )}
+              {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
               <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
+              <Separator className="print:hidden" />
+              <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
+              <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
             </div>
           </div>
-          
-          {paymentInstructions ? (
-            <Alert>
-                <Landmark className="h-4 w-4" />
-                <AlertTitle>Instruksi Pembayaran</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap">
-                    {paymentInstructions}
-                </AlertDescription>
-            </Alert>
-            ) : (
-            <div className="print:hidden">
-                <p className="text-sm text-muted-foreground">
-                    Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.
-                </p>
-            </div>
-          )}
-
-          {payments.length > 0 && (
-            <Card className="print:hidden">
-                <CardHeader>
-                    <CardTitle>Riwayat Pembayaran</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {payments.map(p => (<TableRow key={p.id}>
-                                <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
-                                <TableCell>{formatCurrency(p.amount)}</TableCell>
-                                <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
-                                <TableCell>
-                                    {p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}
-                                </TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    {p.status === 'Pending' && (
-                                        <>
-                                            <Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button>
-                                        </>
-                                    )}
-                                </TableCell>
-                            </TableRow>))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-          )}
-          {invoice.terms && (
-            <Alert variant="default" className="bg-gray-50">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Syarat & Ketentuan</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap">
-                    {invoice.terms}
-                </AlertDescription>
-            </Alert>
-          )}
+          {profile?.payment_instructions ? (<Alert><Landmark className="h-4 w-4" /><AlertTitle>Instruksi Pembayaran</AlertTitle><AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription></Alert>) : (<div className="print:hidden"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>)}
+          {payments.length > 0 && (<Card className="print:hidden"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' && (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
+          {invoice.terms && (<Alert variant="default" className="bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
         </CardContent>
       </Card>
       <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>

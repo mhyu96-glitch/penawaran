@@ -10,19 +10,23 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
-import { User } from 'lucide-react';
+import { User, Upload } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyWebsite, setCompanyWebsite] = useState('');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [brandColor, setBrandColor] = useState('#000000');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -34,7 +38,7 @@ const Profile = () => {
         .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine on first load
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
       } else if (data) {
         setFirstName(data.first_name || '');
@@ -42,12 +46,51 @@ const Profile = () => {
         setCompanyName(data.company_name || '');
         setCompanyAddress(data.company_address || '');
         setCompanyWebsite(data.company_website || '');
+        setCompanyLogoUrl(data.company_logo_url || null);
+        setBrandColor(data.brand_color || '#000000');
       }
       setLoading(false);
     };
 
     fetchProfile();
   }, [user]);
+
+  const handleUploadLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !event.target.files || event.target.files.length === 0) {
+      return;
+    }
+    const file = event.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/logo.${fileExt}`;
+
+    setIsUploading(true);
+    const { error: uploadError } = await supabase.storage
+      .from('company_assets')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      showError('Gagal mengunggah logo.');
+      console.error('Logo upload error:', uploadError);
+      setIsUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
+    const newLogoUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`; // Add timestamp to bust cache
+    
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ company_logo_url: newLogoUrl })
+      .eq('id', user.id);
+
+    if (updateError) {
+      showError('Gagal menyimpan URL logo.');
+    } else {
+      setCompanyLogoUrl(newLogoUrl);
+      showSuccess('Logo berhasil diunggah!');
+    }
+    setIsUploading(false);
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +106,7 @@ const Profile = () => {
         company_name: companyName,
         company_address: companyAddress,
         company_website: companyWebsite,
+        brand_color: brandColor,
         updated_at: new Date().toISOString(),
       })
       .select();
@@ -85,17 +129,8 @@ const Profile = () => {
     return (
       <div className="container mx-auto p-4 md:p-8">
         <Card className="w-full max-w-2xl mx-auto">
-          <CardHeader>
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-64 mt-2" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
+          <CardHeader><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-64 mt-2" /></CardHeader>
+          <CardContent className="space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-10 w-full" /></CardContent>
         </Card>
       </div>
     );
@@ -105,45 +140,40 @@ const Profile = () => {
     <div className="container mx-auto p-4 md:p-8">
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <User className="h-7 w-7" />
-            <CardTitle className="text-3xl">Profil Saya</CardTitle>
-          </div>
+          <div className="flex items-center gap-3"><User className="h-7 w-7" /><CardTitle className="text-3xl">Profil Saya</CardTitle></div>
           <CardDescription>Perbarui informasi pribadi dan perusahaan Anda di sini.</CardDescription>
         </CardHeader>
         <form onSubmit={handleUpdateProfile}>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Nama Depan</Label>
-                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Nama Belakang</Label>
-                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              </div>
+              <div className="space-y-2"><Label htmlFor="firstName">Nama Depan</Label><Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+              <div className="space-y-2"><Label htmlFor="lastName">Nama Belakang</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             </div>
             <Separator />
             <div className="space-y-4">
-                <h3 className="font-semibold">Informasi Perusahaan</h3>
-                <div className="space-y-2">
-                    <Label htmlFor="companyName">Nama Perusahaan</Label>
-                    <Input id="companyName" placeholder="Nama Perusahaan Anda" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                <h3 className="font-semibold">Informasi Perusahaan & Branding</h3>
+                <div className="flex items-center gap-4">
+                    <Avatar className="h-20 w-20"><AvatarImage src={companyLogoUrl || undefined} /><AvatarFallback>{companyName.charAt(0)}</AvatarFallback></Avatar>
+                    <div className="space-y-2">
+                        <Label htmlFor="logo-upload">Logo Perusahaan</Label>
+                        <Input id="logo-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadLogo} disabled={isUploading} />
+                        {isUploading && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="companyAddress">Alamat Perusahaan</Label>
-                    <Textarea id="companyAddress" placeholder="Alamat Perusahaan Anda" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="companyWebsite">Website Perusahaan</Label>
-                    <Input id="companyWebsite" placeholder="https://websiteanda.com" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} />
+                <div className="space-y-2"><Label htmlFor="companyName">Nama Perusahaan</Label><Input id="companyName" placeholder="Nama Perusahaan Anda" value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="companyAddress">Alamat Perusahaan</Label><Textarea id="companyAddress" placeholder="Alamat Perusahaan Anda" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="companyWebsite">Website Perusahaan</Label><Input id="companyWebsite" placeholder="https://websiteanda.com" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="brandColor">Warna Merek</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="brandColor" type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="w-12 h-10 p-1" />
+                        <Input type="text" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="w-24" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Warna ini akan digunakan pada judul dokumen Anda.</p>
                 </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}</Button>
             <Button variant="outline" onClick={handleSignOut}>Keluar</Button>
           </CardFooter>
         </form>

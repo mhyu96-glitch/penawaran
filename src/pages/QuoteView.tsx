@@ -51,11 +51,17 @@ type QuoteDetails = {
   }[];
 };
 
+type ProfileInfo = {
+    company_logo_url: string | null;
+    brand_color: string | null;
+};
+
 const QuoteView = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [quote, setQuote] = useState<QuoteDetails | null>(null);
+  const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const quoteRef = useRef<HTMLDivElement>(null);
@@ -76,6 +82,8 @@ const QuoteView = () => {
         navigate('/quotes');
       } else {
         setQuote(data as QuoteDetails);
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color').eq('id', data.user_id).single();
+        setProfile(profileData);
       }
       setLoading(false);
     };
@@ -115,6 +123,7 @@ const QuoteView = () => {
         quantity: item.quantity,
         unit: item.unit,
         unit_price: item.unit_price,
+        cost_price: item.cost_price,
       }));
 
       const { error: itemsError } = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
@@ -221,43 +230,16 @@ const QuoteView = () => {
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
-            <Button asChild variant="outline">
-                <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link>
-            </Button>
+            <Button asChild variant="outline"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-                {quote.status === 'Terkirim' && (
-                  <Button onClick={handleShareLink} variant="secondary">
-                    <Share2 className="mr-2 h-4 w-4" /> Bagikan Tautan
-                  </Button>
-                )}
-                {quote.status === 'Diterima' && (
-                  <Button onClick={handleCreateInvoice}>
-                    <Receipt className="mr-2 h-4 w-4" /> Buat Faktur
-                  </Button>
-                )}
-                <Button asChild variant="outline">
-                    <Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link>
-                </Button>
+                {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Bagikan Tautan</Button>)}
+                {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
+                <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
+                    <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
+                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
-                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
-                    {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}
-                </Button>
+                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
@@ -265,15 +247,13 @@ const QuoteView = () => {
         <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>
+              {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
               <p className="text-sm text-muted-foreground">{quote.from_address}</p>
               <p className="text-sm text-muted-foreground">{quote.from_website}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Penawaran</h2>
-              <div className="mt-1">
-                <Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge>
-              </div>
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+              <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
               <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
               <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
             </div>
@@ -281,45 +261,15 @@ const QuoteView = () => {
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3>
-              <p className="font-bold">{quote.to_client}</p>
-              <p className="text-sm">{quote.to_address}</p>
-              <p className="text-sm">{quote.to_phone}</p>
-            </div>
-            <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3>
-                <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
-            </div>
+            <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
+            <div className="text-right"><h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3><p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p></div>
           </div>
-
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr className="border-b">
-                  <th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th>
-                  <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>
-                  <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quote.quote_items.map((item, index) => (
-                  <tr key={index} className="border-b last:border-none">
-                    <td className="p-3 text-center align-top">{index + 1}</td>
-                    <td className="p-3 align-top">{item.description}</td>
-                    <td className="p-3 text-center align-top">{item.quantity}</td>
-                    <td className="p-3 text-center align-top">{item.unit || '-'}</td>
-                    <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>
-                    <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th><th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th><th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
+              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td><td className="p-3 text-center align-top">{item.quantity}</td><td className="p-3 text-center align-top">{item.unit || '-'}</td><td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td><td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
             </table>
           </div>
-
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
@@ -332,26 +282,10 @@ const QuoteView = () => {
               <div className="flex justify-between font-semibold text-green-600 print:hidden no-pdf"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
             </div>
           </div>
-          
-          {quote.terms && (
-            <div>
-                <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p>
-            </div>
-          )}
-
+          {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
         </CardContent>
       </Card>
-      <style>{`
-        @media print {
-          body {
-            background-color: white;
-          }
-          .print\\:shadow-none { box-shadow: none; }
-          .print\\:border-none { border: none; }
-          .print\\:hidden { display: none; }
-        }
-      `}</style>
+      <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );
 };
