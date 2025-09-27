@@ -17,8 +17,8 @@ const Settings = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [defaultTerms, setDefaultTerms] = useState('');
-  const [defaultTax, setDefaultTax] = useState(0);
-  const [defaultDiscount, setDefaultDiscount] = useState(0);
+  const [defaultTaxAmount, setDefaultTaxAmount] = useState(0);
+  const [defaultDiscountAmount, setDefaultDiscountAmount] = useState(0);
   const [paymentInstructions, setPaymentInstructions] = useState('');
 
   useEffect(() => {
@@ -27,7 +27,7 @@ const Settings = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('default_terms, default_tax_percentage, default_discount_percentage, payment_instructions')
+        .select('default_terms, default_tax_amount, default_discount_amount, payment_instructions')
         .eq('id', user.id)
         .single();
 
@@ -36,8 +36,8 @@ const Settings = () => {
         showError('Gagal memuat pengaturan.');
       } else if (data) {
         setDefaultTerms(data.default_terms || '');
-        setDefaultTax(data.default_tax_percentage || 0);
-        setDefaultDiscount(data.default_discount_percentage || 0);
+        setDefaultTaxAmount(data.default_tax_amount || 0);
+        setDefaultDiscountAmount(data.default_discount_amount || 0);
         setPaymentInstructions(data.payment_instructions || '');
       }
       setLoading(false);
@@ -55,8 +55,8 @@ const Settings = () => {
       .from('profiles')
       .update({
         default_terms: defaultTerms,
-        default_tax_percentage: defaultTax,
-        default_discount_percentage: defaultDiscount,
+        default_tax_amount: defaultTaxAmount,
+        default_discount_amount: defaultDiscountAmount,
         payment_instructions: paymentInstructions,
       })
       .eq('id', user.id);
@@ -117,21 +117,21 @@ const Settings = () => {
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="defaultTax">Pajak Default (%)</Label>
+                            <Label htmlFor="defaultTax">Pajak Default (Rp)</Label>
                             <Input
                             id="defaultTax"
                             type="number"
-                            value={defaultTax}
-                            onChange={(e) => setDefaultTax(parseFloat(e.target.value) || 0)}
+                            value={defaultTaxAmount}
+                            onChange={(e) => setDefaultTaxAmount(parseFloat(e.target.value) || 0)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="defaultDiscount">Diskon Default (%)</Label>
+                            <Label htmlFor="defaultDiscount">Diskon Default (Rp)</Label>
                             <Input
                             id="defaultDiscount"
                             type="number"
-                            value={defaultDiscount}
-                            onChange={(e) => setDefaultDiscount(parseFloat(e.target.value) || 0)}
+                            value={defaultDiscountAmount}
+                            onChange={(e) => setDefaultDiscountAmount(parseFloat(e.target.value) || 0)}
                             />
                         </div>
                     </div>

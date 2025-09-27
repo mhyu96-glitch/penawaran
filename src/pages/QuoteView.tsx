@@ -38,8 +38,8 @@ type QuoteDetails = {
   quote_number: string;
   quote_date: string;
   valid_until: string;
-  discount_percentage: number;
-  tax_percentage: number;
+  discount_amount: number;
+  tax_amount: number;
   terms: string;
   status: string;
   quote_items: {
@@ -198,10 +198,10 @@ const QuoteView = () => {
     return quote.quote_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0);
   }, [quote]);
 
-  const discountAmount = useMemo(() => subtotal * ((quote?.discount_percentage || 0) / 100), [subtotal, quote]);
-  const taxAmount = useMemo(() => (subtotal - discountAmount) * ((quote?.tax_percentage || 0) / 100), [subtotal, discountAmount, quote]);
+  const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
+  const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
-  const profit = useMemo(() => total - totalCost - (total - subtotal + discountAmount), [total, totalCost, subtotal, discountAmount]);
+  const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
 
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -331,8 +331,8 @@ const QuoteView = () => {
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon ({quote.discount_percentage}%)</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak ({quote.tax_percentage}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
               <Separator className="print:hidden no-pdf" />

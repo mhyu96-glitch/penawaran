@@ -29,8 +29,8 @@ type Invoice = {
     status: string;
     due_date: string;
     to_client: string;
-    discount_percentage: number;
-    tax_percentage: number;
+    discount_amount: number;
+    tax_amount: number;
     invoice_items: { quantity: number; unit_price: number; }[];
 };
 
@@ -58,7 +58,7 @@ const Dashboard = () => {
       const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
 
       const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
-      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_percentage, tax_percentage, invoice_items(quantity, unit_price)').eq('user_id', user.id);
+      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
       const expenseQuery = supabase.from('expenses').select('amount').eq('user_id', user.id);
 
       if (fromDate) {
@@ -72,7 +72,7 @@ const Dashboard = () => {
         expenseQuery.lt('expense_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery]);
+      const [quoteRes, invoiceRes, expenseRes] = await Promise.all([quoteQuery, invoiceQuery, expenseRes]);
 
       if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
       if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
@@ -102,9 +102,7 @@ const Dashboard = () => {
     invoices.forEach(invoice => {
         if (invoice.status !== 'Lunas') {
             const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-            const discount = subtotal * (invoice.discount_percentage / 100);
-            const tax = (subtotal - discount) * (invoice.tax_percentage / 100);
-            const total = subtotal - discount + tax;
+            const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
             unpaidAmount += total;
             if (invoice.due_date && isPast(new Date(invoice.due_date))) {
                 overdueAmount += total;
@@ -135,9 +133,7 @@ const Dashboard = () => {
       })
       .map(inv => {
         const subtotal = inv.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-        const discount = subtotal * (inv.discount_percentage / 100);
-        const tax = (subtotal - discount) * (inv.tax_percentage / 100);
-        const total = subtotal - discount + tax;
+        const total = subtotal - (inv.discount_amount || 0) + (inv.tax_amount || 0);
         return { ...inv, total };
       });
   }, [invoices]);

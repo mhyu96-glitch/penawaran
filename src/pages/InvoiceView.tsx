@@ -44,8 +44,8 @@ type InvoiceDetails = {
   invoice_number: string;
   invoice_date: string;
   due_date: string;
-  discount_percentage: number;
-  tax_percentage: number;
+  discount_amount: number;
+  tax_amount: number;
   terms: string;
   status: string;
   invoice_items: {
@@ -118,8 +118,8 @@ const InvoiceView = () => {
   };
 
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
-  const discountAmount = useMemo(() => subtotal * ((invoice?.discount_percentage || 0) / 100), [subtotal, invoice]);
-  const taxAmount = useMemo(() => (subtotal - discountAmount) * ((invoice?.tax_percentage || 0) / 100), [subtotal, discountAmount, invoice]);
+  const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
+  const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
   const totalPaid = useMemo(() => payments.reduce((acc, p) => acc + p.amount, 0), [payments]);
   const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
@@ -212,8 +212,8 @@ const InvoiceView = () => {
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon ({invoice.discount_percentage}%)</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak ({invoice.tax_percentage}%)</span><span>+ {formatCurrency(taxAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>

@@ -53,8 +53,8 @@ const InvoiceGenerator = () => {
   const [invoiceDate, setInvoiceDate] = useState<Date | undefined>(new Date());
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
-  const [discount, setDiscount] = useState(0);
-  const [tax, setTax] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [taxAmount, setTaxAmount] = useState(0);
   const [terms, setTerms] = useState("");
   const [status, setStatus] = useState("Draf");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,22 +127,22 @@ const InvoiceGenerator = () => {
       const itemsWithDefaults = data.invoice_items.map((item: any) => ({ ...item, unit: item.unit || '' }));
       setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0 }]);
 
-      setDiscount(data.discount_percentage || 0);
-      setTax(data.tax_percentage || 0);
+      setDiscountAmount(data.discount_amount || 0);
+      setTaxAmount(data.tax_amount || 0);
       setTerms(data.terms || "");
       setLoading(false);
     };
 
     const fetchProfileForNew = async () => {
       if (isEditMode || !user) return;
-      const { data } = await supabase.from('profiles').select('company_name, company_address, company_website, default_terms, default_tax_percentage, default_discount_percentage').eq('id', user.id).single();
+      const { data } = await supabase.from('profiles').select('company_name, company_address, company_website, default_terms, default_tax_amount, default_discount_amount').eq('id', user.id).single();
       if (data) {
         setFromCompany(data.company_name || "");
         setFromAddress(data.company_address || "");
         setFromWebsite(data.company_website || "");
         setTerms(data.default_terms || "");
-        setTax(data.default_tax_percentage || 0);
-        setDiscount(data.default_discount_percentage || 0);
+        setTaxAmount(data.default_tax_amount || 0);
+        setDiscountAmount(data.default_discount_amount || 0);
       }
       if (!invoiceNumber) {
         generateNewInvoiceNumber();
@@ -182,8 +182,6 @@ const InvoiceGenerator = () => {
   };
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + Number(item.quantity) * Number(item.unit_price), 0), [items]);
-  const discountAmount = useMemo(() => subtotal * (discount / 100), [subtotal, discount]);
-  const taxAmount = useMemo(() => (subtotal - discountAmount) * (tax / 100), [subtotal, discountAmount, tax]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
 
   const handleSubmit = async () => {
@@ -194,7 +192,7 @@ const InvoiceGenerator = () => {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone, invoice_number: invoiceNumber,
       invoice_date: invoiceDate?.toISOString(), due_date: dueDate?.toISOString(),
-      discount_percentage: discount, tax_percentage: tax, terms: terms, status: status,
+      discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
       client_id: selectedClientId,
     };
 
@@ -363,20 +361,12 @@ const InvoiceGenerator = () => {
                 <span className="font-medium">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Diskon (%)</span>
-                <Input type="number" className="w-24 text-right" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Jumlah Diskon</span>
-                <span className="font-medium">{discountAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
+                <span className="text-muted-foreground">Diskon (Rp)</span>
+                <Input type="number" className="w-32 text-right" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Pajak (%)</span>
-                <Input type="number" className="w-24 text-right" value={tax} onChange={e => setTax(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Jumlah Pajak</span>
-                <span className="font-medium">{taxAmount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
+                <span className="text-muted-foreground">Pajak (Rp)</span>
+                <Input type="number" className="w-32 text-right" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} />
               </div>
               <Separator />
               <div className="flex justify-between text-xl font-bold">
