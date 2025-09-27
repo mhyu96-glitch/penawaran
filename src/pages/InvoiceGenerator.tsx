@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, ReceiptText } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, ReceiptText, Library } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
@@ -18,6 +18,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Client } from "./ClientList";
+import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import {
   Table,
   TableBody,
@@ -59,6 +60,7 @@ const InvoiceGenerator = () => {
   const [terms, setTerms] = useState("");
   const [status, setStatus] = useState("Draf");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -182,6 +184,17 @@ const InvoiceGenerator = () => {
     }
   };
 
+  const handleAddItemsFromLibrary = (libraryItems: any[]) => {
+    const newItems = libraryItems.map(item => ({
+        description: item.description,
+        quantity: 1,
+        unit: item.unit || '',
+        unit_price: item.unit_price,
+    }));
+    const existingItems = items.filter(item => item.description.trim() !== '');
+    setItems([...existingItems, ...newItems]);
+  };
+
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + Number(item.quantity) * Number(item.unit_price), 0), [items]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
 
@@ -244,6 +257,7 @@ const InvoiceGenerator = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
+      <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
       <Card className="w-full max-w-5xl mx-auto">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -353,7 +367,10 @@ const InvoiceGenerator = () => {
                 </TableBody>
                 </Table>
             </div>
-            <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
+                <Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button>
+            </div>
           </div>
           <Separator />
           <div className="flex justify-end">
