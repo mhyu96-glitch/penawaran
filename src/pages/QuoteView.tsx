@@ -139,50 +139,72 @@ const QuoteView = () => {
 
     const doc = new jsPDF();
     const pageHeight = doc.internal.pageSize.height;
-    let y = 20;
+    const pageMargin = 20;
+    let y = pageMargin;
 
     const splitText = (text: string, maxWidth: number) => doc.splitTextToSize(text, maxWidth);
+    const getLineHeight = (fontSize: number) => fontSize * 0.35;
 
     // Header
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text(quote.from_company, 20, y);
-    y += 8;
+    doc.text(quote.from_company, pageMargin, y);
+    y += getLineHeight(22) * 2;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(splitText(quote.from_address, 80), 20, y);
-    y += 10;
-    doc.text(quote.from_website, 20, y);
+    const fromAddressLines = splitText(quote.from_address, 80);
+    doc.text(fromAddressLines, pageMargin, y);
+    y += fromAddressLines.length * getLineHeight(10) * 1.5;
+    doc.text(quote.from_website, pageMargin, y);
 
+    let headerRightY = pageMargin;
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(150);
-    doc.text('PENAWARAN', 200, y - 10, { align: 'right' });
-    y += 5;
+    doc.text('PENAWARAN', 210 - pageMargin, headerRightY, { align: 'right' });
+    headerRightY += getLineHeight(28) * 2;
+
+    y = Math.max(y, headerRightY) + 10;
 
     // Details
+    const detailsStartY = y;
     doc.setFontSize(10);
     doc.setTextColor(0);
+    
+    let leftY = detailsStartY;
     doc.setFont('helvetica', 'bold');
-    doc.text('Ditujukan Kepada:', 20, y);
-    doc.text('Nomor Penawaran:', 130, y);
-    doc.text('Tanggal Penawaran:', 130, y + 5);
-    doc.text('Berlaku Hingga:', 130, y + 10);
-
+    doc.text('Ditujukan Kepada:', pageMargin, leftY);
+    leftY += getLineHeight(10) * 2;
     doc.setFont('helvetica', 'normal');
-    let initialY = y;
-    doc.text(quote.to_client, 20, y + 5);
-    const toAddressLines = splitText(quote.to_address, 80);
-    doc.text(toAddressLines, 20, y + 10);
-    y += toAddressLines.length * 5 + 5;
-    doc.text(quote.to_phone, 20, y);
+    doc.text(quote.to_client, pageMargin, leftY);
+    leftY += getLineHeight(10) * 1.5;
+    const toAddressLines = splitText(quote.to_address, 100);
+    doc.text(toAddressLines, pageMargin, leftY);
+    leftY += toAddressLines.length * getLineHeight(10) * 1.5;
+    doc.text(quote.to_phone, pageMargin, leftY);
 
-    doc.text(quote.quote_number, 165, initialY);
-    doc.text(format(new Date(quote.quote_date), 'PPP', { locale: localeId }), 165, initialY + 5);
-    doc.text(quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A', 165, initialY + 10);
+    let rightY = detailsStartY;
+    const rightX = 130;
+    const rightXValue = 165;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nomor Penawaran:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(quote.quote_number, rightXValue, rightY);
+    rightY += getLineHeight(10) * 2;
 
-    y += 15;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tanggal Penawaran:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(new Date(quote.quote_date), 'PPP', { locale: localeId }), rightXValue, rightY);
+    rightY += getLineHeight(10) * 2;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Berlaku Hingga:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A', rightXValue, rightY);
+
+    y = Math.max(leftY, rightY) + 15;
 
     // Table
     const tableColumn = ["No.", "Deskripsi", "Jumlah", "Satuan", "Harga Satuan", "Total"];
@@ -212,34 +234,36 @@ const QuoteView = () => {
     // Totals
     const totalsX = 145;
     const valueX = 200;
+    const lineSpacing = 6;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text('Subtotal:', totalsX, y, { align: 'right' });
     doc.text(formatCurrency(subtotal), valueX, y, { align: 'right' });
-    y += 6;
+    y += lineSpacing;
     doc.text('Diskon:', totalsX, y, { align: 'right' });
     doc.text(`- ${formatCurrency(discountAmount)}`, valueX, y, { align: 'right' });
-    y += 6;
+    y += lineSpacing;
     doc.text('Pajak:', totalsX, y, { align: 'right' });
     doc.text(`+ ${formatCurrency(taxAmount)}`, valueX, y, { align: 'right' });
-    y += 6;
+    y += lineSpacing;
     doc.setLineWidth(0.2);
     doc.line(135, y, 200, y);
-    y += 6;
+    y += lineSpacing;
     doc.setFont('helvetica', 'bold');
     doc.text('Total:', totalsX, y, { align: 'right' });
     doc.text(formatCurrency(total), valueX, y, { align: 'right' });
     y += 15;
 
     // Terms
+    const lineHeight = getLineHeight(10) * 1.5;
     if (quote.terms) {
-        if (y > pageHeight - 40) { doc.addPage(); y = 20; }
-        doc.setFont('helvetica', 'bold');
-        doc.text('Syarat & Ketentuan:', 20, y);
-        y += 6;
-        doc.setFont('helvetica', 'normal');
         const termsLines = splitText(quote.terms, 170);
-        doc.text(termsLines, 20, y);
+        if (y + (termsLines.length * lineHeight) > pageHeight - pageMargin) { doc.addPage(); y = pageMargin; }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Syarat & Ketentuan:', pageMargin, y);
+        y += lineHeight;
+        doc.setFont('helvetica', 'normal');
+        doc.text(termsLines, pageMargin, y);
     }
 
     doc.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
