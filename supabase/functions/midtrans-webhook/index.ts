@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { HmacSha512 } from "https://deno.land/std@0.190.0/crypto/hmac.ts";
+import { encodeToString } from "https://deno.land/std@0.190.0/encoding/hex.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
     // Verify signature key using Deno standard library
     const hmac = new HmacSha512(new TextEncoder().encode(midtransServerKey));
     hmac.update(new TextEncoder().encode(order_id + status_code + gross_amount));
-    const hash = hmac.toString();
+    const hash = encodeToString(hmac.digest());
 
     if (hash !== signature_key) {
       throw new Error('Invalid signature');
