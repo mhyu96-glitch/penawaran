@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { createHmac } from "https://deno.land/std@0.192.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,10 +22,22 @@ Deno.serve(async (req) => {
     const midtransServerKey = Deno.env.get('MIDTRANS_SERVER_KEY');
     if (!midtransServerKey) throw new Error('Midtrans server key not configured');
 
-    // Verify signature key
-    const hash = createHmac("sha512", midtransServerKey)
-      .update(`${order_id}${notification.status_code}${gross_amount}${midtransServerKey}`)
-      .digest("hex");
+    // Verify signature key using Web Crypto API
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(midtransServerKey),
+      { name: "HMAC", hash: "SHA-512" },
+      false,
+      ["sign"],
+    );
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(`${order_id}${notification.status_code}${gross_amount}${midtransServerKey}`),
+    );
+    const hash = Array.from(new Uint8Array(signature))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
 
     if (hash !== signature_key) {
       throw new Error('Invalid signature');
