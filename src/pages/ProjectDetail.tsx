@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt } from 'lucide-react';
+import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
+import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
+import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 
 type ProjectDetails = {
   id: string;
@@ -29,27 +31,34 @@ const ProjectDetail = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchProjectData = async () => {
+    if (!id) return;
+    setLoading(true);
+
+    const [projectRes, quotesRes, invoicesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
+      supabase.from('projects').select('*, clients(name)').eq('id', id).single(),
+      supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
+      supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
+      supabase.from('expenses').select('*').eq('project_id', id),
+      supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at', { ascending: true }),
+      supabase.from('time_entries').select('*').eq('project_id', id).order('entry_date', { ascending: false })
+    ]);
+
+    if (projectRes.data) setProject(projectRes.data as ProjectDetails);
+    if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
+    if (invoicesRes.data) setInvoices(invoicesRes.data as Invoice[]);
+    if (expensesRes.data) setExpenses(expensesRes.data as Expense[]);
+    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+    if (timeEntriesRes.data) setTimeEntries(timeEntriesRes.data as TimeEntry[]);
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchProjectData = async () => {
-      if (!id) return;
-      setLoading(true);
-
-      const projectRes = await supabase.from('projects').select('*, clients(name)').eq('id', id).single();
-      if (projectRes.data) setProject(projectRes.data as ProjectDetails);
-
-      const quotesRes = await supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id);
-      if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
-
-      const invoicesRes = await supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id);
-      if (invoicesRes.data) setInvoices(invoicesRes.data as Invoice[]);
-
-      const expensesRes = await supabase.from('expenses').select('*').eq('project_id', id);
-      if (expensesRes.data) setExpenses(expensesRes.data as Expense[]);
-
-      setLoading(false);
-    };
     fetchProjectData();
   }, [id]);
 
@@ -69,9 +78,10 @@ const ProjectDetail = () => {
 
     const totalCosts = projectExpenses + costOfGoodsSold;
     const netProfit = totalRevenue - totalCosts;
+    const totalMinutes = timeEntries.reduce((sum, entry) => sum + entry.duration_minutes, 0);
 
-    return { totalRevenue, totalCosts, netProfit };
-  }, [invoices, expenses, quotes]);
+    return { totalRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
+  }, [invoices, expenses, quotes, timeEntries]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -86,7 +96,7 @@ const ProjectDetail = () => {
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid md:grid-cols-3 gap-4"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
+        <div className="grid md:grid-cols-4 gap-4"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
         <Skeleton className="h-64 w-full" />
       </div>
     );
@@ -111,10 +121,22 @@ const ProjectDetail = () => {
         </CardHeader>
       </Card>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Biaya</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Laba Bersih</CardTitle><TrendingUp className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.netProfit)}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div></CardContent></Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><ListTodo className="h-5 w-5" /> Daftar Tugas</CardTitle></CardHeader>
+          <CardContent><ProjectTaskList projectId={project.id} initialTasks={tasks} onTaskUpdate={fetchProjectData} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Catatan Waktu</CardTitle></CardHeader>
+          <CardContent><ProjectTimeTracker projectId={project.id} initialEntries={timeEntries} onEntryUpdate={fetchProjectData} /></CardContent>
+        </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
