@@ -15,7 +15,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 type InvoiceDetails = {
   id: string;
@@ -82,6 +83,13 @@ const PublicInvoiceView = () => {
 
   const handleCheckout = async () => {
     if (!id) return;
+
+    if (!stripePromise) {
+      showError("Konfigurasi pembayaran Stripe tidak ditemukan.");
+      console.error("VITE_STRIPE_PUBLISHABLE_KEY is not set in your .env file.");
+      return;
+    }
+
     setIsRedirecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
@@ -184,7 +192,7 @@ const PublicInvoiceView = () => {
             <div className="w-full md:w-auto space-y-2">
                 {invoice.status !== 'Lunas' ? (
                     <>
-                        <Button size="lg" onClick={handleCheckout} disabled={isRedirecting}>
+                        <Button size="lg" onClick={handleCheckout} disabled={isRedirecting || !stripePromise}>
                             <CreditCard className="mr-2 h-4 w-4" /> {isRedirecting ? 'Mengarahkan...' : 'Bayar dengan Kartu'}
                         </Button>
                         <Button size="lg" variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
