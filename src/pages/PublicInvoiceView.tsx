@@ -1,15 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Landmark } from 'lucide-react';
+import { Landmark, CreditCard, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import PaymentSubmissionDialog from '@/components/PaymentSubmissionDialog';
 import { formatCurrency } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { loadStripe } from '@stripe/stripe-js';
+import { showError, showSuccess } from '@/utils/toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 type InvoiceDetails = {
   id: string;
@@ -42,25 +48,27 @@ type InvoiceDetails = {
 
 const PublicInvoiceView = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      showSuccess('Pembayaran berhasil! Terima kasih.');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchInvoice = async () => {
       if (!id) return;
       setLoading(true);
       try {
-        const response = await fetch(`https://xukpisovkcflcwuhrzkx.supabase.co/functions/v1/get-public-invoice-details`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0'
-            },
-            body: JSON.stringify({ invoiceId: id }),
+        const { data, error } = await supabase.functions.invoke('get-public-invoice-details', {
+          body: { invoiceId: id },
         });
-        if (!response.ok) throw new Error('Failed to fetch invoice details');
-        const data = await response.json();
+        if (error) throw error;
         setInvoice(data);
       } catch (error) {
         console.error('Error fetching invoice:', error);
@@ -71,6 +79,29 @@ const PublicInvoiceView = () => {
 
     fetchInvoice();
   }, [id]);
+
+  const handleCheckout = async () => {
+    if (!id) return;
+    setIsRedirecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+        body: { invoiceId: id },
+      });
+      if (error) throw error;
+
+      const stripe = await stripePromise;
+      if (!stripe) throw new Error('Stripe.js has not loaded yet.');
+
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      if (stripeError) {
+        showError(stripeError.message || 'Gagal memulai pembayaran.');
+      }
+    } catch (error: any) {
+      showError(error.message || 'Terjadi kesalahan.');
+    } finally {
+      setIsRedirecting(false);
+    }
+  };
 
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
@@ -150,9 +181,24 @@ const PublicInvoiceView = () => {
             </table>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-            <div className="w-full md:w-auto">
-                {invoice.status !== 'Lunas' && (
-                    <Button size="lg" onClick={() => setIsPaymentDialogOpen(true)}><Landmark className="mr-2 h-4 w-4" /> Konfirmasi Pembayaran</Button>
+            <div className="w-full md:w-auto space-y-2">
+                {invoice.status !== 'Lunas' ? (
+                    <>
+                        <Button size="lg" onClick={handleCheckout} disabled={isRedirecting}>
+                            <CreditCard className="mr-2 h-4 w-4" /> {isRedirecting ? 'Mengarahkan...' : 'Bayar dengan Kartu'}
+                        </Button>
+                        <Button size="lg" variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
+                            <Landmark className="mr-2 h-4 w-4" /> Konfirmasi Transfer Bank
+                        </Button>
+                    </>
+                ) : (
+                    <Alert variant="default" className="bg-green-50 border-green-200">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertTitle className="text-green-800">Lunas</AlertTitle>
+                        <AlertDescription className="text-green-700">
+                            Faktur ini telah lunas. Terima kasih!
+                        </AlertDescription>
+                    </Alert>
                 )}
             </div>
             <div className="w-full max-w-xs space-y-2 self-end">
