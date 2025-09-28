@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { createHmac } from "https://deno.land/std@0.190.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,17 @@ Deno.serve(async (req) => {
 
   try {
     const notification = await req.json();
-    const { order_id, transaction_status, fraud_status, signature_key, gross_amount } = notification;
+
+    // Handle Midtrans test notification which may not have a signature key
+    if (!notification.signature_key || !notification.order_id) {
+      console.log("Received a request without a signature key, likely a Midtrans test. Responding with success.");
+      return new Response(JSON.stringify({ message: "Webhook test successful." }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { order_id, transaction_status, fraud_status, signature_key, gross_amount, status_code } = notification;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -20,24 +31,12 @@ Deno.serve(async (req) => {
     );
     
     const midtransServerKey = Deno.env.get('MIDTRANS_SERVER_KEY');
-    if (!midtransServerKey) throw new Error('Midtrans server key not configured');
+    if (!midtransServerKey) throw new Error('Midtrans server key is not configured');
 
-    // Verify signature key using Web Crypto API
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(midtransServerKey),
-      { name: "HMAC", hash: "SHA-512" },
-      false,
-      ["sign"],
-    );
-    const signature = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(`${order_id}${notification.status_code}${gross_amount}${midtransServerKey}`),
-    );
-    const hash = Array.from(new Uint8Array(signature))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    // Verify signature key
+    const hash = createHmac('sha512', midtransServerKey)
+      .update(order_id + status_code + gross_amount)
+      .digest('hex');
 
     if (hash !== signature_key) {
       throw new Error('Invalid signature');
@@ -49,7 +48,7 @@ Deno.serve(async (req) => {
         newStatus = 'Lunas';
       }
     } else if (transaction_status == 'cancel' || transaction_status == 'deny' || transaction_status == 'expire') {
-      // You might want to handle this, e.g., set status to 'Gagal'
+      // Handle failed transactions if needed
     }
 
     if (newStatus === 'Lunas') {
@@ -58,7 +57,13 @@ Deno.serve(async (req) => {
 
       // 2. Get invoice details for notification
       const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', order_id).single();
-      if (!invoice) return new Response('Invoice not found', { status: 404 });
+      if (!invoice) {
+        console.error(`Invoice with order_id ${order_id} not found.`);
+        // Still return 200 to Midtrans to prevent retries
+        return new Response(JSON.stringify({ received: true, message: "Invoice not found" }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       // 3. Create payment record
       await supabaseAdmin.from('payments').insert({
@@ -84,6 +89,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (e) {
+    console.error("Midtrans webhook error:", e.message);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
