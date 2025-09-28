@@ -11,12 +11,15 @@ import { Badge } from '@/components/ui/badge';
 import PaymentSubmissionDialog from '@/components/PaymentSubmissionDialog';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { loadStripe } from '@stripe/stripe-js';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import useMidtransSnap from '@/hooks/useMidtransSnap';
 
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+declare global {
+    interface Window {
+        snap: any;
+    }
+}
 
 type InvoiceDetails = {
   id: string;
@@ -53,7 +56,8 @@ const PublicInvoiceView = () => {
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const isSnapReady = useMidtransSnap();
 
   useEffect(() => {
     if (searchParams.get('payment') === 'success') {
@@ -81,33 +85,36 @@ const PublicInvoiceView = () => {
     fetchInvoice();
   }, [id]);
 
-  const handleCheckout = async () => {
-    if (!id) return;
-
-    if (!stripePromise) {
-      showError("Konfigurasi pembayaran Stripe tidak ditemukan.");
-      console.error("VITE_STRIPE_PUBLISHABLE_KEY is not set in your .env file.");
-      return;
-    }
-
-    setIsRedirecting(true);
+  const handlePayment = async () => {
+    if (!id || !isSnapReady) return;
+    setIsProcessingPayment(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-midtrans-transaction', {
         body: { invoiceId: id },
       });
       if (error) throw error;
 
-      const stripe = await stripePromise;
-      if (!stripe) throw new Error('Stripe.js has not loaded yet.');
-
-      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      if (stripeError) {
-        showError(stripeError.message || 'Gagal memulai pembayaran.');
-      }
+      window.snap.pay(data.token, {
+        onSuccess: function(result: any){
+          showSuccess("Pembayaran berhasil!");
+          console.log(result);
+        },
+        onPending: function(result: any){
+          showSuccess("Pembayaran Anda sedang diproses.");
+          console.log(result);
+        },
+        onError: function(result: any){
+          showError("Pembayaran gagal.");
+          console.log(result);
+        },
+        onClose: function(){
+          console.log('customer closed the popup without finishing the payment');
+        }
+      });
     } catch (error: any) {
-      showError(error.message || 'Terjadi kesalahan.');
+      showError(error.message || 'Terjadi kesalahan saat memproses pembayaran.');
     } finally {
-      setIsRedirecting(false);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -192,8 +199,8 @@ const PublicInvoiceView = () => {
             <div className="w-full md:w-auto space-y-2">
                 {invoice.status !== 'Lunas' ? (
                     <>
-                        <Button size="lg" onClick={handleCheckout} disabled={isRedirecting || !stripePromise}>
-                            <CreditCard className="mr-2 h-4 w-4" /> {isRedirecting ? 'Mengarahkan...' : 'Bayar dengan Kartu'}
+                        <Button size="lg" onClick={handlePayment} disabled={isProcessingPayment || !isSnapReady}>
+                            <CreditCard className="mr-2 h-4 w-4" /> {isProcessingPayment ? 'Memproses...' : 'Bayar Sekarang'}
                         </Button>
                         <Button size="lg" variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
                             <Landmark className="mr-2 h-4 w-4" /> Konfirmasi Transfer Bank
