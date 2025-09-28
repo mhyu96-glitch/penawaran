@@ -34,52 +34,19 @@ const ClientPortal = () => {
         return;
       }
 
-      // 1. Get Client ID from access key
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('id, name')
-        .eq('access_key', accessKey)
-        .single();
+      setLoading(true);
+      const { data, error: rpcError } = await supabase
+        .rpc('get_client_portal_data', { p_access_key: accessKey });
 
-      if (clientError || !clientData) {
+      if (rpcError || !data) {
+        console.error('Error fetching portal data:', rpcError);
         setError('Portal tidak ditemukan atau kunci akses salah.');
         setLoading(false);
         return;
       }
-      setClientName(clientData.name);
-      const clientId = clientData.id;
 
-      // 2. Fetch Quotes and Invoices for this client
-      const [quotesRes, invoicesRes] = await Promise.all([
-        supabase.from('quotes').select('id, quote_number, created_at, status').eq('client_id', clientId).order('created_at', { ascending: false }),
-        supabase.from('invoices').select('id, invoice_number, created_at, status').eq('client_id', clientId).order('created_at', { ascending: false })
-      ]);
-
-      const fetchedDocuments: Document[] = [];
-      if (quotesRes.data) {
-        fetchedDocuments.push(...quotesRes.data.map(q => ({
-          id: q.id,
-          number: q.quote_number,
-          created_at: q.created_at,
-          status: q.status,
-          type: 'Penawaran',
-          public_link: `/quote/public/${q.id}`
-        })));
-      }
-      if (invoicesRes.data) {
-        fetchedDocuments.push(...invoicesRes.data.map(i => ({
-          id: i.id,
-          number: i.invoice_number,
-          created_at: i.created_at,
-          status: i.status,
-          type: 'Faktur',
-          public_link: `/invoice/public/${i.id}`
-        })));
-      }
-
-      // Sort all documents by date
-      fetchedDocuments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setDocuments(fetchedDocuments);
+      setClientName(data.clientName);
+      setDocuments(data.documents);
       setLoading(false);
     };
 
