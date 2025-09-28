@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { order_id, transaction_status, fraud_status, signature_key, gross_amount, status_code } = notification;
+    const { order_id, transaction_status, fraud_status, signature_key, gross_amount, status_code, custom_field1 } = notification;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -52,6 +52,8 @@ Deno.serve(async (req) => {
       throw new Error('Invalid signature');
     }
 
+    const invoiceId = custom_field1 || order_id; // Use custom_field1 to get the real invoice ID
+
     let newStatus = null;
     if (transaction_status == 'capture' || transaction_status == 'settlement') {
       if (fraud_status == 'accept') {
@@ -63,12 +65,12 @@ Deno.serve(async (req) => {
 
     if (newStatus === 'Lunas') {
       // 1. Update invoice status
-      await supabaseAdmin.from('invoices').update({ status: 'Lunas' }).eq('id', order_id);
+      await supabaseAdmin.from('invoices').update({ status: 'Lunas' }).eq('id', invoiceId);
 
       // 2. Get invoice details for notification
-      const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', order_id).single();
+      const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', invoiceId).single();
       if (!invoice) {
-        console.error(`Invoice with order_id ${order_id} not found.`);
+        console.error(`Invoice with id ${invoiceId} not found.`);
         // Still return 200 to Midtrans to prevent retries
         return new Response(JSON.stringify({ received: true, message: "Invoice not found" }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -77,7 +79,7 @@ Deno.serve(async (req) => {
 
       // 3. Create payment record
       await supabaseAdmin.from('payments').insert({
-        invoice_id: order_id,
+        invoice_id: invoiceId,
         user_id: invoice.user_id,
         amount: parseFloat(gross_amount),
         payment_date: new Date().toISOString(),
@@ -90,7 +92,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from('notifications').insert({
           user_id: invoice.user_id,
           message,
-          link: `/invoice/${order_id}`
+          link: `/invoice/${invoiceId}`
       });
     }
 

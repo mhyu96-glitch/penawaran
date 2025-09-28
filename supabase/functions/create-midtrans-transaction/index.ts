@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error } = await supabaseAdmin
       .from('invoices')
-      .select('*, invoice_items(*)')
+      .select('*, invoice_items(*), clients(email)')
       .eq('id', invoiceId)
       .single()
 
@@ -39,12 +39,12 @@ Deno.serve(async (req) => {
 
     const transactionPayload = {
       transaction_details: {
-        order_id: invoice.id,
+        order_id: `${invoice.id}-${Date.now()}`, // Unique order ID for each attempt
         gross_amount: Math.round(total),
       },
       customer_details: {
         first_name: invoice.to_client,
-        email: invoice.to_email, // Assuming you have an email field, otherwise this can be omitted
+        email: invoice.clients?.email, // Get email from related client table
         phone: invoice.to_phone,
       },
       item_details: invoice.invoice_items.map((item: any) => ({
@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
         quantity: item.quantity,
         name: item.description.substring(0, 50),
       })),
+      custom_field1: invoice.id, // Pass original invoice ID for webhook
     };
 
     const response = await fetch(midtransApiUrl, {
