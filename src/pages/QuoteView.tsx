@@ -156,7 +156,7 @@ const QuoteView = () => {
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    html2canvas(input, { scale: 2, useCORS: true })
+    html2canvas(input, { scale: 1.5, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
@@ -262,7 +262,7 @@ const QuoteView = () => {
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
-                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
+                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Ekspor PDF</>}</Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>

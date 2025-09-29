@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Landmark, CreditCard, CheckCircle } from 'lucide-react';
+import { Landmark, CreditCard, CheckCircle, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useMidtransSnap from '@/hooks/useMidtransSnap';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 declare global {
     interface Window {
@@ -58,6 +60,8 @@ const PublicInvoiceView = () => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const isSnapReady = useMidtransSnap();
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchParams.get('payment') === 'success') {
@@ -84,6 +88,48 @@ const PublicInvoiceView = () => {
 
     fetchInvoice();
   }, [id]);
+
+  const handleSaveAsPDF = () => {
+    if (!invoiceRef.current || !invoice) return;
+    setIsGeneratingPDF(true);
+    const input = invoiceRef.current;
+    const originalWidth = input.style.width;
+    input.style.width = '1024px';
+
+    const elementsToHide = input.querySelectorAll('.no-pdf');
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
+
+    html2canvas(input, { scale: 1.5, useCORS: true })
+      .then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / pdfWidth;
+        const imgHeight = canvasHeight / ratio;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+          position -= pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+        
+        pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+      })
+      .finally(() => {
+        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+        input.style.width = originalWidth;
+        setIsGeneratingPDF(false);
+      });
+  };
 
   const handlePayment = async () => {
     if (!id || !isSnapReady) return;
@@ -139,7 +185,12 @@ const PublicInvoiceView = () => {
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
       {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={total} />}
-      <Card className="max-w-4xl mx-auto shadow-lg">
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end">
+        <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
+          {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
+        </Button>
+      </div>
+      <Card ref={invoiceRef} className="max-w-4xl mx-auto shadow-lg">
         <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
@@ -196,7 +247,7 @@ const PublicInvoiceView = () => {
             </table>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-            <div className="w-full md:w-auto space-y-2">
+            <div className="w-full md:w-auto space-y-2 no-pdf">
                 {invoice.status !== 'Lunas' ? (
                     <>
                         <Button size="lg" onClick={handlePayment} disabled={isProcessingPayment || !isSnapReady}>
