@@ -1,0 +1,35 @@
+# Nama workflow yang akan tampil di tab Actions GitHub
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Menjalankan workflow setiap 3 hari sekali pada jam 01:00 UTC.
+    # (≈ 09:00 WITA / 08:00 WIB)
+    # Anda bisa menyesuaikan jadwalnya menggunakan format cron.
+    - cron: '0 1 */3 * *'
+  
+  # Baris ini memungkinkan Anda menjalankan workflow secara manual dari tab Actions
+  workflow_dispatch:
+
+jobs:
+  ping_supabase:
+    # Menjalankan job ini di environment Ubuntu versi terbaru
+    runs-on: ubuntu-latest
+
+    steps:
+      # Nama langkah yang akan tampil di log
+      - name: Ping Supabase Project RPC
+        
+        # Perintah yang akan dijalankan
+        run: |
+          # Menggunakan curl untuk memanggil fungsi 'ping_db' yang sudah kita buat.
+          # Opsi -sS: Silent mode tapi tetap menunjukkan error.
+          # Opsi -X POST: Menggunakan metode POST.
+          # Header 'apikey' dan 'Authorization' diperlukan untuk otentikasi.
+          # Data '-d '{}'' adalah body kosong, diperlukan untuk request POST RPC.
+          # '|| exit 1' akan membuat workflow gagal jika curl gagal, agar Anda mendapat notifikasi.
+          curl -sS -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/ping_db" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || exit 1
