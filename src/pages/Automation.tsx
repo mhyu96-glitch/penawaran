@@ -22,6 +22,8 @@ export type Workflow = {
 const triggerLabels: { [key: string]: string } = {
   'quote_accepted': 'Penawaran Diterima',
   'quote_expiring_3_days': 'Penawaran Akan Kedaluwarsa (3 Hari)',
+  'invoice_overdue': 'Faktur Jatuh Tempo',
+  'payment_received': 'Pembayaran Diterima',
 };
 
 const actionLabels: { [key: string]: string } = {

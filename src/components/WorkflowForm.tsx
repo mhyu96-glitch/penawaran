@@ -19,6 +19,8 @@ interface WorkflowFormProps {
 const triggers = [
   { value: 'quote_accepted', label: 'Penawaran Diterima' },
   { value: 'quote_expiring_3_days', label: 'Penawaran Akan Kedaluwarsa (3 Hari)' },
+  { value: 'invoice_overdue', label: 'Faktur Jatuh Tempo' },
+  { value: 'payment_received', label: 'Pembayaran Diterima' },
 ];
 
 const actions = [
