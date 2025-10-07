@@ -59,6 +59,7 @@ const SharedLayout = () => {
                     <DropdownMenuContent>
                         <DropdownMenuItem asChild><Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profit-loss"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Laba Rugi</Link></DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -84,6 +85,7 @@ const SharedLayout = () => {
                     <DropdownMenuContent>
                         <DropdownMenuItem asChild><Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profit-loss"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Laba Rugi</Link></DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

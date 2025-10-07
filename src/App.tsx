@@ -31,6 +31,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import ExpenseReport from "./pages/ExpenseReport";
 import ProjectList from "./pages/ProjectList";
 import ProjectDetail from "./pages/ProjectDetail";
+import ProfitLossReport from "./pages/ProfitLossReport";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/profitability" element={<ProfitabilityReports />} />
                   <Route path="/reports/expenses" element={<ExpenseReport />} />
+                  <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
                 </Route>
