@@ -21,10 +21,12 @@ export type Workflow = {
 
 const triggerLabels: { [key: string]: string } = {
   'quote_accepted': 'Penawaran Diterima',
+  'quote_expiring_3_days': 'Penawaran Akan Kedaluwarsa (3 Hari)',
 };
 
 const actionLabels: { [key: string]: string } = {
   'create_project': 'Buat Proyek Baru',
+  'send_internal_notification': 'Kirim Notifikasi Internal',
 };
 
 const Automation = () => {

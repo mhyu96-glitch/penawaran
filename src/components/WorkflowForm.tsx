@@ -18,10 +18,12 @@ interface WorkflowFormProps {
 
 const triggers = [
   { value: 'quote_accepted', label: 'Penawaran Diterima' },
+  { value: 'quote_expiring_3_days', label: 'Penawaran Akan Kedaluwarsa (3 Hari)' },
 ];
 
 const actions = [
   { value: 'create_project', label: 'Buat Proyek Baru' },
+  { value: 'send_internal_notification', label: 'Kirim Notifikasi Internal' },
 ];
 
 const WorkflowForm = ({ isOpen, setIsOpen, workflow, onSave }: WorkflowFormProps) => {
