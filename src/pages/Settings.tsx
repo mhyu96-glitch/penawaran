@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { showError, showSuccess } from '@/utils/toast';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
+import { Settings as SettingsIcon, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 
@@ -16,6 +16,7 @@ const Settings = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Existing states
   const [defaultTerms, setDefaultTerms] = useState('');
@@ -84,6 +85,52 @@ const Settings = () => {
       showSuccess('Pengaturan berhasil disimpan!');
     }
     setIsSubmitting(false);
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    const toastId = showLoading('Mempersiapkan data ekspor...');
+    setIsExporting(true);
+    try {
+      const tablesToExport = [
+        'profiles', 'clients', 'items', 'projects', 'project_tasks', 
+        'time_entries', 'expenses', 'quotes', 'quote_items', 
+        'invoices', 'invoice_items', 'payments'
+      ];
+      
+      const dataPromises = tablesToExport.map(table => 
+        supabase.from(table).select('*').eq('user_id', user.id)
+      );
+      
+      const results = await Promise.all(dataPromises);
+      
+      const exportData: { [key: string]: any } = {};
+      results.forEach((res, index) => {
+        if (res.error) throw new Error(`Gagal mengambil data dari tabel ${tablesToExport[index]}: ${res.error.message}`);
+        exportData[tablesToExport[index]] = res.data;
+      });
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const date = new Date().toISOString().split('T')[0];
+      link.download = `quoteapp_backup_${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      dismissToast(toastId);
+      showSuccess('Data berhasil diekspor!');
+
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(`Ekspor gagal: ${error.message}`);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading) {
@@ -193,6 +240,19 @@ const Settings = () => {
                             <div className="flex items-center justify-between"><Label htmlFor="show-price">Kolom "Harga Satuan"</Label><Switch id="show-price" checked={showUnitPrice} onCheckedChange={setShowUnitPrice} /></div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <Separator />
+            <div>
+                <h3 className="text-lg font-medium">Cadangkan & Ekspor Data</h3>
+                <div className="space-y-4 mt-2">
+                    <p className="text-sm text-muted-foreground">
+                        Unduh salinan lengkap data Anda dalam format JSON. Ini termasuk semua klien, penawaran, faktur, item, dan pengaturan Anda.
+                    </p>
+                    <Button type="button" variant="outline" onClick={handleExportData} disabled={isExporting}>
+                        <Download className="mr-2 h-4 w-4" />
+                        {isExporting ? 'Mengekspor...' : 'Ekspor Semua Data'}
+                    </Button>
                 </div>
             </div>
           </CardContent>
