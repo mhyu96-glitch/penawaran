@@ -2,34 +2,45 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { useAuth } from "@/contexts/SessionContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
+  const { session, loading } = useAuth();
+
+  const renderContent = () => {
+    if (loading) {
+      return <Skeleton className="h-10 w-48" />;
+    }
+    if (session) {
+      return (
+        <Button asChild size="lg">
+          <Link to="/dashboard">Buka Dashboard</Link>
+        </Button>
+      );
+    }
+    return (
+      <Button asChild size="lg">
+        <Link to="/login">Masuk untuk Memulai</Link>
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <div className="absolute top-4 right-4">
-        <Button asChild variant="outline" size="icon">
-          <Link to="/settings">
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Pengaturan</span>
-          </Link>
-        </Button>
-      </div>
       <div className="w-full max-w-2xl">
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-4xl font-bold mb-2">Selamat Datang di Aplikasi Penawaran Anda</CardTitle>
-            <CardDescription className="text-xl text-gray-600">
+            <CardTitle className="text-3xl md:text-4xl font-bold mb-2">Selamat Datang di Aplikasi Penawaran Anda</CardTitle>
+            <CardDescription className="text-lg md:text-xl text-gray-600">
               Hasilkan penawaran proyek secara instan.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="mb-6">
-              Klik tombol di bawah ini untuk mulai membuat penawaran baru untuk klien Anda.
+              {session ? "Kelola semua penawaran Anda atau buat yang baru." : "Masuk atau daftar untuk mulai membuat penawaran."}
             </p>
-            <Button asChild size="lg">
-              <Link to="/quote">Buat Penawaran Baru</Link>
-            </Button>
+            {renderContent()}
           </CardContent>
         </Card>
       </div>
