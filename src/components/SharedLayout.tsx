@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban, Wand2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
@@ -24,6 +24,7 @@ const SharedLayout = () => {
     { to: "/expenses", icon: Wallet, label: "Pengeluaran" },
     { to: "/clients", icon: Users, label: "Klien" },
     { to: "/items", icon: Package, label: "Barang & Jasa" },
+    { to: "/automation", icon: Wand2, label: "Otomatisasi" },
   ];
 
   return (
@@ -101,6 +102,7 @@ const SharedLayout = () => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/profile"><User className="mr-2 h-4 w-4" /><span>Profil</span></Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/settings"><Settings className="mr-2 h-4 w-4" /><span>Pengaturan</span></Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/automation"><Wand2 className="mr-2 h-4 w-4" /><span>Otomatisasi</span></Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>Keluar</DropdownMenuItem>
               </DropdownMenuContent>

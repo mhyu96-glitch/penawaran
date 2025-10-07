@@ -32,6 +32,7 @@ import ExpenseReport from "./pages/ExpenseReport";
 import ProjectList from "./pages/ProjectList";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProfitLossReport from "./pages/ProfitLossReport";
+import Automation from "./pages/Automation";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const App = () => (
                   <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
+                  <Route path="/automation" element={<Automation />} />
                 </Route>
               </Route>
 
