@@ -2,10 +2,19 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Settings } from "lucide-react";
 
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="absolute top-4 right-4">
+        <Button asChild variant="outline" size="icon">
+          <Link to="/settings">
+            <Settings className="h-5 w-5" />
+            <span className="sr-only">Pengaturan</span>
+          </Link>
+        </Button>
+      </div>
       <div className="w-full max-w-2xl">
         <Card className="text-center">
           <CardHeader>

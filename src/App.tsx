@@ -2,10 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import QuoteGenerator from "./pages/QuoteGenerator";
+import SettingsLayout from "./layouts/SettingsLayout";
+import BackupRestore from "./pages/Settings/BackupRestore";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +20,13 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/quote" element={<QuoteGenerator />} />
+          
+          {/* Settings Routes */}
+          <Route path="/settings" element={<SettingsLayout />}>
+            <Route index element={<Navigate to="/settings/backup" replace />} />
+            <Route path="backup" element={<BackupRestore />} />
+          </Route>
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
