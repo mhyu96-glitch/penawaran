@@ -16,6 +16,7 @@ export type Project = {
   description: string | null;
   client_id: string | null;
   status: string;
+  budget: number | null;
 };
 
 interface ProjectFormProps {
@@ -31,6 +32,7 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
   const [description, setDescription] = useState('');
   const [clientId, setClientId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState('Ongoing');
+  const [budget, setBudget] = useState('0');
   const [clients, setClients] = useState<Client[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -49,11 +51,13 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
       setDescription(project.description || '');
       setClientId(project.client_id || undefined);
       setStatus(project.status);
+      setBudget(String(project.budget || 0));
     } else {
       setName('');
       setDescription('');
       setClientId(undefined);
       setStatus('Ongoing');
+      setBudget('0');
     }
   }, [project, isOpen]);
 
@@ -70,6 +74,7 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
       description,
       client_id: clientId,
       status,
+      budget: parseFloat(budget) || 0,
     };
 
     let error;
@@ -109,16 +114,22 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Ongoing">Sedang Berjalan</SelectItem>
-                <SelectItem value="Completed">Selesai</SelectItem>
-                <SelectItem value="Archived">Diarsipkan</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Ongoing">Sedang Berjalan</SelectItem>
+                    <SelectItem value="Completed">Selesai</SelectItem>
+                    <SelectItem value="Archived">Diarsipkan</SelectItem>
+                </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="budget">Anggaran (IDR)</Label>
+                <Input id="budget" type="number" value={budget} onChange={(e) => setBudget(e.target.value)} />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Deskripsi (Opsional)</Label>

@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo } from 'lucide-react';
+import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
+import { Progress } from '@/components/ui/progress';
 
 type ProjectDetails = {
   id: string;
@@ -19,6 +20,7 @@ type ProjectDetails = {
   description: string | null;
   status: string;
   clients: { name: string } | null;
+  budget: number;
 };
 
 type Quote = { id: string; quote_number: string; created_at: string; status: string; quote_items: { quantity: number; unit_price: number; cost_price: number }[] };
@@ -104,22 +106,47 @@ const ProjectDetail = () => {
 
   if (!project) return <div className="container mx-auto p-8 text-center">Proyek tidak ditemukan.</div>;
 
+  const budgetUsedPercent = project.budget > 0 ? (financials.totalCosts / project.budget) * 100 : 0;
+  const budgetRemaining = project.budget - financials.totalCosts;
+
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
       <Button asChild variant="outline" size="sm"><Link to="/projects"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar Proyek</Link></Button>
       
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-3xl">{project.name}</CardTitle>
-              <CardDescription>{project.clients?.name || 'Tanpa klien'}</CardDescription>
+      <div className="grid md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
+            <CardHeader>
+            <div className="flex justify-between items-start">
+                <div>
+                <CardTitle className="text-3xl">{project.name}</CardTitle>
+                <CardDescription>{project.clients?.name || 'Tanpa klien'}</CardDescription>
+                </div>
+                <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
             </div>
-            <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
-          </div>
-          {project.description && <p className="text-sm text-muted-foreground pt-2">{project.description}</p>}
-        </CardHeader>
-      </Card>
+            {project.description && <p className="text-sm text-muted-foreground pt-2">{project.description}</p>}
+            </CardHeader>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Anggaran Proyek</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {project.budget > 0 ? (
+                    <div className="space-y-2">
+                        <Progress value={budgetUsedPercent} />
+                        <div className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{formatCurrency(financials.totalCosts)}</span> dari <span className="font-medium text-foreground">{formatCurrency(project.budget)}</span> digunakan ({budgetUsedPercent.toFixed(1)}%)
+                        </div>
+                        <div className={`text-sm font-medium ${budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {budgetRemaining >= 0 ? `${formatCurrency(budgetRemaining)} tersisa` : `${formatCurrency(Math.abs(budgetRemaining))} melebihi anggaran`}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">Tidak ada anggaran yang ditetapkan untuk proyek ini.</p>
+                )}
+            </CardContent>
+        </Card>
+      </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div></CardContent></Card>
