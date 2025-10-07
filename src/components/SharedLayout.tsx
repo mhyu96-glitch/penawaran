@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
+import { GlobalSearch } from './GlobalSearch';
 
 const SharedLayout = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const SharedLayout = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <header className="bg-background border-b sticky top-0 z-30">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8 gap-4">
           <div className="flex items-center gap-4">
             <Sheet>
               <SheetTrigger asChild>
@@ -69,8 +70,11 @@ const SharedLayout = () => {
               <span>QuoteApp</span>
             </Link>
           </div>
+          <div className="flex-1 flex justify-center px-4">
+            <GlobalSearch />
+          </div>
           <div className="flex items-center gap-2">
-            <nav className="hidden md:flex gap-1">
+            <nav className="hidden lg:flex gap-1">
                 <Button variant="ghost" asChild size="sm"><Link to="/dashboard">Dashboard</Link></Button>
                 <Button variant="ghost" asChild size="sm"><Link to="/quotes">Penawaran</Link></Button>
                 <Button variant="ghost" asChild size="sm"><Link to="/invoices">Faktur</Link></Button>
