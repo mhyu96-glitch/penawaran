@@ -21,6 +21,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        if (!session) {
+          console.warn('SessionContext: No active session found after initial load. User might not be logged in or session is invalid.');
+        }
     };
     
     getSession();
