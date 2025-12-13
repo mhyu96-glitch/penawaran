@@ -60,7 +60,7 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
     setIsSubmitting(true);
 
     const itemPayload = {
-      user_id: user.id,
+      user_id: user.id, // Pastikan user_id selalu disertakan
       description,
       unit,
       unit_price: parseFloat(unitPrice) || 0,
@@ -76,6 +76,7 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
 
     if (error) {
       showError(`Gagal menyimpan item: ${error.message}`);
+      console.error("Supabase item save error:", error); // Log error for debugging
     } else {
       showSuccess(`Item berhasil ${item ? 'diperbarui' : 'ditambahkan'}!`);
       onSave();
