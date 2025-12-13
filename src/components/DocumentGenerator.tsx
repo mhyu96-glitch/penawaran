@@ -246,18 +246,33 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
     if (isEditMode) {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
-      if (error) { showError(`Gagal memperbarui ${config.title}.`); setIsSubmitting(false); return; }
+      if (error) { 
+        showError(`Gagal memperbarui ${config.title}.`); 
+        console.error(`Error updating ${config.title}:`, error);
+        setIsSubmitting(false); 
+        return; 
+      }
       await supabase.from(config.itemTable).delete().match({ [config.foreignKey]: id });
     } else {
       const { data, error } = await supabase.from(config.table).insert(docPayload).select().single();
-      if (error || !data) { showError(`Gagal membuat ${config.title}.`); setIsSubmitting(false); return; }
+      if (error || !data) { 
+        showError(`Gagal membuat ${config.title}.`); 
+        console.error(`Error creating ${config.title}:`, error);
+        setIsSubmitting(false); 
+        return; 
+      }
       currentDocId = data.id;
     }
 
     const itemsPayload = items.filter(item => item.description).map(item => ({ ...item, [config.foreignKey]: currentDocId }));
     if (itemsPayload.length > 0) {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
-      if (error) { showError(`Gagal menyimpan item.`); setIsSubmitting(false); return; }
+      if (error) { 
+        showError(`Gagal menyimpan item.`); 
+        console.error(`Error saving ${docType} items:`, error); // Specific error log for items
+        setIsSubmitting(false); 
+        return; 
+      }
     }
 
     showSuccess(`${config.title} berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
