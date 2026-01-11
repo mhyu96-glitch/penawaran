@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from('invoices')
-      .select('*, invoice_items(*)')
+      .select('*, invoice_items(*), payments(*)') // Tambahkan payments(*) di sini
       .eq('id', invoiceId)
       .single()
 

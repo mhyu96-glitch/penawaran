@@ -23,6 +23,15 @@ declare global {
     }
 }
 
+type Payment = {
+    id: string;
+    amount: number;
+    payment_date: string;
+    notes: string | null;
+    proof_url: string | null;
+    status: string;
+};
+
 type InvoiceDetails = {
   id: string;
   from_company: string;
@@ -45,6 +54,7 @@ type InvoiceDetails = {
     unit: string;
     unit_price: number;
   }[];
+  payments: Payment[]; // Tambahkan tipe pembayaran di sini
   payment_instructions: string;
   custom_footer: string | null;
   show_quantity_column: boolean;
@@ -168,6 +178,15 @@ const PublicInvoiceView = () => {
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  
+  // Hitung total yang sudah dibayar (termasuk DP)
+  const totalPaid = useMemo(() => {
+    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
+    return paymentsAmount + (invoice?.down_payment_amount || 0);
+  }, [invoice]);
+
+  // Hitung sisa tagihan
+  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -184,7 +203,7 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={total} />}
+      {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={balanceDue} />}
       <div className="max-w-4xl mx-auto mb-4 flex justify-end">
         <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
           {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
@@ -248,7 +267,7 @@ const PublicInvoiceView = () => {
           </div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="w-full md:w-auto space-y-2 no-pdf">
-                {invoice.status !== 'Lunas' ? (
+                {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
                         <Button size="lg" onClick={handlePayment} disabled={isProcessingPayment || !isSnapReady}>
                             <CreditCard className="mr-2 h-4 w-4" /> {isProcessingPayment ? 'Memproses...' : 'Bayar Sekarang'}
@@ -274,8 +293,13 @@ const PublicInvoiceView = () => {
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
               {invoice.down_payment_amount > 0 && (
-                <div className="flex justify-between text-muted-foreground mt-1"><span>Uang Muka (DP) yang harus dibayar</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>
+                <div className="flex justify-between text-muted-foreground mt-1"><span>Uang Muka (DP)</span><span>- {formatCurrency(invoice.down_payment_amount)}</span></div>
               )}
+              {totalPaid > (invoice?.down_payment_amount || 0) && (
+                <div className="flex justify-between text-muted-foreground mt-1"><span>Pembayaran Lain</span><span>- {formatCurrency(totalPaid - (invoice?.down_payment_amount || 0))}</span></div>
+              )}
+              <Separator />
+              <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
             </div>
           </div>
           {invoice.terms && (
