@@ -64,6 +64,7 @@ type InvoiceDetails = {
   payment_instructions: string;
   custom_footer: string | null;
   company_phone: string | null;
+  whatsapp_invoice_template: string | null;
   show_quantity_column: boolean;
   show_unit_column: boolean;
   show_unit_price_column: boolean;
@@ -139,6 +140,18 @@ const PublicInvoiceView = () => {
       });
   };
 
+  const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
+  const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
+  const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
+  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  
+  const totalPaid = useMemo(() => {
+    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
+    return paymentsAmount + (invoice?.down_payment_amount || 0);
+  }, [invoice]);
+
+  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+
   const handleWhatsAppClick = () => {
     if (!invoice) return;
     
@@ -147,11 +160,20 @@ const PublicInvoiceView = () => {
         return;
     }
 
-    const phoneNumber = invoice.company_phone.replace(/\D/g, ''); // Remove non-digits
-    // Ensure starts with 62 or country code if needed, assuming user enters correctly for now or adding basic check
+    const phoneNumber = invoice.company_phone.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
 
-    const message = `Halo ${invoice.from_company}, saya ingin mengonfirmasi pembayaran untuk Faktur #${invoice.invoice_number} sebesar ${formatCurrency(balanceDue)}. Berikut saya lampirkan bukti transfernya.`;
+    // Use template or fallback
+    let messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
+    
+    // Replace placeholders
+    const message = messageTemplate
+      .replace(/{client_name}/g, invoice.to_client)
+      .replace(/{number}/g, invoice.invoice_number || 'N/A')
+      .replace(/{amount}/g, formatCurrency(balanceDue))
+      .replace(/{company_name}/g, invoice.from_company)
+      .replace(/{link}/g, window.location.href);
+
     const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
     
     window.open(url, '_blank');
@@ -163,19 +185,6 @@ const PublicInvoiceView = () => {
     showSuccess("Instruksi pembayaran disalin ke clipboard!");
   };
 
-  const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
-  const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
-  const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
-  
-  // Hanya hitung pembayaran yang sudah LUNAS untuk tampilan publik
-  const totalPaid = useMemo(() => {
-    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
-    return paymentsAmount + (invoice?.down_payment_amount || 0);
-  }, [invoice]);
-
-  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
-
   // Hanya tampilkan pembayaran yang LUNAS
   const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
 
@@ -185,6 +194,8 @@ const PublicInvoiceView = () => {
       case 'Terkirim': return 'secondary';
       case 'Jatuh Tempo': return 'destructive';
       case 'Draf': return 'outline';
+      case 'Pending': return 'secondary';
+      case 'Ditolak': return 'destructive';
       default: return 'outline';
     }
   };
@@ -303,7 +314,6 @@ const PublicInvoiceView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
-              {/* Explicitly show "Telah Dibayar" */}
               <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>

@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Settings as SettingsIcon, Download, Upload, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -34,13 +35,17 @@ const Settings = () => {
   const [showUnit, setShowUnit] = useState(true);
   const [showUnitPrice, setShowUnitPrice] = useState(true);
 
+  // WhatsApp Templates
+  const [waInvoiceTemplate, setWaInvoiceTemplate] = useState('');
+  const [waQuoteTemplate, setWaQuoteTemplate] = useState('');
+
   useEffect(() => {
     const fetchSettings = async () => {
       if (!user) return;
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('default_terms, default_tax_amount, default_discount_amount, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column')
+        .select('*')
         .eq('id', user.id)
         .single();
 
@@ -56,6 +61,8 @@ const Settings = () => {
         setShowQuantity(data.show_quantity_column ?? true);
         setShowUnit(data.show_unit_column ?? true);
         setShowUnitPrice(data.show_unit_price_column ?? true);
+        setWaInvoiceTemplate(data.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.');
+        setWaQuoteTemplate(data.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} dari {company_name}. Silakan tinjau detailnya melalui tautan berikut: {link}');
       }
       setLoading(false);
     };
@@ -79,6 +86,8 @@ const Settings = () => {
         show_quantity_column: showQuantity,
         show_unit_column: showUnit,
         show_unit_price_column: showUnitPrice,
+        whatsapp_invoice_template: waInvoiceTemplate,
+        whatsapp_quote_template: waQuoteTemplate,
       })
       .eq('id', user.id);
 
@@ -103,14 +112,10 @@ const Settings = () => {
       ];
       
       const dataPromises = tablesToExport.map(async (table) => {
-        // The 'profiles' table is special, it doesn't have a user_id column but uses the user's id as its primary key.
         const query = supabase.from(table).select('*');
         if (table === 'profiles') {
           return query.eq('id', user.id);
         }
-        // For other tables, we need to check if they have a user_id column.
-        // This is a simplification; a more robust solution would inspect table metadata.
-        // For this app, all other relevant tables have user_id.
         return query.eq('user_id', user.id);
       });
       
@@ -224,137 +229,193 @@ const Settings = () => {
             <CardTitle className="text-3xl">Pengaturan</CardTitle>
           </div>
           <CardDescription>
-            Atur nilai default dan informasi penting lainnya untuk menghemat waktu.
+            Atur preferensi aplikasi dan template dokumen Anda.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleUpdateSettings}>
-          <CardContent className="space-y-6">
-            <div>
-                <h3 className="text-lg font-medium">Default Penawaran & Faktur</h3>
-                <div className="space-y-4 mt-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="defaultTerms">Syarat & Ketentuan Default</Label>
+          <CardContent>
+            <Tabs defaultValue="general">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="general">Umum</TabsTrigger>
+                <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+                <TabsTrigger value="backup">Data</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="general" className="space-y-6 mt-4">
+                <div>
+                    <h3 className="text-lg font-medium">Default Penawaran & Faktur</h3>
+                    <div className="space-y-4 mt-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="defaultTerms">Syarat & Ketentuan Default</Label>
+                            <Textarea
+                                id="defaultTerms"
+                                placeholder="Contoh: Pembayaran 50% di muka..."
+                                value={defaultTerms}
+                                onChange={(e) => setDefaultTerms(e.target.value)}
+                                rows={5}
+                            />
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="defaultTax">Pajak Default (Rp)</Label>
+                                <Input
+                                id="defaultTax"
+                                type="number"
+                                value={defaultTaxAmount}
+                                onChange={(e) => setDefaultTaxAmount(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="defaultDiscount">Diskon Default (Rp)</Label>
+                                <Input
+                                id="defaultDiscount"
+                                type="number"
+                                value={defaultDiscountAmount}
+                                onChange={(e) => setDefaultDiscountAmount(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <Separator />
+                <div>
+                    <h3 className="text-lg font-medium">Instruksi Pembayaran</h3>
+                    <div className="space-y-2 mt-2">
+                        <Label htmlFor="paymentInstructions">Info Rekening & Cara Bayar</Label>
                         <Textarea
-                            id="defaultTerms"
-                            placeholder="Contoh: Pembayaran 50% di muka..."
-                            value={defaultTerms}
-                            onChange={(e) => setDefaultTerms(e.target.value)}
+                            id="paymentInstructions"
+                            placeholder="Contoh: BCA 123456789 a/n Nama Anda..."
+                            value={paymentInstructions}
+                            onChange={(e) => setPaymentInstructions(e.target.value)}
                             rows={5}
                         />
+                        <p className="text-sm text-muted-foreground">
+                            Teks ini akan muncul saat klien mengklik "Lihat Pembayaran melalui No. Rekening".
+                        </p>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-4">
+                </div>
+                <Separator />
+                <div>
+                    <h3 className="text-lg font-medium">Kustomisasi Tampilan</h3>
+                    <div className="space-y-4 mt-2">
                         <div className="space-y-2">
-                            <Label htmlFor="defaultTax">Pajak Default (Rp)</Label>
-                            <Input
-                            id="defaultTax"
-                            type="number"
-                            value={defaultTaxAmount}
-                            onChange={(e) => setDefaultTaxAmount(parseFloat(e.target.value) || 0)}
+                            <Label htmlFor="customFooter">Footer Dokumen</Label>
+                            <Textarea
+                                id="customFooter"
+                                placeholder="Teks yang muncul di bagian paling bawah dokumen..."
+                                value={customFooter}
+                                onChange={(e) => setCustomFooter(e.target.value)}
+                                rows={2}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="defaultDiscount">Diskon Default (Rp)</Label>
-                            <Input
-                            id="defaultDiscount"
-                            type="number"
-                            value={defaultDiscountAmount}
-                            onChange={(e) => setDefaultDiscountAmount(parseFloat(e.target.value) || 0)}
-                            />
+                            <Label>Opsi Kolom Tabel</Label>
+                            <div className="space-y-2 rounded-md border p-4">
+                                <div className="flex items-center justify-between"><Label htmlFor="show-qty">Tampilkan Jumlah (Qty)</Label><Switch id="show-qty" checked={showQuantity} onCheckedChange={setShowQuantity} /></div>
+                                <div className="flex items-center justify-between"><Label htmlFor="show-unit">Tampilkan Satuan</Label><Switch id="show-unit" checked={showUnit} onCheckedChange={setShowUnit} /></div>
+                                <div className="flex items-center justify-between"><Label htmlFor="show-price">Tampilkan Harga Satuan</Label><Switch id="show-price" checked={showUnitPrice} onCheckedChange={setShowUnitPrice} /></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <Separator />
-            <div>
-                <h3 className="text-lg font-medium">Pengaturan Pembayaran</h3>
-                <div className="space-y-2 mt-2">
-                    <Label htmlFor="paymentInstructions">Instruksi Pembayaran</Label>
+              </TabsContent>
+
+              <TabsContent value="whatsapp" className="space-y-6 mt-4">
+                <Alert>
+                  <MessageSquare className="h-4 w-4" />
+                  <AlertTitle>Variabel Template</AlertTitle>
+                  <AlertDescription>
+                    Gunakan variabel berikut dalam template Anda:
+                    <ul className="list-disc list-inside mt-2 text-xs font-mono">
+                      <li>{`{client_name}`} - Nama Klien</li>
+                      <li>{`{number}`} - Nomor Dokumen</li>
+                      <li>{`{amount}`} - Jumlah Uang (Rp)</li>
+                      <li>{`{company_name}`} - Nama Perusahaan Anda</li>
+                      <li>{`{link}`} - Tautan Dokumen</li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="waInvoice">Template Konfirmasi Faktur (dari Klien)</Label>
                     <Textarea
-                        id="paymentInstructions"
-                        placeholder="Contoh: Mohon transfer ke Bank ABC, No. Rek: 123456789 a/n Perusahaan Anda..."
-                        value={paymentInstructions}
-                        onChange={(e) => setPaymentInstructions(e.target.value)}
-                        rows={5}
+                      id="waInvoice"
+                      value={waInvoiceTemplate}
+                      onChange={(e) => setWaInvoiceTemplate(e.target.value)}
+                      rows={4}
+                      placeholder="Pesan yang akan dikirim klien saat konfirmasi bayar..."
                     />
                     <p className="text-sm text-muted-foreground">
-                        Informasi ini akan ditampilkan kepada klien ketika mereka mengklik tombol "Bayar Sekarang" di portal faktur.
+                      Pesan ini akan otomatis terisi di WhatsApp klien saat mereka mengklik tombol "Kirim Konfirmasi".
                     </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label htmlFor="waQuote">Template Kirim Penawaran (ke Klien)</Label>
+                    <Textarea
+                      id="waQuote"
+                      value={waQuoteTemplate}
+                      onChange={(e) => setWaQuoteTemplate(e.target.value)}
+                      rows={4}
+                      placeholder="Pesan saat Anda membagikan penawaran..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Digunakan saat Anda membagikan tautan penawaran ke klien.
+                    </p>
+                  </div>
                 </div>
-            </div>
-            <Separator />
-            <div>
-                <h3 className="text-lg font-medium">Kustomisasi Dokumen</h3>
-                <div className="space-y-4 mt-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="customFooter">Catatan Kaki (Footer) Kustom</Label>
-                        <Textarea
-                            id="customFooter"
-                            placeholder="Contoh: Terima kasih atas kepercayaan Anda."
-                            value={customFooter}
-                            onChange={(e) => setCustomFooter(e.target.value)}
-                            rows={3}
-                        />
-                        <p className="text-sm text-muted-foreground">Teks ini akan muncul di bagian bawah setiap penawaran dan faktur.</p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Tampilkan Kolom Tabel</Label>
-                        <div className="space-y-2 rounded-md border p-4">
-                            <div className="flex items-center justify-between"><Label htmlFor="show-qty">Kolom "Jumlah"</Label><Switch id="show-qty" checked={showQuantity} onCheckedChange={setShowQuantity} /></div>
-                            <div className="flex items-center justify-between"><Label htmlFor="show-unit">Kolom "Satuan"</Label><Switch id="show-unit" checked={showUnit} onCheckedChange={setShowUnit} /></div>
-                            <div className="flex items-center justify-between"><Label htmlFor="show-price">Kolom "Harga Satuan"</Label><Switch id="show-price" checked={showUnitPrice} onCheckedChange={setShowUnitPrice} /></div>
-                        </div>
-                    </div>
+              </TabsContent>
+
+              <TabsContent value="backup" className="space-y-6 mt-4">
+                <div>
+                    <h3 className="text-lg font-medium">Cadangkan Data</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Unduh salinan lengkap data Anda dalam format JSON.
+                    </p>
+                    <Button type="button" variant="outline" onClick={handleExportData} disabled={isExporting}>
+                        <Download className="mr-2 h-4 w-4" />
+                        {isExporting ? 'Mengekspor...' : 'Ekspor Semua Data'}
+                    </Button>
                 </div>
-            </div>
-            <Separator />
-            <div>
-                <h3 className="text-lg font-medium">Cadangkan & Pulihkan Data</h3>
-                <div className="space-y-6 mt-2">
-                    <div>
-                        <Label>Cadangkan Data</Label>
-                        <p className="text-sm text-muted-foreground mb-2">
-                            Unduh salinan lengkap data Anda dalam format JSON.
-                        </p>
-                        <Button type="button" variant="outline" onClick={handleExportData} disabled={isExporting}>
-                            <Download className="mr-2 h-4 w-4" />
-                            {isExporting ? 'Mengekspor...' : 'Ekspor Semua Data'}
-                        </Button>
-                    </div>
-                    <div>
-                        <Label>Pulihkan Data</Label>
-                        <Alert variant="destructive" className="my-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Peringatan</AlertTitle>
-                            <AlertDescription>
-                                Memulihkan data akan menimpa entri yang ada dengan ID yang sama. Ini TIDAK akan menghapus data yang dibuat setelah pencadangan. Lanjutkan dengan hati-hati.
-                            </AlertDescription>
-                        </Alert>
-                        <div className="flex items-center gap-4">
-                            <Input type="file" accept=".json" onChange={handleFileChange} disabled={isRestoring} className="flex-1" />
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button type="button" variant="secondary" disabled={!restoreFile || isRestoring}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        {isRestoring ? 'Memulihkan...' : 'Pulihkan'}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Tindakan ini akan menimpa data yang cocok dari file cadangan Anda. Pastikan Anda telah memilih file yang benar.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleRestoreData}>Ya, Lanjutkan</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
+                <Separator />
+                <div>
+                    <h3 className="text-lg font-medium">Pulihkan Data</h3>
+                    <Alert variant="destructive" className="my-4">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Peringatan Penting</AlertTitle>
+                        <AlertDescription>
+                            Proses ini akan menimpa data yang ada jika ID-nya sama. Pastikan Anda tahu apa yang Anda lakukan.
+                        </AlertDescription>
+                    </Alert>
+                    <div className="flex items-center gap-4">
+                        <Input type="file" accept=".json" onChange={handleFileChange} disabled={isRestoring} className="flex-1" />
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button" variant="secondary" disabled={!restoreFile || isRestoring}>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    {isRestoring ? 'Memulihkan...' : 'Pulihkan'}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Konfirmasi Pemulihan</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Tindakan ini akan menimpa data yang cocok dari file cadangan Anda.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleRestoreData}>Ya, Lanjutkan</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSubmitting}>
