@@ -25,6 +25,7 @@ const Profile = () => {
   const [companyName, setCompanyName] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyWebsite, setCompanyWebsite] = useState('');
+  const [companyPhone, setCompanyPhone] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [brandColor, setBrandColor] = useState('#000000');
 
@@ -46,6 +47,7 @@ const Profile = () => {
         setCompanyName(data.company_name || '');
         setCompanyAddress(data.company_address || '');
         setCompanyWebsite(data.company_website || '');
+        setCompanyPhone(data.company_phone || '');
         setCompanyLogoUrl(data.company_logo_url || null);
         setBrandColor(data.brand_color || '#000000');
       }
@@ -106,6 +108,7 @@ const Profile = () => {
         company_name: companyName,
         company_address: companyAddress,
         company_website: companyWebsite,
+        company_phone: companyPhone,
         brand_color: brandColor,
         updated_at: new Date().toISOString(),
       })
@@ -161,6 +164,7 @@ const Profile = () => {
                     </div>
                 </div>
                 <div className="space-y-2"><Label htmlFor="companyName">Nama Perusahaan</Label><Input id="companyName" placeholder="Nama Perusahaan Anda" value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="companyPhone">Nomor WhatsApp / Telepon (Wajib untuk link WA)</Label><Input id="companyPhone" placeholder="Contoh: 628123456789" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="companyAddress">Alamat Perusahaan</Label><Textarea id="companyAddress" placeholder="Alamat Perusahaan Anda" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="companyWebsite">Website Perusahaan</Label><Input id="companyWebsite" placeholder="https://websiteanda.com" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="brandColor">Warna Merek</Label>

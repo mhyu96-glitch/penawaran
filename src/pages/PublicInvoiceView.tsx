@@ -1,28 +1,27 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Landmark, CreditCard, CheckCircle, Download, FileText } from 'lucide-react';
+import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import PaymentSubmissionDialog from '@/components/PaymentSubmissionDialog';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import useMidtransSnap from '@/hooks/useMidtransSnap';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-declare global {
-    interface Window {
-        snap: any;
-    }
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Attachment {
   name: string;
@@ -35,7 +34,6 @@ type Payment = {
     amount: number;
     payment_date: string;
     notes: string | null;
-    proof_url: string | null;
     status: string;
 };
 
@@ -55,16 +53,17 @@ type InvoiceDetails = {
   down_payment_amount: number;
   terms: string;
   status: string;
-  attachments: Attachment[]; // New field for attachments
+  attachments: Attachment[];
   invoice_items: {
     description: string;
     quantity: number;
     unit: string;
     unit_price: number;
   }[];
-  payments: Payment[]; // Tambahkan tipe pembayaran di sini
+  payments: Payment[];
   payment_instructions: string;
   custom_footer: string | null;
+  company_phone: string | null;
   show_quantity_column: boolean;
   show_unit_column: boolean;
   show_unit_price_column: boolean;
@@ -72,20 +71,11 @@ type InvoiceDetails = {
 
 const PublicInvoiceView = () => {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const isSnapReady = useMidtransSnap();
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isPaymentInfoOpen, setIsPaymentInfoOpen] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchParams.get('payment') === 'success') {
-      showSuccess('Pembayaran berhasil! Terima kasih.');
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -149,37 +139,28 @@ const PublicInvoiceView = () => {
       });
   };
 
-  const handlePayment = async () => {
-    if (!id || !isSnapReady) return;
-    setIsProcessingPayment(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-midtrans-transaction', {
-        body: { invoiceId: id },
-      });
-      if (error) throw error;
-
-      window.snap.pay(data.token, {
-        onSuccess: function(result: any){
-          showSuccess("Pembayaran berhasil!");
-          console.log(result);
-        },
-        onPending: function(result: any){
-          showSuccess("Pembayaran Anda sedang diproses.");
-          console.log(result);
-        },
-        onError: function(result: any){
-          showError("Pembayaran gagal.");
-          console.log(result);
-        },
-        onClose: function(){
-          console.log('customer closed the popup without finishing the payment');
-        }
-      });
-    } catch (error: any) {
-      showError(error.message || 'Terjadi kesalahan saat memproses pembayaran.');
-    } finally {
-      setIsProcessingPayment(false);
+  const handleWhatsAppClick = () => {
+    if (!invoice) return;
+    
+    if (!invoice.company_phone) {
+        showError("Nomor WhatsApp belum diatur oleh pemilik usaha.");
+        return;
     }
+
+    const phoneNumber = invoice.company_phone.replace(/\D/g, ''); // Remove non-digits
+    // Ensure starts with 62 or country code if needed, assuming user enters correctly for now or adding basic check
+    const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
+
+    const message = `Halo ${invoice.from_company}, saya ingin mengonfirmasi pembayaran untuk Faktur #${invoice.invoice_number} sebesar ${formatCurrency(balanceDue)}. Berikut saya lampirkan bukti transfernya.`;
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    
+    window.open(url, '_blank');
+  };
+
+  const handleCopyInstructions = () => {
+    if (!invoice) return;
+    navigator.clipboard.writeText(invoice.payment_instructions);
+    showSuccess("Instruksi pembayaran disalin ke clipboard!");
   };
 
   const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
@@ -187,14 +168,16 @@ const PublicInvoiceView = () => {
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
   
-  // Hitung total yang sudah dibayar (termasuk DP)
+  // Hanya hitung pembayaran yang sudah LUNAS untuk tampilan publik
   const totalPaid = useMemo(() => {
     const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
     return paymentsAmount + (invoice?.down_payment_amount || 0);
   }, [invoice]);
 
-  // Hitung sisa tagihan
   const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+
+  // Hanya tampilkan pembayaran yang LUNAS
+  const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -202,8 +185,6 @@ const PublicInvoiceView = () => {
       case 'Terkirim': return 'secondary';
       case 'Jatuh Tempo': return 'destructive';
       case 'Draf': return 'outline';
-      case 'Pending': return 'secondary'; // Added for payment status
-      case 'Ditolak': return 'destructive'; // Added for payment status
       default: return 'outline';
     }
   };
@@ -213,7 +194,22 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={balanceDue} />}
+      {/* Payment Info Dialog */}
+      <Dialog open={isPaymentInfoOpen} onOpenChange={setIsPaymentInfoOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Instruksi Pembayaran</DialogTitle>
+                <DialogDescription>Silakan lakukan pembayaran melalui rekening berikut:</DialogDescription>
+            </DialogHeader>
+            <div className="bg-slate-50 p-4 rounded-md border text-sm whitespace-pre-wrap font-mono">
+                {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
+            </div>
+            <Button variant="outline" size="sm" onClick={handleCopyInstructions} className="w-full">
+                <Copy className="mr-2 h-4 w-4" /> Salin Instruksi
+            </Button>
+        </DialogContent>
+      </Dialog>
+
       <div className="max-w-4xl mx-auto mb-4 flex justify-end no-pdf">
         <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
           {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
@@ -279,12 +275,17 @@ const PublicInvoiceView = () => {
             <div className="w-full md:w-auto space-y-2 no-pdf">
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
-                        <Button size="lg" onClick={handlePayment} disabled={isProcessingPayment || !isSnapReady}>
-                            <CreditCard className="mr-2 h-4 w-4" /> {isProcessingPayment ? 'Memproses...' : 'Bayar Sekarang'}
+                        <Button size="lg" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full md:w-auto">
+                            <CreditCard className="mr-2 h-4 w-4" /> Lihat Pembayaran melalui no Rekening
                         </Button>
-                        <Button size="lg" variant="outline" onClick={() => setIsPaymentDialogOpen(true)}>
-                            <Landmark className="mr-2 h-4 w-4" /> Konfirmasi Transfer Bank
+                        <Button size="lg" onClick={handleWhatsAppClick} className="w-full md:w-auto bg-green-600 hover:bg-green-700">
+                            <Smartphone className="mr-2 h-4 w-4" /> Kirim Konfirmasi via WhatsApp
                         </Button>
+                        {!invoice.company_phone && (
+                            <p className="text-xs text-red-500 mt-1">
+                                *Nomor WhatsApp belum diatur oleh pemilik usaha. Hubungi mereka secara manual.
+                            </p>
+                        )}
                     </>
                 ) : (
                     <Alert variant="default" className="bg-green-50 border-green-200">
@@ -329,8 +330,8 @@ const PublicInvoiceView = () => {
               </div>
             </div>
           )}
-          {/* Riwayat Pembayaran section */}
-          {(invoice.payments && invoice.payments.length > 0) ? (
+          {/* Riwayat Pembayaran section - Hanya menampilkan yang LUNAS */}
+          {visiblePayments.length > 0 && (
             <Card className="no-pdf">
               <CardHeader>
                 <CardTitle>Riwayat Pembayaran</CardTitle>
@@ -341,16 +342,14 @@ const PublicInvoiceView = () => {
                     <TableRow>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Jumlah</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Catatan</TableHead>
+                      <TableHead>Metode/Catatan</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoice.payments.map(p => (
+                    {visiblePayments.map(p => (
                       <TableRow key={p.id}>
                         <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
                         <TableCell>{formatCurrency(p.amount)}</TableCell>
-                        <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
                         <TableCell>{p.notes || '-'}</TableCell>
                       </TableRow>
                     ))}
@@ -358,8 +357,6 @@ const PublicInvoiceView = () => {
                 </Table>
               </CardContent>
             </Card>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4 no-pdf">Belum ada riwayat pembayaran untuk faktur ini.</p>
           )}
         </CardContent>
         {invoice.custom_footer && (
