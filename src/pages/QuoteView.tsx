@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -66,6 +66,7 @@ type ProfileInfo = {
     show_quantity_column: boolean;
     show_unit_column: boolean;
     show_unit_price_column: boolean;
+    whatsapp_quote_template: string | null;
 };
 
 const QuoteView = () => {
@@ -94,7 +95,10 @@ const QuoteView = () => {
         navigate('/quotes');
       } else {
         setQuote(data as QuoteDetails);
-        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', data.user_id).single();
+        const { data: profileData } = await supabase.from('profiles')
+            .select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, whatsapp_quote_template')
+            .eq('id', data.user_id)
+            .single();
         setProfile(profileData);
       }
       setLoading(false);
@@ -151,6 +155,30 @@ const QuoteView = () => {
 
     showSuccess('Faktur berhasil dibuat. Silakan periksa detailnya.');
     navigate(`/invoice/edit/${newInvoice.id}`);
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!quote) return;
+
+    if (!quote.to_phone) {
+        showError("Nomor telepon klien tidak tersedia. Silakan edit penawaran untuk menambahkan nomor telepon.");
+        return;
+    }
+
+    const phoneNumber = quote.to_phone.replace(/\D/g, '');
+    const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
+
+    const messageTemplate = profile?.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} dari {company_name}. Silakan tinjau detailnya melalui tautan berikut: {link}';
+    const publicLink = `${window.location.origin}/quote/public/${quote.id}`;
+
+    const message = messageTemplate
+      .replace(/{client_name}/g, quote.to_client)
+      .replace(/{number}/g, quote.quote_number)
+      .replace(/{company_name}/g, quote.from_company)
+      .replace(/{link}/g, publicLink);
+
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
   };
 
   const handleSaveAsPDF = () => {
@@ -263,7 +291,8 @@ const QuoteView = () => {
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
             <Button asChild variant="outline"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-                {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Bagikan Tautan</Button>)}
+                <Button onClick={handleWhatsAppShare} className="bg-green-600 hover:bg-green-700 text-white"><Smartphone className="mr-2 h-4 w-4" /> Kirim WA</Button>
+                {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Salin Tautan</Button>)}
                 {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
                 <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
