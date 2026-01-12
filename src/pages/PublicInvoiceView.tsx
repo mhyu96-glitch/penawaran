@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Landmark, CreditCard, CheckCircle, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useMidtransSnap from '@/hooks/useMidtransSnap';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 declare global {
     interface Window {
@@ -211,7 +212,7 @@ const PublicInvoiceView = () => {
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
       {invoice && <PaymentSubmissionDialog isOpen={isPaymentDialogOpen} setIsOpen={setIsPaymentDialogOpen} invoiceId={invoice.id} totalDue={balanceDue} />}
-      <div className="max-w-4xl mx-auto mb-4 flex justify-end">
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end no-pdf">
         <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
           {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
         </Button>
@@ -329,6 +330,35 @@ const PublicInvoiceView = () => {
                 ))}
               </div>
             </div>
+          )}
+          {invoice.payments && invoice.payments.length > 0 && (
+            <Card className="no-pdf">
+              <CardHeader>
+                <CardTitle>Riwayat Pembayaran</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Jumlah</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Catatan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoice.payments.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
+                        <TableCell>{formatCurrency(p.amount)}</TableCell>
+                        <TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell>
+                        <TableCell>{p.notes || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </CardContent>
         {invoice.custom_footer && (
