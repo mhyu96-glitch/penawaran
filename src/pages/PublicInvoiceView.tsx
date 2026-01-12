@@ -202,6 +202,8 @@ const PublicInvoiceView = () => {
       case 'Terkirim': return 'secondary';
       case 'Jatuh Tempo': return 'destructive';
       case 'Draf': return 'outline';
+      case 'Pending': return 'secondary'; // Added for payment status
+      case 'Ditolak': return 'destructive'; // Added for payment status
       default: return 'outline';
     }
   };
@@ -300,12 +302,8 @@ const PublicInvoiceView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
-              {invoice.down_payment_amount > 0 && (
-                <div className="flex justify-between text-muted-foreground mt-1"><span>Uang Muka (DP)</span><span>- {formatCurrency(invoice.down_payment_amount)}</span></div>
-              )}
-              {totalPaid > (invoice?.down_payment_amount || 0) && (
-                <div className="flex justify-between text-muted-foreground mt-1"><span>Pembayaran Lain</span><span>- {formatCurrency(totalPaid - (invoice?.down_payment_amount || 0))}</span></div>
-              )}
+              {/* Explicitly show "Telah Dibayar" */}
+              <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
             </div>
@@ -331,7 +329,8 @@ const PublicInvoiceView = () => {
               </div>
             </div>
           )}
-          {invoice.payments && invoice.payments.length > 0 && (
+          {/* Riwayat Pembayaran section */}
+          {(invoice.payments && invoice.payments.length > 0) ? (
             <Card className="no-pdf">
               <CardHeader>
                 <CardTitle>Riwayat Pembayaran</CardTitle>
@@ -359,6 +358,8 @@ const PublicInvoiceView = () => {
                 </Table>
               </CardContent>
             </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4 no-pdf">Belum ada riwayat pembayaran untuk faktur ini.</p>
           )}
         </CardContent>
         {invoice.custom_footer && (
