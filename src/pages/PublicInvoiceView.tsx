@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Landmark, CreditCard, CheckCircle, Download } from 'lucide-react';
+import { Landmark, CreditCard, CheckCircle, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -21,6 +21,12 @@ declare global {
     interface Window {
         snap: any;
     }
+}
+
+interface Attachment {
+  name: string;
+  url: string;
+  path: string;
 }
 
 type Payment = {
@@ -48,6 +54,7 @@ type InvoiceDetails = {
   down_payment_amount: number;
   terms: string;
   status: string;
+  attachments: Attachment[]; // New field for attachments
   invoice_items: {
     description: string;
     quantity: number;
@@ -306,6 +313,21 @@ const PublicInvoiceView = () => {
             <div>
                 <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.terms}</p>
+            </div>
+          )}
+          {invoice.attachments && invoice.attachments.length > 0 && (
+            <div className="no-pdf">
+              <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+              <div className="space-y-2">
+                {invoice.attachments.map((attachment, index) => (
+                  <div key={index} className="flex items-center p-2 border rounded-md">
+                    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                      <FileText className="h-4 w-4" />
+                      {attachment.name}
+                    </a>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

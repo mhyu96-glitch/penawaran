@@ -21,6 +21,7 @@ import { Client } from "@/pages/ClientList";
 import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Project } from "./ProjectForm";
+import AttachmentManager from "./AttachmentManager"; // Import the new component
 
 type Item = {
   description: string;
@@ -29,6 +30,12 @@ type Item = {
   unit_price: number;
   cost_price: number;
 };
+
+interface Attachment {
+  name: string;
+  url: string;
+  path: string;
+}
 
 interface DocumentGeneratorProps {
   docType: 'quote' | 'invoice';
@@ -60,6 +67,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
   const [terms, setTerms] = useState("");
   const [status, setStatus] = useState("Draf");
+  const [attachments, setAttachments] = useState<Attachment[]>([]); // New state for attachments
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
 
@@ -170,6 +178,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
       setTerms(data.terms || "");
+      setAttachments(data.attachments || []); // Set initial attachments
       setLoading(false);
     };
 
@@ -236,6 +245,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
       client_id: selectedClientId, project_id: selectedProjectId,
+      attachments: attachments, // Include attachments in the payload
     };
     docPayload[config.fields[0]] = docNumber;
     docPayload[config.fields[1]] = docDate?.toISOString();
@@ -343,6 +353,17 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <Separator />
           <div className="space-y-2"><Label>Syarat & Ketentuan</Label><Textarea placeholder="Contoh: Pembayaran..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
+          {isEditMode && id && (
+            <>
+              <Separator />
+              <AttachmentManager
+                docId={id}
+                docType={docType}
+                initialAttachments={attachments}
+                onAttachmentsChange={setAttachments}
+              />
+            </>
+          )}
         </CardContent>
         <CardFooter><Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : (isEditMode ? `Simpan ${config.title}` : `Buat & Lihat ${config.title}`)}</Button></CardFooter>
       </Card>

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2 } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +26,12 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
 import { formatCurrency } from '@/lib/utils';
 
+interface Attachment {
+  name: string;
+  url: string;
+  path: string;
+}
+
 type QuoteDetails = {
   id: string;
   user_id: string;
@@ -43,6 +49,7 @@ type QuoteDetails = {
   tax_amount: number;
   terms: string;
   status: string;
+  attachments: Attachment[]; // New field for attachments
   quote_items: {
     description: string;
     quantity: number;
@@ -100,13 +107,14 @@ const QuoteView = () => {
     if (!quote || !user) return;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: quoteId, created_at, quote_number, quote_date, valid_until, status, quote_items, ...invoiceData } = quote;
+    const { id: quoteId, created_at, quote_number, quote_date, valid_until, status, quote_items, attachments, ...invoiceData } = quote;
 
     const newInvoicePayload = {
       ...invoiceData,
       quote_id: quote.id,
       status: 'Draf',
       invoice_date: new Date().toISOString(),
+      attachments: attachments, // Copy attachments to new invoice
     };
 
     const { data: newInvoice, error: invoiceError } = await supabase
@@ -308,6 +316,21 @@ const QuoteView = () => {
             </div>
           </div>
           {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
+          {quote.attachments && quote.attachments.length > 0 && (
+            <div className="no-pdf">
+              <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+              <div className="space-y-2">
+                {quote.attachments.map((attachment, index) => (
+                  <div key={index} className="flex items-center p-2 border rounded-md">
+                    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                      <FileText className="h-4 w-4" />
+                      {attachment.name}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
         {profile?.custom_footer && (
             <CardFooter className="p-8 pt-4 border-t">
