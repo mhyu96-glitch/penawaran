@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy } from 'lucide-react';
+import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -206,27 +206,78 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      {/* Payment Info Dialog */}
+      {/* Payment Info Dialog - Redesigned */}
       <Dialog open={isPaymentInfoOpen} onOpenChange={setIsPaymentInfoOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Instruksi Pembayaran</DialogTitle>
-                <DialogDescription>Silakan lakukan pembayaran melalui rekening berikut:</DialogDescription>
-            </DialogHeader>
-            <div className="bg-slate-50 p-4 rounded-md border text-sm whitespace-pre-wrap font-mono mb-4">
-                {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
-            </div>
-            
-            {invoice.qris_url && (
-                <div className="flex flex-col items-center justify-center mb-4">
-                     <p className="font-semibold mb-2 text-sm">Scan QRIS</p>
-                    <img src={invoice.qris_url} alt="QRIS" className="w-48 h-48 object-contain border rounded-md" />
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader className="flex flex-col items-center space-y-3 pb-2">
+                <div className="bg-green-100 p-3 rounded-full">
+                    <Wallet className="h-8 w-8 text-green-600" />
                 </div>
-            )}
+                <div className="text-center">
+                    <DialogTitle className="text-xl font-bold text-gray-900">Instruksi Pembayaran</DialogTitle>
+                    <DialogDescription className="text-gray-500 mt-1">
+                        Silakan selesaikan pembayaran melalui metode di bawah ini.
+                    </DialogDescription>
+                </div>
+            </DialogHeader>
 
-            <Button variant="outline" size="sm" onClick={handleCopyInstructions} className="w-full">
-                <Copy className="mr-2 h-4 w-4" /> Salin Instruksi
-            </Button>
+            <div className="space-y-6 my-2">
+                {/* Manual Transfer Section */}
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                        <div className="bg-blue-100 p-1.5 rounded-md">
+                            <CreditCard className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="font-semibold text-sm text-gray-700">Transfer Bank / Manual</span>
+                    </div>
+                    
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative group hover:border-blue-300 transition-all duration-300">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-medium font-sans leading-relaxed">
+                            {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
+                        </pre>
+                        <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={handleCopyInstructions} 
+                            className="mt-4 w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
+                        >
+                            <Copy className="mr-2 h-3.5 w-3.5" /> Salin Instruksi
+                        </Button>
+                    </div>
+                </div>
+                
+                {/* QRIS Section */}
+                {invoice.qris_url && (
+                    <>
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white px-2 text-muted-foreground">Atau bayar dengan</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 px-1 justify-center">
+                                <div className="bg-purple-100 p-1.5 rounded-md">
+                                    <QrCode className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <span className="font-semibold text-sm text-gray-700">Scan QRIS</span>
+                            </div>
+                            
+                            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
+                                    <img src={invoice.qris_url} alt="QRIS" className="w-40 h-40 object-contain" />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-3 text-center max-w-[220px]">
+                                    Dukungan pembayaran melalui GoPay, OVO, Dana, ShopeePay, dan Mobile Banking.
+                                </p>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
         </DialogContent>
       </Dialog>
 
