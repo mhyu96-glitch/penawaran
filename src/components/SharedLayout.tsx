@@ -1,7 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban, Wand2 } from 'lucide-react';
+import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban, Wand2, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
@@ -18,6 +18,7 @@ const SharedLayout = () => {
 
   const navLinks = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/calendar", icon: Calendar, label: "Kalender" },
     { to: "/quotes", icon: FileText, label: "Penawaran" },
     { to: "/invoices", icon: Receipt, label: "Faktur" },
     { to: "/projects", icon: FolderKanban, label: "Proyek" },
@@ -78,6 +79,7 @@ const SharedLayout = () => {
           <div className="flex items-center gap-2">
             <nav className="hidden lg:flex gap-1">
                 <Button variant="ghost" asChild size="sm"><Link to="/dashboard">Dashboard</Link></Button>
+                <Button variant="ghost" asChild size="sm"><Link to="/calendar">Kalender</Link></Button>
                 <Button variant="ghost" asChild size="sm"><Link to="/quotes">Penawaran</Link></Button>
                 <Button variant="ghost" asChild size="sm"><Link to="/invoices">Faktur</Link></Button>
                 <Button variant="ghost" asChild size="sm"><Link to="/projects">Proyek</Link></Button>
@@ -90,8 +92,6 @@ const SharedLayout = () => {
                         <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="ghost" asChild size="sm"><Link to="/clients">Klien</Link></Button>
-                <Button variant="ghost" asChild size="sm"><Link to="/items">Barang & Jasa</Link></Button>
             </nav>
             <ThemeToggle />
             <NotificationBell />

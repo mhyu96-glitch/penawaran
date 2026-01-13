@@ -33,6 +33,7 @@ import ProjectList from "./pages/ProjectList";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProfitLossReport from "./pages/ProfitLossReport";
 import Automation from "./pages/Automation";
+import ProjectCalendar from "./pages/ProjectCalendar";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () => (
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
                   <Route path="/automation" element={<Automation />} />
+                  <Route path="/calendar" element={<ProjectCalendar />} />
                 </Route>
               </Route>
 
