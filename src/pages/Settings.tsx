@@ -62,7 +62,7 @@ const Settings = () => {
         setShowUnit(data.show_unit_column ?? true);
         setShowUnitPrice(data.show_unit_price_column ?? true);
         setWaInvoiceTemplate(data.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.');
-        setWaQuoteTemplate(data.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} dari {company_name}. Silakan tinjau detailnya melalui tautan berikut: {link}');
+        setWaQuoteTemplate(data.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} perihal {title}. Silakan tinjau detailnya melalui tautan berikut: {link}');
       }
       setLoading(false);
     };
@@ -329,6 +329,7 @@ const Settings = () => {
                     <ul className="list-disc list-inside mt-2 text-xs font-mono">
                       <li>{`{client_name}`} - Nama Klien</li>
                       <li>{`{number}`} - Nomor Dokumen</li>
+                      <li>{`{title}`} - Judul/Perihal Dokumen</li>
                       <li>{`{amount}`} - Jumlah Uang (Rp)</li>
                       <li>{`{company_name}`} - Nama Perusahaan Anda</li>
                       <li>{`{link}`} - Tautan Dokumen</li>

@@ -21,7 +21,7 @@ import { Client } from "@/pages/ClientList";
 import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Project } from "./ProjectForm";
-import AttachmentManager from "./AttachmentManager"; // Import the new component
+import AttachmentManager from "./AttachmentManager";
 
 type Item = {
   description: string;
@@ -59,6 +59,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [toAddress, setToAddress] = useState("");
   const [toPhone, setToPhone] = useState("");
   const [docNumber, setDocNumber] = useState("");
+  const [docTitle, setDocTitle] = useState(""); // New state for title
   const [docDate, setDocDate] = useState<Date | undefined>(new Date());
   const [expiryDate, setExpiryDate] = useState<Date | undefined>();
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
@@ -67,7 +68,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
   const [terms, setTerms] = useState("");
   const [status, setStatus] = useState("Draf");
-  const [attachments, setAttachments] = useState<Attachment[]>([]); // New state for attachments
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
 
@@ -165,6 +166,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setToAddress(data.to_address || "");
       setToPhone(data.to_phone || "");
       setDocNumber(data[config.fields[0]] || "");
+      setDocTitle(data.title || ""); // Set title
       setDocDate(data[config.fields[1]] ? parseISO(data[config.fields[1]]) : undefined);
       setExpiryDate(data[config.fields[2]] ? parseISO(data[config.fields[2]]) : undefined);
       setStatus(data.status || "Draf");
@@ -178,7 +180,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
       setTerms(data.terms || "");
-      setAttachments(data.attachments || []); // Set initial attachments
+      setAttachments(data.attachments || []); 
       setLoading(false);
     };
 
@@ -245,7 +247,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
       client_id: selectedClientId, project_id: selectedProjectId,
-      attachments: attachments, // Include attachments in the payload
+      attachments: attachments,
+      title: docTitle, // Save title
     };
     docPayload[config.fields[0]] = docNumber;
     docPayload[config.fields[1]] = docDate?.toISOString();
@@ -279,7 +282,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
       if (error) { 
         showError(`Gagal menyimpan item.`); 
-        console.error(`Error saving ${docType} items:`, error); // Specific error log for items
+        console.error(`Error saving ${docType} items:`, error);
         setIsSubmitting(false); 
         return; 
       }
@@ -323,6 +326,15 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+          </div>
+          <div className="space-y-2">
+            <Label>Judul / Perihal</Label>
+            <Input 
+                placeholder={`Contoh: Paket CCTV 4 Channel atau Pengadaan Komputer Kasir`} 
+                value={docTitle} 
+                onChange={e => setDocTitle(e.target.value)} 
+            />
+            <p className="text-xs text-muted-foreground">Judul ini bisa digunakan di pesan WhatsApp.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2"><Label>{config.numberLabel}</Label><Input value={docNumber} onChange={e => setDocNumber(e.target.value)} /></div>

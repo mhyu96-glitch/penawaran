@@ -43,13 +43,14 @@ type QuoteDetails = {
   to_phone: string;
   client_id: string;
   quote_number: string;
+  title: string; // Add title
   quote_date: string;
   valid_until: string;
   discount_amount: number;
   tax_amount: number;
   terms: string;
   status: string;
-  attachments: Attachment[]; // New field for attachments
+  attachments: Attachment[];
   quote_items: {
     description: string;
     quantity: number;
@@ -118,7 +119,7 @@ const QuoteView = () => {
       quote_id: quote.id,
       status: 'Draf',
       invoice_date: new Date().toISOString(),
-      attachments: attachments, // Copy attachments to new invoice
+      attachments: attachments,
     };
 
     const { data: newInvoice, error: invoiceError } = await supabase
@@ -168,12 +169,13 @@ const QuoteView = () => {
     const phoneNumber = quote.to_phone.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
 
-    const messageTemplate = profile?.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} dari {company_name}. Silakan tinjau detailnya melalui tautan berikut: {link}';
+    const messageTemplate = profile?.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} perihal {title}. Silakan tinjau detailnya melalui tautan berikut: {link}';
     const publicLink = `${window.location.origin}/quote/public/${quote.id}`;
 
     const message = messageTemplate
       .replace(/{client_name}/g, quote.to_client)
       .replace(/{number}/g, quote.quote_number)
+      .replace(/{title}/g, quote.title || 'Barang & Jasa')
       .replace(/{company_name}/g, quote.from_company)
       .replace(/{link}/g, publicLink);
 
@@ -187,7 +189,7 @@ const QuoteView = () => {
 
     const input = quoteRef.current;
     const originalWidth = input.style.width;
-    input.style.width = '1024px'; // Force width for consistent PDF rendering
+    input.style.width = '1024px';
 
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
@@ -226,7 +228,7 @@ const QuoteView = () => {
       })
       .finally(() => {
         elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-        input.style.width = originalWidth; // Restore original width
+        input.style.width = originalWidth;
         setIsGeneratingPDF(false);
       });
   };
@@ -322,7 +324,12 @@ const QuoteView = () => {
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
             <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
-            <div className="text-right"><h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3><p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p></div>
+            <div className="text-right">
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
+                <p className="font-bold text-lg">{quote.title || '-'}</p>
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
+                <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
+            </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
