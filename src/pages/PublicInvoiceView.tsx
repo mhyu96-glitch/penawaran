@@ -68,6 +68,7 @@ type InvoiceDetails = {
   show_quantity_column: boolean;
   show_unit_column: boolean;
   show_unit_price_column: boolean;
+  qris_url: string | null;
 };
 
 const PublicInvoiceView = () => {
@@ -212,9 +213,17 @@ const PublicInvoiceView = () => {
                 <DialogTitle>Instruksi Pembayaran</DialogTitle>
                 <DialogDescription>Silakan lakukan pembayaran melalui rekening berikut:</DialogDescription>
             </DialogHeader>
-            <div className="bg-slate-50 p-4 rounded-md border text-sm whitespace-pre-wrap font-mono">
+            <div className="bg-slate-50 p-4 rounded-md border text-sm whitespace-pre-wrap font-mono mb-4">
                 {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
             </div>
+            
+            {invoice.qris_url && (
+                <div className="flex flex-col items-center justify-center mb-4">
+                     <p className="font-semibold mb-2 text-sm">Scan QRIS</p>
+                    <img src={invoice.qris_url} alt="QRIS" className="w-48 h-48 object-contain border rounded-md" />
+                </div>
+            )}
+
             <Button variant="outline" size="sm" onClick={handleCopyInstructions} className="w-full">
                 <Copy className="mr-2 h-4 w-4" /> Salin Instruksi
             </Button>
@@ -287,7 +296,7 @@ const PublicInvoiceView = () => {
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
                         <Button size="lg" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full md:w-auto">
-                            <CreditCard className="mr-2 h-4 w-4" /> Lihat Pembayaran melalui no Rekening
+                            <CreditCard className="mr-2 h-4 w-4" /> Lihat Pembayaran & QRIS
                         </Button>
                         <Button size="lg" onClick={handleWhatsAppClick} className="w-full md:w-auto bg-green-600 hover:bg-green-700">
                             <Smartphone className="mr-2 h-4 w-4" /> Kirim Konfirmasi via WhatsApp
@@ -319,6 +328,25 @@ const PublicInvoiceView = () => {
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
             </div>
           </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Tampilkan Instruksi dan QRIS berdampingan jika ada */}
+            {invoice.payment_instructions && (
+                 <Alert className="no-pdf h-full">
+                    <CreditCard className="h-4 w-4" />
+                    <AlertTitle>Instruksi Pembayaran</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap">{invoice.payment_instructions}</AlertDescription>
+                </Alert>
+            )}
+
+            {invoice.qris_url && (
+                 <div className="border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
+                    <p className="font-semibold mb-2 text-sm">Scan QRIS untuk Bayar</p>
+                    <img src={invoice.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
+                 </div>
+            )}
+          </div>
+
           {invoice.terms && (
             <div>
                 <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>

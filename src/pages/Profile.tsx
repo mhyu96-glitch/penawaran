@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
-import { User, Upload } from 'lucide-react';
+import { User, QrCode } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const Profile = () => {
@@ -18,7 +18,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingQris, setIsUploadingQris] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -27,6 +28,7 @@ const Profile = () => {
   const [companyWebsite, setCompanyWebsite] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [brandColor, setBrandColor] = useState('#000000');
 
   useEffect(() => {
@@ -49,6 +51,7 @@ const Profile = () => {
         setCompanyWebsite(data.company_website || '');
         setCompanyPhone(data.company_phone || '');
         setCompanyLogoUrl(data.company_logo_url || null);
+        setQrisUrl(data.qris_url || null);
         setBrandColor(data.brand_color || '#000000');
       }
       setLoading(false);
@@ -58,40 +61,69 @@ const Profile = () => {
   }, [user]);
 
   const handleUploadLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !event.target.files || event.target.files.length === 0) {
-      return;
-    }
+    if (!user || !event.target.files || event.target.files.length === 0) return;
     const file = event.target.files[0];
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/logo.${fileExt}`;
 
-    setIsUploading(true);
+    setIsUploadingLogo(true);
     const { error: uploadError } = await supabase.storage
       .from('company_assets')
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
       showError('Gagal mengunggah logo.');
-      console.error('Logo upload error:', uploadError);
-      setIsUploading(false);
+      setIsUploadingLogo(false);
       return;
     }
 
     const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
-    const newLogoUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`; // Add timestamp to bust cache
+    const newLogoUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
     
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ company_logo_url: newLogoUrl })
       .eq('id', user.id);
 
-    if (updateError) {
-      showError('Gagal menyimpan URL logo.');
-    } else {
+    if (updateError) showError('Gagal menyimpan URL logo.');
+    else {
       setCompanyLogoUrl(newLogoUrl);
       showSuccess('Logo berhasil diunggah!');
     }
-    setIsUploading(false);
+    setIsUploadingLogo(false);
+  };
+
+  const handleUploadQris = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !event.target.files || event.target.files.length === 0) return;
+    const file = event.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/qris.${fileExt}`;
+
+    setIsUploadingQris(true);
+    const { error: uploadError } = await supabase.storage
+      .from('company_assets')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      showError('Gagal mengunggah QRIS.');
+      setIsUploadingQris(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
+    const newQrisUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+    
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ qris_url: newQrisUrl })
+      .eq('id', user.id);
+
+    if (updateError) showError('Gagal menyimpan URL QRIS.');
+    else {
+      setQrisUrl(newQrisUrl);
+      showSuccess('QRIS berhasil diunggah!');
+    }
+    setIsUploadingQris(false);
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -116,7 +148,6 @@ const Profile = () => {
 
     if (error) {
       showError('Gagal memperbarui profil.');
-      console.error('Profile update error:', error);
     } else {
       showSuccess('Profil berhasil diperbarui!');
     }
@@ -159,12 +190,25 @@ const Profile = () => {
                     <Avatar className="h-20 w-20"><AvatarImage src={companyLogoUrl || undefined} /><AvatarFallback>{companyName.charAt(0)}</AvatarFallback></Avatar>
                     <div className="space-y-2">
                         <Label htmlFor="logo-upload">Logo Perusahaan</Label>
-                        <Input id="logo-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadLogo} disabled={isUploading} />
-                        {isUploading && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
+                        <Input id="logo-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadLogo} disabled={isUploadingLogo} />
+                        {isUploadingLogo && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
                     </div>
                 </div>
+
+                <div className="flex items-start gap-4 border p-4 rounded-md bg-slate-50">
+                    <div className="h-20 w-20 flex items-center justify-center bg-white border rounded-md shrink-0 overflow-hidden">
+                       {qrisUrl ? <img src={qrisUrl} alt="QRIS" className="w-full h-full object-contain" /> : <QrCode className="h-10 w-10 text-slate-300" />}
+                    </div>
+                    <div className="space-y-2 w-full">
+                        <Label htmlFor="qris-upload">QRIS Statis (Opsional)</Label>
+                        <Input id="qris-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadQris} disabled={isUploadingQris} />
+                        <p className="text-xs text-muted-foreground">Unggah gambar QRIS toko Anda agar muncul di faktur.</p>
+                        {isUploadingQris && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
+                    </div>
+                </div>
+
                 <div className="space-y-2"><Label htmlFor="companyName">Nama Perusahaan</Label><Input id="companyName" placeholder="Nama Perusahaan Anda" value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></div>
-                <div className="space-y-2"><Label htmlFor="companyPhone">Nomor WhatsApp / Telepon (Wajib untuk link WA)</Label><Input id="companyPhone" placeholder="Contoh: 628123456789" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="companyPhone">Nomor WhatsApp / Telepon</Label><Input id="companyPhone" placeholder="Contoh: 628123456789" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="companyAddress">Alamat Perusahaan</Label><Textarea id="companyAddress" placeholder="Alamat Perusahaan Anda" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="companyWebsite">Website Perusahaan</Label><Input id="companyWebsite" placeholder="https://websiteanda.com" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} /></div>
                 <div className="space-y-2"><Label htmlFor="brandColor">Warna Merek</Label>

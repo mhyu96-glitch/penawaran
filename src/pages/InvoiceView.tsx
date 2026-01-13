@@ -78,6 +78,7 @@ type ProfileInfo = {
     show_quantity_column: boolean;
     show_unit_column: boolean;
     show_unit_price_column: boolean;
+    qris_url: string | null;
 };
 
 const InvoiceView = () => {
@@ -105,7 +106,7 @@ const InvoiceView = () => {
     setInvoice(invoiceData);
 
     if (invoiceData.user_id) {
-        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', invoiceData.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, qris_url').eq('id', invoiceData.user_id).single();
         setProfile(profileData);
     }
 
@@ -308,7 +309,25 @@ const InvoiceView = () => {
               </div>
             </div>
           </div>
-          {profile?.payment_instructions ? (<Alert className="no-pdf"><Landmark className="h-4 w-4" /><AlertTitle>Instruksi Pembayaran</AlertTitle><AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription></Alert>) : (<div className="print:hidden no-pdf"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>)}
+          <div className="grid md:grid-cols-2 gap-4">
+            {profile?.payment_instructions ? (
+                <Alert className="no-pdf h-full">
+                    <Landmark className="h-4 w-4" />
+                    <AlertTitle>Instruksi Pembayaran</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription>
+                </Alert>
+            ) : (
+                <div className="print:hidden no-pdf"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>
+            )}
+            
+            {profile?.qris_url && (
+                 <div className="border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
+                    <p className="font-semibold mb-2 text-sm">Scan QRIS untuk Bayar</p>
+                    <img src={profile.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
+                 </div>
+            )}
+          </div>
+
           {payments.length > 0 && (<Card className="print:hidden no-pdf"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
           {invoice.attachments && invoice.attachments.length > 0 && (
             <div className="no-pdf">
