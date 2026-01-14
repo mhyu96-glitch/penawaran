@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Invoice = {
   id: string;
@@ -38,6 +39,8 @@ type Invoice = {
   created_at: string;
   status: string;
   due_date: string;
+  view_count: number;
+  last_viewed_at: string | null;
 };
 
 const InvoiceList = () => {
@@ -50,7 +53,7 @@ const InvoiceList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('invoices')
-      .select('id, invoice_number, to_client, created_at, status, due_date')
+      .select('id, invoice_number, to_client, created_at, status, due_date, view_count, last_viewed_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -172,6 +175,7 @@ const InvoiceList = () => {
                       <TableHead>Nomor Faktur</TableHead>
                       <TableHead>Klien</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Dilihat</TableHead>
                       <TableHead>Jatuh Tempo</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
@@ -182,6 +186,22 @@ const InvoiceList = () => {
                         <TableCell className="font-medium">{invoice.invoice_number || 'N/A'}</TableCell>
                         <TableCell>{invoice.to_client}</TableCell>
                         <TableCell>{renderStatusDropdown(invoice)}</TableCell>
+                        <TableCell>
+                            {invoice.view_count > 0 ? (
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <div className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                                            <Eye className="h-4 w-4" /> {invoice.view_count}x
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        Terakhir dilihat: {invoice.last_viewed_at ? formatDistanceToNow(new Date(invoice.last_viewed_at), { addSuffix: true, locale: localeId }) : '-'}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                        </TableCell>
                         <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
@@ -221,8 +241,11 @@ const InvoiceList = () => {
                         </AlertDialog>
                       </div>
                     </CardHeader>
-                    <CardFooter className="flex justify-between text-sm">
-                      {renderStatusDropdown(invoice)}
+                    <CardFooter className="flex justify-between text-sm items-center">
+                        <div className="flex gap-2 items-center">
+                            {renderStatusDropdown(invoice)}
+                            {invoice.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {invoice.view_count}</span>}
+                        </div>
                       <span className="text-muted-foreground">Jatuh Tempo: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : 'N/A'}</span>
                     </CardFooter>
                   </Card>

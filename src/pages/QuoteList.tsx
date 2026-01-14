@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Quote = {
   id: string;
@@ -37,6 +38,8 @@ type Quote = {
   to_client: string;
   created_at: string;
   status: string;
+  view_count: number;
+  last_viewed_at: string | null;
 };
 
 const QuoteList = () => {
@@ -50,7 +53,7 @@ const QuoteList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('quotes')
-      .select('id, quote_number, to_client, created_at, status')
+      .select('id, quote_number, to_client, created_at, status, view_count, last_viewed_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -104,14 +107,16 @@ const QuoteList = () => {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, created_at, quote_number, ...newQuoteData } = originalQuote;
+    const { id, created_at, quote_number, view_count, last_viewed_at, ...newQuoteData } = originalQuote;
 
     const payload = {
       ...newQuoteData,
       status: 'Draf',
       quote_date: new Date().toISOString(),
       valid_until: null,
-      quote_number: null, // Will be auto-generated on the edit page
+      quote_number: null,
+      view_count: 0,
+      last_viewed_at: null,
     };
 
     const { data: newQuote, error: insertError } = await supabase
@@ -225,6 +230,7 @@ const QuoteList = () => {
                       <TableHead>Nomor Penawaran</TableHead>
                       <TableHead>Klien</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Dilihat</TableHead>
                       <TableHead>Tanggal Dibuat</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
@@ -235,6 +241,22 @@ const QuoteList = () => {
                         <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                         <TableCell>{quote.to_client}</TableCell>
                         <TableCell>{renderStatusDropdown(quote)}</TableCell>
+                        <TableCell>
+                            {quote.view_count > 0 ? (
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <div className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                                            <Eye className="h-4 w-4" /> {quote.view_count}x
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        Terakhir dilihat: {quote.last_viewed_at ? formatDistanceToNow(new Date(quote.last_viewed_at), { addSuffix: true, locale: localeId }) : '-'}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                        </TableCell>
                         <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link></Button>
@@ -275,8 +297,11 @@ const QuoteList = () => {
                         </AlertDialog>
                       </div>
                     </CardHeader>
-                    <CardFooter className="flex justify-between text-sm">
-                      {renderStatusDropdown(quote)}
+                    <CardFooter className="flex justify-between text-sm items-center">
+                      <div className="flex gap-2 items-center">
+                        {renderStatusDropdown(quote)}
+                        {quote.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {quote.view_count}</span>}
+                      </div>
                       <span className="text-muted-foreground">{format(new Date(quote.created_at), 'dd MMM yyyy')}</span>
                     </CardFooter>
                   </Card>

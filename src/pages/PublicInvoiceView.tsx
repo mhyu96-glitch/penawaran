@@ -78,6 +78,7 @@ const PublicInvoiceView = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentInfoOpen, setIsPaymentInfoOpen] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const hasTracked = useRef(false);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -89,6 +90,13 @@ const PublicInvoiceView = () => {
         });
         if (error) throw error;
         setInvoice(data);
+
+        // Track View
+        if (!hasTracked.current) {
+            hasTracked.current = true;
+            await supabase.rpc('track_document_view', { p_id: id, p_type: 'invoice' });
+        }
+
       } catch (error) {
         console.error('Error fetching invoice:', error);
         setInvoice(null);

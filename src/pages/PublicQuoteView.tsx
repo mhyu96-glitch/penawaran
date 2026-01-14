@@ -35,7 +35,8 @@ type QuoteDetails = {
   tax_amount: number;
   terms: string;
   status: string;
-  attachments: Attachment[]; // New field for attachments
+  attachments: Attachment[];
+  title: string;
   quote_items: {
     description: string;
     quantity: number;
@@ -49,6 +50,8 @@ type ProfileInfo = {
     show_quantity_column: boolean;
     show_unit_column: boolean;
     show_unit_price_column: boolean;
+    company_logo_url: string | null;
+    brand_color: string | null;
 };
 
 const PublicQuoteView = () => {
@@ -61,6 +64,7 @@ const PublicQuoteView = () => {
   const [actionTaken, setActionTaken] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const quoteRef = useRef<HTMLDivElement>(null);
+  const hasTracked = useRef(false);
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -81,9 +85,17 @@ const PublicQuoteView = () => {
         if (data.status === 'Diterima' || data.status === 'Ditolak') {
             setActionTaken(data.status);
         }
+        
         // Fetch profile settings
-        const { data: profileData } = await supabase.from('profiles').select('custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', quoteData.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_logo_url, brand_color').eq('id', quoteData.user_id).single();
         setProfile(profileData);
+
+        // Track View (Execute only once per session/mount)
+        if (!hasTracked.current) {
+            hasTracked.current = true;
+            // Use RPC to track view securely
+            await supabase.rpc('track_document_view', { p_id: id, p_type: 'quote' });
+        }
       }
       setLoading(false);
     };
@@ -207,12 +219,12 @@ const PublicQuoteView = () => {
         <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>
+              {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
               <p className="text-sm text-muted-foreground">{quote.from_address}</p>
               <p className="text-sm text-muted-foreground">{quote.from_website}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Penawaran</h2>
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
               <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
               <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
             </div>
@@ -227,7 +239,9 @@ const PublicQuoteView = () => {
               <p className="text-sm">{quote.to_phone}</p>
             </div>
             <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3>
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
+                <p className="font-bold text-lg">{quote.title || '-'}</p>
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
                 <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
             </div>
           </div>
