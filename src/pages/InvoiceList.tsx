@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download, Copy } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -48,6 +48,7 @@ type Invoice = {
 
 const InvoiceList = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,6 +97,58 @@ const InvoiceList = () => {
       showSuccess('Faktur berhasil dihapus.');
       setInvoices(invoices.filter(i => i.id !== invoiceId));
     }
+  };
+
+  const handleDuplicateInvoice = async (invoiceId: string) => {
+    const { data: originalInvoice, error } = await supabase
+      .from('invoices')
+      .select('*, invoice_items(*)')
+      .eq('id', invoiceId)
+      .single();
+
+    if (error || !originalInvoice) {
+      showError('Gagal memuat data untuk duplikasi.');
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, created_at, invoice_number, view_count, last_viewed_at, payments, ...newInvoiceData } = originalInvoice;
+
+    const payload = {
+      ...newInvoiceData,
+      status: 'Draf',
+      invoice_date: new Date().toISOString(),
+      due_date: null, // Reset due date
+      invoice_number: null, // Let system generate new number
+      view_count: 0,
+      last_viewed_at: null,
+    };
+
+    const { data: newInvoice, error: insertError } = await supabase
+      .from('invoices')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (insertError || !newInvoice) {
+      showError('Gagal membuat duplikat faktur.');
+      return;
+    }
+
+    if (originalInvoice.invoice_items && originalInvoice.invoice_items.length > 0) {
+      const newItems = originalInvoice.invoice_items.map(({ id: itemId, invoice_id, ...item }: any) => ({
+        ...item,
+        invoice_id: newInvoice.id,
+      }));
+      const { error: itemsError } = await supabase.from('invoice_items').insert(newItems);
+      if (itemsError) {
+        showError('Gagal menduplikasi item faktur.');
+        return;
+      }
+    }
+
+    showSuccess('Faktur berhasil diduplikasi.');
+    navigate(`/invoice/edit/${newInvoice.id}`);
   };
 
   const handleExportCSV = () => {
@@ -168,6 +221,7 @@ const InvoiceList = () => {
     <>
       <DropdownMenuItem asChild><Link to={`/invoice/${invoice.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
       <DropdownMenuItem asChild><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="mr-2 h-4 w-4" />Edit</Link></DropdownMenuItem>
+      <DropdownMenuItem onClick={() => handleDuplicateInvoice(invoice.id)}><Copy className="mr-2 h-4 w-4" />Duplikat</DropdownMenuItem>
       <AlertDialogTrigger asChild>
         <DropdownMenuItem className="text-red-600"><Trash2 className="mr-2 h-4 w-4" />Hapus</DropdownMenuItem>
       </AlertDialogTrigger>
@@ -252,6 +306,7 @@ const InvoiceList = () => {
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="h-4 w-4" /></Link></Button>
+                          <Button variant="outline" size="icon" onClick={() => handleDuplicateInvoice(invoice.id)}><Copy className="h-4 w-4" /></Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                             <AlertDialogContent>

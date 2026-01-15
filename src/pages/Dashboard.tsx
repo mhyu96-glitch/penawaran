@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, formatDistanceToNow } from 'date-fns';
+import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, formatDistanceToNow, startOfMonth, endOfMonth } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { showSuccess, showError } from '@/utils/toast';
 
 type Quote = {
   id: string;
@@ -65,6 +68,11 @@ const Dashboard = () => {
     from: addDays(new Date(), -29),
     to: new Date(),
   });
+  
+  // Target States
+  const [revenueGoal, setRevenueGoal] = useState(0);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [tempGoal, setTempGoal] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,6 +87,7 @@ const Dashboard = () => {
       const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
       const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
+      const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
 
       if (fromDate) {
         expenseQuery.gte('expense_date', fromDate);
@@ -89,19 +98,35 @@ const Dashboard = () => {
         paymentQuery.lt('payment_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery]);
+      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes, profileRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery, profileQuery]);
 
       if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
       if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
       if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
       if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(paymentRes.data as Payment[]);
       if (activityRes.data) setRecentActivities(activityRes.data as Notification[]);
+      if (profileRes.data) setRevenueGoal(profileRes.data.monthly_revenue_goal || 0);
       
       setLoading(false);
     };
 
     fetchData();
   }, [user, date]);
+
+  const updateGoal = async () => {
+    if (!user) return;
+    const newGoal = parseFloat(tempGoal);
+    if (isNaN(newGoal) || newGoal < 0) return;
+
+    const { error } = await supabase.from('profiles').update({ monthly_revenue_goal: newGoal }).eq('id', user.id);
+    if (error) {
+        showError('Gagal memperbarui target.');
+    } else {
+        setRevenueGoal(newGoal);
+        setIsEditingGoal(false);
+        showSuccess('Target pendapatan diperbarui!');
+    }
+  };
 
   const { totalProfit, acceptedQuotesCount } = useMemo(() => {
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
@@ -157,25 +182,22 @@ const Dashboard = () => {
     });
   }, [payments, expenses, date]);
 
-  const topClients = useMemo(() => {
-    const clientProfit: Record<string, { name: string; totalProfit: number }> = {};
-    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
-
-    acceptedQuotes.forEach(quote => {
-        const clientId = quote.client_id;
-        const clientName = quote.clients?.name || quote.to_client;
-        if (!clientProfit[clientId]) {
-            clientProfit[clientId] = { name: clientName, totalProfit: 0 };
-        }
-        const quoteProfit = quote.quote_items.reduce((sum, item) => sum + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
-        clientProfit[clientId].totalProfit += quoteProfit;
-    });
-
-    return Object.values(clientProfit).sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
-  }, [quotes]);
-
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
   const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
+
+  // Goal Progress Calculation (This month only)
+  const currentMonthRevenue = useMemo(() => {
+    const start = startOfMonth(new Date());
+    const end = endOfMonth(new Date());
+    return payments
+        .filter(p => {
+            const d = new Date(p.payment_date);
+            return d >= start && d <= end;
+        })
+        .reduce((sum, p) => sum + p.amount, 0);
+  }, [payments]);
+
+  const goalProgress = revenueGoal > 0 ? Math.min((currentMonthRevenue / revenueGoal) * 100, 100) : 0;
 
   if (loading) {
     return (
@@ -195,6 +217,44 @@ const Dashboard = () => {
                 <PopoverContent className="w-auto p-0" align="end"><Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/></PopoverContent>
             </Popover>
         </div>
+
+      {/* Goal Section */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+        <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2 text-lg text-blue-900">
+                    <Target className="h-5 w-5 text-blue-600" /> Target Pendapatan Bulan Ini
+                </CardTitle>
+                {!isEditingGoal ? (
+                    <Button variant="ghost" size="sm" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
+                        <Pencil className="h-4 w-4 text-blue-600" />
+                    </Button>
+                ) : (
+                    <div className="flex gap-2">
+                        <Input 
+                            type="number" 
+                            value={tempGoal} 
+                            onChange={(e) => setTempGoal(e.target.value)} 
+                            className="h-8 w-32 bg-white"
+                            placeholder="Target Rp"
+                        />
+                        <Button size="sm" onClick={updateGoal} className="h-8 bg-blue-600 hover:bg-blue-700"><Check className="h-4 w-4" /></Button>
+                    </div>
+                )}
+            </div>
+        </CardHeader>
+        <CardContent>
+            <div className="space-y-2">
+                <div className="flex justify-between text-sm font-medium mb-1">
+                    <span>Tercapai: {formatCurrency(currentMonthRevenue)}</span>
+                    <span className="text-muted-foreground">Target: {formatCurrency(revenueGoal)}</span>
+                </div>
+                <Progress value={goalProgress} className="h-3 bg-blue-200" indicatorClassName="bg-blue-600" />
+                <p className="text-xs text-muted-foreground text-right pt-1">{goalProgress.toFixed(1)}% tercapai</p>
+            </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(netProfit)}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div><p className="text-xs text-muted-foreground">Dalam rentang waktu</p></CardContent></Card>
