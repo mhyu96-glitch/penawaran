@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -41,6 +41,9 @@ type Invoice = {
   due_date: string;
   view_count: number;
   last_viewed_at: string | null;
+  tax_amount: number;
+  discount_amount: number;
+  down_payment_amount: number;
 };
 
 const InvoiceList = () => {
@@ -53,7 +56,7 @@ const InvoiceList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('invoices')
-      .select('id, invoice_number, to_client, created_at, status, due_date, view_count, last_viewed_at')
+      .select('id, invoice_number, to_client, created_at, status, due_date, view_count, last_viewed_at, tax_amount, discount_amount, down_payment_amount')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -93,6 +96,41 @@ const InvoiceList = () => {
       showSuccess('Faktur berhasil dihapus.');
       setInvoices(invoices.filter(i => i.id !== invoiceId));
     }
+  };
+
+  const handleExportCSV = () => {
+    if (invoices.length === 0) return;
+
+    // Define CSV headers
+    const headers = ["Nomor Faktur", "Klien", "Tanggal Dibuat", "Jatuh Tempo", "Status", "Pajak", "Diskon", "Uang Muka"];
+    
+    // Map data rows
+    const rows = invoices.map(inv => [
+      inv.invoice_number || 'N/A',
+      `"${inv.to_client}"`, // Quote strings with commas
+      format(new Date(inv.created_at), 'yyyy-MM-dd'),
+      inv.due_date ? format(new Date(inv.due_date), 'yyyy-MM-dd') : '-',
+      inv.status,
+      inv.tax_amount || 0,
+      inv.discount_amount || 0,
+      inv.down_payment_amount || 0
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','), 
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Daftar_Faktur_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
   
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -147,12 +185,20 @@ const InvoiceList = () => {
             </div>
             <CardDescription>Kelola semua faktur Anda di sini.</CardDescription>
           </div>
-          <Button asChild>
-            <Link to="/invoice/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Buat Faktur Baru
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            {invoices.length > 0 && (
+                <Button variant="outline" onClick={handleExportCSV}>
+                    <Download className="mr-2 h-4 w-4" />
+                    CSV
+                </Button>
+            )}
+            <Button asChild>
+                <Link to="/invoice/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Buat Faktur Baru
+                </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (

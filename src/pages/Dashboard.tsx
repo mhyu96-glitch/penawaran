@@ -3,11 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay } from 'date-fns';
+import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
@@ -46,12 +46,20 @@ type Payment = {
     payment_date: string;
 };
 
+type Notification = {
+    id: string;
+    message: string;
+    created_at: string;
+    link: string | null;
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [recentActivities, setRecentActivities] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -29),
@@ -70,6 +78,7 @@ const Dashboard = () => {
       const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
       const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
+      const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
 
       if (fromDate) {
         expenseQuery.gte('expense_date', fromDate);
@@ -80,12 +89,13 @@ const Dashboard = () => {
         paymentQuery.lt('payment_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes, paymentRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery]);
+      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery]);
 
       if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
       if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
       if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
       if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(paymentRes.data as Payment[]);
+      if (activityRes.data) setRecentActivities(activityRes.data as Notification[]);
       
       setLoading(false);
     };
@@ -209,18 +219,32 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Klien Paling Menguntungkan</CardTitle><CardDescription>Berdasarkan penawaran diterima.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" /> Aktivitas Terkini</CardTitle><CardDescription>Update terbaru dari bisnis Anda.</CardDescription></CardHeader>
             <CardContent>
-                {topClients.length > 0 ? (
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Laba</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {topClients.map(client => (
-                                <TableRow key={client.name}><TableCell className="font-medium">{client.name}</TableCell><TableCell className="text-right">{formatCurrency(client.totalProfit)}</TableCell></TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                ) : <p className="text-sm text-muted-foreground text-center py-4">Belum ada data keuntungan.</p>}
+                <div className="space-y-4">
+                    {recentActivities.length > 0 ? (
+                        recentActivities.map(activity => (
+                            <div key={activity.id} className="flex items-start gap-3 text-sm pb-3 border-b last:border-0 last:pb-0">
+                                <div className="bg-blue-100 p-2 rounded-full shrink-0 mt-0.5">
+                                    <Bell className="h-3 w-3 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900">{activity.message}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: localeId })}
+                                    </p>
+                                    {activity.link && (
+                                        <Button asChild variant="link" className="h-auto p-0 text-xs mt-1">
+                                            <Link to={activity.link}>Lihat Detail</Link>
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">Belum ada aktivitas.</p>
+                    )}
+                </div>
             </CardContent>
         </Card>
       </div>
