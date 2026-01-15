@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
-import { User, QrCode } from 'lucide-react';
+import { User, QrCode, PenTool, Eraser } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import SignatureCanvas from 'react-signature-canvas';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -30,6 +31,9 @@ const Profile = () => {
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [brandColor, setBrandColor] = useState('#000000');
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  
+  const sigCanvas = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -53,6 +57,7 @@ const Profile = () => {
         setCompanyLogoUrl(data.company_logo_url || null);
         setQrisUrl(data.qris_url || null);
         setBrandColor(data.brand_color || '#000000');
+        setSignatureUrl(data.signature_url || null);
       }
       setLoading(false);
     };
@@ -126,10 +131,51 @@ const Profile = () => {
     setIsUploadingQris(false);
   };
 
+  const saveSignature = async () => {
+    if (!user || !sigCanvas.current || sigCanvas.current.isEmpty()) {
+        if (!signatureUrl) showError('Tanda tangan kosong.');
+        return;
+    }
+
+    // Convert canvas to blob
+    const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+    const res = await fetch(dataURL);
+    const blob = await res.blob();
+    const file = new File([blob], 'signature.png', { type: 'image/png' });
+
+    const filePath = `${user.id}/signature.png`;
+    
+    const { error: uploadError } = await supabase.storage
+        .from('company_assets')
+        .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+        showError('Gagal menyimpan tanda tangan.');
+        return;
+    }
+
+    const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
+    const newSigUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+
+    setSignatureUrl(newSigUrl);
+    return newSigUrl; // Return for the main update function
+  };
+
+  const clearSignature = () => {
+    sigCanvas.current?.clear();
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setIsSubmitting(true);
+
+    let finalSigUrl = signatureUrl;
+    // If user drew something new, save it first
+    if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
+        const savedUrl = await saveSignature();
+        if (savedUrl) finalSigUrl = savedUrl;
+    }
 
     const { error } = await supabase
       .from('profiles')
@@ -142,6 +188,7 @@ const Profile = () => {
         company_website: companyWebsite,
         company_phone: companyPhone,
         brand_color: brandColor,
+        signature_url: finalSigUrl,
         updated_at: new Date().toISOString(),
       })
       .select();
@@ -192,6 +239,25 @@ const Profile = () => {
                         <Label htmlFor="logo-upload">Logo Perusahaan</Label>
                         <Input id="logo-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadLogo} disabled={isUploadingLogo} />
                         {isUploadingLogo && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
+                    </div>
+                </div>
+
+                {/* Signature Section */}
+                <div className="space-y-2 border p-4 rounded-md bg-slate-50">
+                    <Label className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Tanda Tangan Digital</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Gambar tanda tangan Anda di kotak ini. Tanda tangan ini akan otomatis muncul di semua dokumen.</p>
+                    
+                    <div className="border border-gray-300 bg-white rounded-md overflow-hidden" style={{ width: '100%', height: 150 }}>
+                        <SignatureCanvas 
+                            ref={sigCanvas}
+                            penColor="black"
+                            canvasProps={{ className: 'w-full h-full' }}
+                        />
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-2">
+                        <Button type="button" variant="outline" size="sm" onClick={clearSignature}><Eraser className="mr-2 h-3 w-3" /> Bersihkan</Button>
+                        {signatureUrl && <p className="text-xs text-green-600 font-medium">Tanda tangan tersimpan ada.</p>}
                     </div>
                 </div>
 

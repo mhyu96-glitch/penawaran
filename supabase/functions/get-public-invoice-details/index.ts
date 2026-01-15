@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_phone, whatsapp_invoice_template, qris_url, midtrans_client_key, midtrans_is_production')
+      .select('payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_phone, whatsapp_invoice_template, qris_url, midtrans_client_key, midtrans_is_production, signature_url')
       .eq('id', invoice.user_id)
       .single()
 
@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
         qris_url: profile?.qris_url || null,
         midtrans_client_key: profile?.midtrans_client_key || null,
         midtrans_is_production: profile?.midtrans_is_production || false,
+        signature_url: profile?.signature_url || null,
     }
 
     return new Response(JSON.stringify(responsePayload), {

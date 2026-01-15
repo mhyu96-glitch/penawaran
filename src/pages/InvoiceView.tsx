@@ -60,7 +60,7 @@ type InvoiceDetails = {
   down_payment_amount: number;
   terms: string;
   status: string;
-  attachments: Attachment[]; // New field for attachments
+  attachments: Attachment[];
   invoice_items: {
     description: string;
     quantity: number;
@@ -79,6 +79,7 @@ type ProfileInfo = {
     show_unit_column: boolean;
     show_unit_price_column: boolean;
     qris_url: string | null;
+    signature_url: string | null;
 };
 
 const InvoiceView = () => {
@@ -106,7 +107,7 @@ const InvoiceView = () => {
     setInvoice(invoiceData);
 
     if (invoiceData.user_id) {
-        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, qris_url').eq('id', invoiceData.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, qris_url, signature_url').eq('id', invoiceData.user_id).single();
         setProfile(profileData);
     }
 
@@ -126,7 +127,7 @@ const InvoiceView = () => {
 
     const input = invoiceRef.current;
     const originalWidth = input.style.width;
-    input.style.width = '1024px'; // Force width for consistent PDF rendering
+    input.style.width = '1024px'; 
 
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
@@ -165,7 +166,7 @@ const InvoiceView = () => {
       })
       .finally(() => {
         elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-        input.style.width = originalWidth; // Restore original width
+        input.style.width = originalWidth;
         setIsGeneratingPDF(false);
       });
   };
@@ -202,7 +203,7 @@ const InvoiceView = () => {
         showError(`Gagal ${newStatus === 'Lunas' ? 'mengonfirmasi' : 'menolak'} pembayaran.`);
     } else {
         showSuccess(`Pembayaran berhasil ${newStatus === 'Lunas' ? 'dikonfirmasi' : 'ditolak'}.`);
-        fetchInvoiceData(); // Refresh data
+        fetchInvoiceData();
     }
   };
 
@@ -326,6 +327,19 @@ const InvoiceView = () => {
                     <img src={profile.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
                  </div>
             )}
+          </div>
+
+          {/* Signature Section */}
+          <div className="flex justify-end mt-8">
+            <div className="text-center">
+                <p className="text-sm font-medium mb-4">Hormat Kami,</p>
+                {profile?.signature_url ? (
+                    <img src={profile.signature_url} alt="Tanda Tangan" className="h-24 mx-auto mb-2 object-contain" />
+                ) : (
+                    <div className="h-24" />
+                )}
+                <p className="text-sm font-bold">{invoice.from_company}</p>
+            </div>
           </div>
 
           {payments.length > 0 && (<Card className="print:hidden no-pdf"><CardHeader><CardTitle>Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Jumlah</TableHead><TableHead>Status</TableHead><TableHead>Bukti</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}

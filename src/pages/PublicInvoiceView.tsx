@@ -73,6 +73,7 @@ type InvoiceDetails = {
   qris_url: string | null;
   midtrans_client_key: string | null;
   midtrans_is_production: boolean;
+  signature_url: string | null;
 };
 
 const PublicInvoiceView = () => {
@@ -85,7 +86,6 @@ const PublicInvoiceView = () => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const hasTracked = useRef(false);
   
-  // Gunakan hook dengan data dinamis dari invoice
   const isSnapReady = useMidtransSnap(
     invoice?.midtrans_client_key || null,
     invoice?.midtrans_is_production || false
@@ -100,7 +100,6 @@ const PublicInvoiceView = () => {
       if (error) throw error;
       setInvoice(data);
 
-      // Track View
       if (!hasTracked.current) {
           hasTracked.current = true;
           await supabase.rpc('track_document_view', { p_id: id, p_type: 'invoice' });
@@ -183,10 +182,8 @@ const PublicInvoiceView = () => {
     const phoneNumber = invoice.company_phone.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
 
-    // Use template or fallback
     let messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
     
-    // Replace placeholders
     const message = messageTemplate
       .replace(/{client_name}/g, invoice.to_client)
       .replace(/{number}/g, invoice.invoice_number || 'N/A')
@@ -226,7 +223,6 @@ const PublicInvoiceView = () => {
         onSuccess: function(result: any) {
           showSuccess("Pembayaran berhasil!");
           console.log(result);
-          // Refresh invoice data to show 'Lunas' status
           setTimeout(() => fetchInvoice(), 2000);
         },
         onPending: function(result: any) {
@@ -248,7 +244,6 @@ const PublicInvoiceView = () => {
     }
   };
 
-  // Hanya tampilkan pembayaran yang LUNAS
   const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -268,7 +263,6 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      {/* Payment Info Dialog - Redesigned */}
       <Dialog open={isPaymentInfoOpen} onOpenChange={setIsPaymentInfoOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader className="flex flex-col items-center space-y-3 pb-2">
@@ -284,7 +278,6 @@ const PublicInvoiceView = () => {
             </DialogHeader>
 
             <div className="space-y-6 my-2">
-                {/* Manual Transfer Section */}
                 <div className="space-y-3">
                     <div className="flex items-center gap-2 px-1">
                         <div className="bg-blue-100 p-1.5 rounded-md">
@@ -308,7 +301,6 @@ const PublicInvoiceView = () => {
                     </div>
                 </div>
                 
-                {/* QRIS Section */}
                 {invoice.qris_url && (
                     <>
                         <div className="relative">
@@ -408,7 +400,6 @@ const PublicInvoiceView = () => {
             <div className="w-full md:w-auto space-y-2 no-pdf">
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
-                        {/* Tombol Pembayaran Online */}
                         {invoice.midtrans_client_key ? (
                             <Button 
                                 size="lg" 
@@ -466,7 +457,6 @@ const PublicInvoiceView = () => {
           </div>
           
           <div className="grid md:grid-cols-2 gap-4">
-            {/* Tampilkan Instruksi dan QRIS berdampingan jika ada */}
             {invoice.payment_instructions && (
                  <Alert className="no-pdf h-full">
                     <CreditCard className="h-4 w-4" />
@@ -481,6 +471,19 @@ const PublicInvoiceView = () => {
                     <img src={invoice.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
                  </div>
             )}
+          </div>
+
+          {/* Signature Section */}
+          <div className="flex justify-end mt-8">
+            <div className="text-center">
+                <p className="text-sm font-medium mb-4">Hormat Kami,</p>
+                {invoice.signature_url ? (
+                    <img src={invoice.signature_url} alt="Tanda Tangan" className="h-24 mx-auto mb-2 object-contain" />
+                ) : (
+                    <div className="h-24" />
+                )}
+                <p className="text-sm font-bold">{invoice.from_company}</p>
+            </div>
           </div>
 
           {invoice.terms && (
@@ -504,7 +507,6 @@ const PublicInvoiceView = () => {
               </div>
             </div>
           )}
-          {/* Riwayat Pembayaran section - Hanya menampilkan yang LUNAS */}
           {visiblePayments.length > 0 && (
             <Card className="no-pdf">
               <CardHeader>
