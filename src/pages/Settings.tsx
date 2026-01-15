@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare, CreditCard } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare, CreditCard, Key } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -41,6 +41,7 @@ const Settings = () => {
 
   // Midtrans Settings
   const [midtransClientKey, setMidtransClientKey] = useState('');
+  const [midtransServerKey, setMidtransServerKey] = useState('');
   const [midtransIsProduction, setMidtransIsProduction] = useState(false);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ const Settings = () => {
         setWaInvoiceTemplate(data.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.');
         setWaQuoteTemplate(data.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} perihal {title}. Silakan tinjau detailnya melalui tautan berikut: {link}');
         setMidtransClientKey(data.midtrans_client_key || '');
+        setMidtransServerKey(data.midtrans_server_key || '');
         setMidtransIsProduction(data.midtrans_is_production || false);
       }
       setLoading(false);
@@ -95,6 +97,7 @@ const Settings = () => {
         whatsapp_invoice_template: waInvoiceTemplate,
         whatsapp_quote_template: waQuoteTemplate,
         midtrans_client_key: midtransClientKey,
+        midtrans_server_key: midtransServerKey,
         midtrans_is_production: midtransIsProduction,
       })
       .eq('id', user.id);
@@ -359,14 +362,33 @@ const Settings = () => {
                             
                             <div className="space-y-2">
                                 <Label htmlFor="clientKey">Client Key</Label>
-                                <Input 
-                                    id="clientKey" 
-                                    value={midtransClientKey} 
-                                    onChange={(e) => setMidtransClientKey(e.target.value)} 
-                                    placeholder={midtransIsProduction ? "Mid-client-..." : "SB-Mid-client-..."}
-                                />
+                                <div className="relative">
+                                    <Key className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        id="clientKey" 
+                                        value={midtransClientKey} 
+                                        onChange={(e) => setMidtransClientKey(e.target.value)} 
+                                        placeholder={midtransIsProduction ? "Mid-client-..." : "SB-Mid-client-..."}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="serverKey">Server Key</Label>
+                                <div className="relative">
+                                    <Key className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        id="serverKey" 
+                                        type="password"
+                                        value={midtransServerKey} 
+                                        onChange={(e) => setMidtransServerKey(e.target.value)} 
+                                        placeholder={midtransIsProduction ? "Mid-server-..." : "SB-Mid-server-..."}
+                                        className="pl-9"
+                                    />
+                                </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Dapatkan Client Key dari dashboard Midtrans (Settings {'>'} Access Keys). Pastikan sesuai dengan mode (Sandbox/Production) yang dipilih.
+                                    PENTING: Dapatkan Client Key DAN Server Key dari dashboard Midtrans (Settings {'>'} Access Keys). Pastikan sesuai dengan mode (Sandbox/Production) yang dipilih.
                                 </p>
                             </div>
                         </div>

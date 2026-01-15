@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // 1. Ambil data invoice beserta data user pemilik invoice
     const { data: invoice, error } = await supabaseAdmin
       .from('invoices')
       .select('*, invoice_items(*), clients(email)')
@@ -27,13 +28,27 @@ Deno.serve(async (req) => {
 
     if (error || !invoice) throw new Error('Invoice not found');
 
+    // 2. Ambil Server Key dari profil user pemilik invoice
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('midtrans_server_key, midtrans_is_production')
+      .eq('id', invoice.user_id)
+      .single();
+
+    // 3. Gunakan Server Key user, fallback ke Env Var jika user belum setting (untuk backward compatibility)
+    const midtransServerKey = profile?.midtrans_server_key || Deno.env.get('MIDTRANS_SERVER_KEY');
+    const isProduction = profile?.midtrans_is_production ?? false;
+
+    if (!midtransServerKey) throw new Error('Konfigurasi Midtrans (Server Key) belum diatur oleh pemilik faktur.');
+
+    // 4. Hitung total
     const subtotal = invoice.invoice_items.reduce((acc: number, item: any) => acc + item.quantity * item.unit_price, 0);
     const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
 
-    const midtransApiUrl = Deno.env.get('MIDTRANS_API_URL') ?? 'https://api.sandbox.midtrans.com/snap/v1/transactions';
-    const midtransServerKey = Deno.env.get('MIDTRANS_SERVER_KEY');
-
-    if (!midtransServerKey) throw new Error('Midtrans server key is not configured');
+    // 5. Tentukan URL API
+    const midtransApiUrl = isProduction 
+        ? 'https://app.midtrans.com/snap/v1/transactions'
+        : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
     const encodedKey = btoa(`${midtransServerKey}:`);
 
@@ -68,7 +83,9 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorBody = await response.json();
-      throw new Error(JSON.stringify(errorBody));
+      console.error("Midtrans Error:", errorBody);
+      // Kirim error yang lebih mudah dibaca
+      throw new Error(errorBody.error_messages ? errorBody.error_messages.join(', ') : 'Gagal membuat transaksi Midtrans.');
     }
 
     const data = await response.json();

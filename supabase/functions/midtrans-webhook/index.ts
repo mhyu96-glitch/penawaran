@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   try {
     const notification = await req.json();
 
-    // Handle Midtrans test notification which may not have a signature key
+    // Handle Midtrans test notification
     if (!notification.signature_key || !notification.order_id) {
       console.log("Received a request without a signature key, likely a Midtrans test. Responding with success.");
       return new Response(JSON.stringify({ message: "Webhook test successful." }), {
@@ -24,16 +24,35 @@ Deno.serve(async (req) => {
     }
 
     const { order_id, transaction_status, fraud_status, signature_key, gross_amount, status_code, custom_field1 } = notification;
+    const invoiceId = custom_field1 || order_id;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-    
-    const midtransServerKey = Deno.env.get('MIDTRANS_SERVER_KEY');
-    if (!midtransServerKey) throw new Error('Midtrans server key is not configured');
 
-    // Verify signature key using Web Crypto API
+    // 1. Ambil invoice untuk mendapatkan user_id
+    const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', invoiceId).single();
+    
+    if (!invoice) {
+        console.error(`Invoice with id ${invoiceId} not found.`);
+        return new Response(JSON.stringify({ received: true, message: "Invoice not found" }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+    }
+
+    // 2. Ambil Server Key dari profile user pemilik invoice
+    const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('midtrans_server_key')
+        .eq('id', invoice.user_id)
+        .single();
+    
+    const midtransServerKey = profile?.midtrans_server_key || Deno.env.get('MIDTRANS_SERVER_KEY');
+    
+    if (!midtransServerKey) throw new Error('Midtrans server key is not configured for this user');
+
+    // 3. Verify signature key using Web Crypto API
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode(midtransServerKey),
@@ -52,8 +71,6 @@ Deno.serve(async (req) => {
       throw new Error('Invalid signature');
     }
 
-    const invoiceId = custom_field1 || order_id; // Use custom_field1 to get the real invoice ID
-
     let newStatus = null;
     if (transaction_status == 'capture' || transaction_status == 'settlement') {
       if (fraud_status == 'accept') {
@@ -64,20 +81,10 @@ Deno.serve(async (req) => {
     }
 
     if (newStatus === 'Lunas') {
-      // 1. Update invoice status
+      // Update invoice status
       await supabaseAdmin.from('invoices').update({ status: 'Lunas' }).eq('id', invoiceId);
 
-      // 2. Get invoice details for notification
-      const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', invoiceId).single();
-      if (!invoice) {
-        console.error(`Invoice with id ${invoiceId} not found.`);
-        // Still return 200 to Midtrans to prevent retries
-        return new Response(JSON.stringify({ received: true, message: "Invoice not found" }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // 3. Create payment record
+      // Create payment record
       await supabaseAdmin.from('payments').insert({
         invoice_id: invoiceId,
         user_id: invoice.user_id,
@@ -87,7 +94,7 @@ Deno.serve(async (req) => {
         status: 'Lunas',
       });
 
-      // 4. Create notification for the user
+      // Create notification
       const message = `Pembayaran sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(parseFloat(gross_amount))} untuk faktur #${invoice.invoice_number} dari klien "${invoice.to_client}" telah berhasil.`;
       await supabaseAdmin.from('notifications').insert({
           user_id: invoice.user_id,
