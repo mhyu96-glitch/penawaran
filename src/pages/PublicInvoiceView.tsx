@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode } from 'lucide-react';
+import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import useMidtransSnap from '@/hooks/useMidtransSnap';
 
 interface Attachment {
   name: string;
@@ -59,6 +60,7 @@ type InvoiceDetails = {
     quantity: number;
     unit: string;
     unit_price: number;
+    cost_price: number;
   }[];
   payments: Payment[];
   payment_instructions: string;
@@ -77,33 +79,35 @@ const PublicInvoiceView = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentInfoOpen, setIsPaymentInfoOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const hasTracked = useRef(false);
+  const isSnapReady = useMidtransSnap();
+
+  const fetchInvoice = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('get-public-invoice-details', {
+        body: { invoiceId: id },
+      });
+      if (error) throw error;
+      setInvoice(data);
+
+      // Track View
+      if (!hasTracked.current) {
+          hasTracked.current = true;
+          await supabase.rpc('track_document_view', { p_id: id, p_type: 'invoice' });
+      }
+
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      setInvoice(null);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchInvoice = async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('get-public-invoice-details', {
-          body: { invoiceId: id },
-        });
-        if (error) throw error;
-        setInvoice(data);
-
-        // Track View
-        if (!hasTracked.current) {
-            hasTracked.current = true;
-            await supabase.rpc('track_document_view', { p_id: id, p_type: 'invoice' });
-        }
-
-      } catch (error) {
-        console.error('Error fetching invoice:', error);
-        setInvoice(null);
-      }
-      setLoading(false);
-    };
-
+    setLoading(true);
     fetchInvoice();
   }, [id]);
 
@@ -194,6 +198,44 @@ const PublicInvoiceView = () => {
     showSuccess("Instruksi pembayaran disalin ke clipboard!");
   };
 
+  const handlePayNow = async () => {
+    if (!invoice || !isSnapReady) return;
+    
+    setIsProcessingPayment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-midtrans-transaction', {
+        body: { invoiceId: invoice.id },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data || !data.token) throw new Error("Gagal mendapatkan token pembayaran.");
+
+      window.snap.pay(data.token, {
+        onSuccess: function(result: any) {
+          showSuccess("Pembayaran berhasil!");
+          console.log(result);
+          // Refresh invoice data to show 'Lunas' status
+          setTimeout(() => fetchInvoice(), 2000);
+        },
+        onPending: function(result: any) {
+          showSuccess("Menunggu pembayaran...");
+          console.log(result);
+        },
+        onError: function(result: any) {
+          showError("Pembayaran gagal.");
+          console.error(result);
+        },
+        onClose: function() {
+          setIsProcessingPayment(false);
+        }
+      });
+
+    } catch (err: any) {
+      showError(`Terjadi kesalahan: ${err.message}`);
+      setIsProcessingPayment(false);
+    }
+  };
+
   // Hanya tampilkan pembayaran yang LUNAS
   const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
 
@@ -222,9 +264,9 @@ const PublicInvoiceView = () => {
                     <Wallet className="h-8 w-8 text-green-600" />
                 </div>
                 <div className="text-center">
-                    <DialogTitle className="text-xl font-bold text-gray-900">Instruksi Pembayaran</DialogTitle>
+                    <DialogTitle className="text-xl font-bold text-gray-900">Instruksi Pembayaran Manual</DialogTitle>
                     <DialogDescription className="text-gray-500 mt-1">
-                        Silakan selesaikan pembayaran melalui metode di bawah ini.
+                        Jika Anda tidak dapat menggunakan pembayaran online, silakan transfer manual.
                     </DialogDescription>
                 </div>
             </DialogHeader>
@@ -354,24 +396,41 @@ const PublicInvoiceView = () => {
             <div className="w-full md:w-auto space-y-2 no-pdf">
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
-                        <Button size="lg" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full md:w-auto">
-                            <CreditCard className="mr-2 h-4 w-4" /> Lihat Pembayaran & QRIS
+                        {/* Tombol Pembayaran Online */}
+                        <Button 
+                            size="lg" 
+                            onClick={handlePayNow} 
+                            disabled={!isSnapReady || isProcessingPayment}
+                            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transform transition-transform active:scale-95"
+                        >
+                            <Zap className="mr-2 h-4 w-4 fill-current" /> 
+                            {isProcessingPayment ? 'Memproses...' : 'Bayar Online Sekarang'}
                         </Button>
-                        <Button size="lg" onClick={handleWhatsAppClick} className="w-full md:w-auto bg-green-600 hover:bg-green-700">
-                            <Smartphone className="mr-2 h-4 w-4" /> Kirim Konfirmasi via WhatsApp
-                        </Button>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full sm:w-auto">
+                                <CreditCard className="mr-2 h-4 w-4" /> Transfer Manual
+                            </Button>
+                            <Button size="sm" onClick={handleWhatsAppClick} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                                <Smartphone className="mr-2 h-4 w-4" /> Konfirmasi WhatsApp
+                            </Button>
+                        </div>
+                        
                         {!invoice.company_phone && (
                             <p className="text-xs text-red-500 mt-1">
-                                *Nomor WhatsApp belum diatur oleh pemilik usaha. Hubungi mereka secara manual.
+                                *Nomor WhatsApp belum diatur oleh pemilik usaha.
                             </p>
                         )}
+                        <p className="text-xs text-muted-foreground mt-2 max-w-xs">
+                            Pembayaran online mendukung Transfer Bank (Virtual Account), GoPay, ShopeePay, dan QRIS.
+                        </p>
                     </>
                 ) : (
                     <Alert variant="default" className="bg-green-50 border-green-200">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <AlertTitle className="text-green-800">Lunas</AlertTitle>
                         <AlertDescription className="text-green-700">
-                            Faktur ini telah lunas. Terima kasih!
+                            Faktur ini telah lunas. Terima kasih atas pembayaran Anda!
                         </AlertDescription>
                     </Alert>
                 )}
@@ -393,14 +452,14 @@ const PublicInvoiceView = () => {
             {invoice.payment_instructions && (
                  <Alert className="no-pdf h-full">
                     <CreditCard className="h-4 w-4" />
-                    <AlertTitle>Instruksi Pembayaran</AlertTitle>
+                    <AlertTitle>Instruksi Pembayaran Manual</AlertTitle>
                     <AlertDescription className="whitespace-pre-wrap">{invoice.payment_instructions}</AlertDescription>
                 </Alert>
             )}
 
             {invoice.qris_url && (
                  <div className="border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
-                    <p className="font-semibold mb-2 text-sm">Scan QRIS untuk Bayar</p>
+                    <p className="font-semibold mb-2 text-sm">Scan QRIS Toko</p>
                     <img src={invoice.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
                  </div>
             )}
