@@ -71,6 +71,8 @@ type InvoiceDetails = {
   show_unit_column: boolean;
   show_unit_price_column: boolean;
   qris_url: string | null;
+  midtrans_client_key: string | null;
+  midtrans_is_production: boolean;
 };
 
 const PublicInvoiceView = () => {
@@ -82,7 +84,12 @@ const PublicInvoiceView = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const hasTracked = useRef(false);
-  const isSnapReady = useMidtransSnap();
+  
+  // Gunakan hook dengan data dinamis dari invoice
+  const isSnapReady = useMidtransSnap(
+    invoice?.midtrans_client_key || null,
+    invoice?.midtrans_is_production || false
+  );
 
   const fetchInvoice = async () => {
     if (!id) return;
@@ -199,7 +206,12 @@ const PublicInvoiceView = () => {
   };
 
   const handlePayNow = async () => {
-    if (!invoice || !isSnapReady) return;
+    if (!invoice || !isSnapReady) {
+        if (!invoice?.midtrans_client_key) {
+            showError("Konfigurasi pembayaran belum lengkap. Hubungi pemilik usaha.");
+        }
+        return;
+    }
     
     setIsProcessingPayment(true);
     try {
@@ -397,15 +409,21 @@ const PublicInvoiceView = () => {
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (
                     <>
                         {/* Tombol Pembayaran Online */}
-                        <Button 
-                            size="lg" 
-                            onClick={handlePayNow} 
-                            disabled={!isSnapReady || isProcessingPayment}
-                            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transform transition-transform active:scale-95"
-                        >
-                            <Zap className="mr-2 h-4 w-4 fill-current" /> 
-                            {isProcessingPayment ? 'Memproses...' : 'Bayar Online Sekarang'}
-                        </Button>
+                        {invoice.midtrans_client_key ? (
+                            <Button 
+                                size="lg" 
+                                onClick={handlePayNow} 
+                                disabled={!isSnapReady || isProcessingPayment}
+                                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transform transition-transform active:scale-95"
+                            >
+                                <Zap className="mr-2 h-4 w-4 fill-current" /> 
+                                {isProcessingPayment ? 'Memproses...' : 'Bayar Online Sekarang'}
+                            </Button>
+                        ) : (
+                            <div className="text-xs text-muted-foreground p-2 bg-yellow-50 rounded border border-yellow-200">
+                                Pembayaran online tidak tersedia (Merchant Key belum diatur).
+                            </div>
+                        )}
 
                         <div className="flex flex-col sm:flex-row gap-2">
                             <Button size="sm" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full sm:w-auto">

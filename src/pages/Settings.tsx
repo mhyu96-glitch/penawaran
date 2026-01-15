@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare, CreditCard } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -39,6 +39,10 @@ const Settings = () => {
   const [waInvoiceTemplate, setWaInvoiceTemplate] = useState('');
   const [waQuoteTemplate, setWaQuoteTemplate] = useState('');
 
+  // Midtrans Settings
+  const [midtransClientKey, setMidtransClientKey] = useState('');
+  const [midtransIsProduction, setMidtransIsProduction] = useState(false);
+
   useEffect(() => {
     const fetchSettings = async () => {
       if (!user) return;
@@ -63,6 +67,8 @@ const Settings = () => {
         setShowUnitPrice(data.show_unit_price_column ?? true);
         setWaInvoiceTemplate(data.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.');
         setWaQuoteTemplate(data.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} perihal {title}. Silakan tinjau detailnya melalui tautan berikut: {link}');
+        setMidtransClientKey(data.midtrans_client_key || '');
+        setMidtransIsProduction(data.midtrans_is_production || false);
       }
       setLoading(false);
     };
@@ -88,6 +94,8 @@ const Settings = () => {
         show_unit_price_column: showUnitPrice,
         whatsapp_invoice_template: waInvoiceTemplate,
         whatsapp_quote_template: waQuoteTemplate,
+        midtrans_client_key: midtransClientKey,
+        midtrans_is_production: midtransIsProduction,
       })
       .eq('id', user.id);
 
@@ -235,8 +243,9 @@ const Settings = () => {
         <form onSubmit={handleUpdateSettings}>
           <CardContent>
             <Tabs defaultValue="general">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="general">Umum</TabsTrigger>
+                <TabsTrigger value="payment">Pembayaran</TabsTrigger>
                 <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
                 <TabsTrigger value="backup">Data</TabsTrigger>
               </TabsList>
@@ -279,23 +288,6 @@ const Settings = () => {
                 </div>
                 <Separator />
                 <div>
-                    <h3 className="text-lg font-medium">Instruksi Pembayaran</h3>
-                    <div className="space-y-2 mt-2">
-                        <Label htmlFor="paymentInstructions">Info Rekening & Cara Bayar</Label>
-                        <Textarea
-                            id="paymentInstructions"
-                            placeholder="Contoh: BCA 123456789 a/n Nama Anda..."
-                            value={paymentInstructions}
-                            onChange={(e) => setPaymentInstructions(e.target.value)}
-                            rows={5}
-                        />
-                        <p className="text-sm text-muted-foreground">
-                            Teks ini akan muncul saat klien mengklik "Lihat Pembayaran melalui No. Rekening".
-                        </p>
-                    </div>
-                </div>
-                <Separator />
-                <div>
                     <h3 className="text-lg font-medium">Kustomisasi Tampilan</h3>
                     <div className="space-y-4 mt-2">
                         <div className="space-y-2">
@@ -314,6 +306,68 @@ const Settings = () => {
                                 <div className="flex items-center justify-between"><Label htmlFor="show-qty">Tampilkan Jumlah (Qty)</Label><Switch id="show-qty" checked={showQuantity} onCheckedChange={setShowQuantity} /></div>
                                 <div className="flex items-center justify-between"><Label htmlFor="show-unit">Tampilkan Satuan</Label><Switch id="show-unit" checked={showUnit} onCheckedChange={setShowUnit} /></div>
                                 <div className="flex items-center justify-between"><Label htmlFor="show-price">Tampilkan Harga Satuan</Label><Switch id="show-price" checked={showUnitPrice} onCheckedChange={setShowUnitPrice} /></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="payment" className="space-y-6 mt-4">
+                <Alert>
+                    <CreditCard className="h-4 w-4" />
+                    <AlertTitle>Konfigurasi Pembayaran</AlertTitle>
+                    <AlertDescription>
+                        Atur cara klien membayar faktur Anda.
+                    </AlertDescription>
+                </Alert>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="paymentInstructions">Instruksi Pembayaran Manual</Label>
+                        <Textarea
+                            id="paymentInstructions"
+                            placeholder="Contoh: BCA 123456789 a/n Nama Anda..."
+                            value={paymentInstructions}
+                            onChange={(e) => setPaymentInstructions(e.target.value)}
+                            rows={5}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                            Info ini muncul saat klien memilih opsi transfer manual.
+                        </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <h3 className="text-lg font-medium">Midtrans (Pembayaran Online)</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Aktifkan pembayaran otomatis via VA, GoPay, dll. Anda perlu mendaftar di <a href="https://midtrans.com" target="_blank" className="underline text-blue-600">Midtrans</a>.
+                        </p>
+                        
+                        <div className="space-y-4 border p-4 rounded-md">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="midtrans-mode" className="flex flex-col">
+                                    <span>Mode Produksi (Live)</span>
+                                    <span className="font-normal text-xs text-muted-foreground">Aktifkan jika sudah siap menerima pembayaran asli. Matikan untuk testing (Sandbox).</span>
+                                </Label>
+                                <Switch 
+                                    id="midtrans-mode" 
+                                    checked={midtransIsProduction} 
+                                    onCheckedChange={setMidtransIsProduction} 
+                                />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="clientKey">Client Key</Label>
+                                <Input 
+                                    id="clientKey" 
+                                    value={midtransClientKey} 
+                                    onChange={(e) => setMidtransClientKey(e.target.value)} 
+                                    placeholder={midtransIsProduction ? "Mid-client-..." : "SB-Mid-client-..."}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Dapatkan Client Key dari dashboard Midtrans (Settings {'>'} Access Keys). Pastikan sesuai dengan mode (Sandbox/Production) yang dipilih.
+                                </p>
                             </div>
                         </div>
                     </div>
