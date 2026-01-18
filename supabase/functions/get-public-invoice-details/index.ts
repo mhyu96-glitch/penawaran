@@ -30,15 +30,25 @@ Deno.serve(async (req) => {
       .eq('id', invoiceId)
       .single()
 
-    if (invoiceError) throw invoiceError
-    if (!invoice) {
+    if (invoiceError || !invoice) {
         return new Response(JSON.stringify({ error: 'Invoice not found' }), {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // --- LOG ACTIVITY ---
+    // Log bahwa faktur dilihat, tapi hindari spam log (opsional: bisa tambah logic debounce di sini)
+    // Untuk sederhana, kita log setiap fetch publik
+    await supabaseAdmin.from('document_activities').insert({
+        user_id: invoice.user_id,
+        invoice_id: invoiceId,
+        activity_type: 'viewed',
+        description: 'Faktur dilihat oleh klien (via tautan publik).'
+    });
+    // --------------------
+
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('payment_instructions, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_phone, whatsapp_invoice_template, qris_url, midtrans_client_key, midtrans_is_production, signature_url')
       .eq('id', invoice.user_id)

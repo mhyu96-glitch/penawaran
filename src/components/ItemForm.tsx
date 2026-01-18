@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
@@ -28,6 +29,8 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
   const [unit, setUnit] = useState('');
   const [unitPrice, setUnitPrice] = useState('0');
   const [costPrice, setCostPrice] = useState('0');
+  const [trackStock, setTrackStock] = useState(false);
+  const [stock, setStock] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -36,18 +39,20 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
       setUnit(item.unit || '');
       setUnitPrice(String(item.unit_price || 0));
       setCostPrice(String(item.cost_price || 0));
+      setTrackStock(item.track_stock || false);
+      setStock(String(item.stock || 0));
     } else {
       setDescription('');
       setUnit('');
       setUnitPrice('0');
       setCostPrice('0');
+      setTrackStock(false);
+      setStock('0');
     }
   }, [item, isOpen]);
 
   const handlePriceChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
-    // Allow only digits
     const digitsOnly = value.replace(/\D/g, '');
-    // Remove leading zeros unless the value is just "0"
     const sanitized = digitsOnly.replace(/^0+(?=\d)/, '');
     setter(sanitized === '' ? '0' : sanitized);
   };
@@ -60,11 +65,13 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
     setIsSubmitting(true);
 
     const itemPayload = {
-      user_id: user.id, // Pastikan user_id selalu disertakan
+      user_id: user.id,
       description,
       unit,
       unit_price: parseFloat(unitPrice) || 0,
       cost_price: parseFloat(costPrice) || 0,
+      track_stock: trackStock,
+      stock: trackStock ? (parseInt(stock) || 0) : 0,
     };
 
     let error;
@@ -76,7 +83,6 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
 
     if (error) {
       showError(`Gagal menyimpan item: ${error.message}`);
-      console.error("Supabase item save error:", error); // Log error for debugging
     } else {
       showSuccess(`Item berhasil ${item ? 'diperbarui' : 'ditambahkan'}!`);
       onSave();
@@ -86,11 +92,11 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{item ? 'Edit Item' : 'Tambah Item Baru'}</DialogTitle>
           <DialogDescription>
-            Isi detail item di bawah ini. Klik simpan jika sudah selesai.
+            Isi detail item dan inventaris di bawah ini.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -124,6 +130,27 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
               className="col-span-3"
             />
           </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="trackStock" className="text-right">Lacak Stok</Label>
+            <div className="col-span-3 flex items-center space-x-2">
+                <Switch id="trackStock" checked={trackStock} onCheckedChange={setTrackStock} />
+                <Label htmlFor="trackStock" className="font-normal text-muted-foreground">Aktifkan manajemen inventaris untuk item ini</Label>
+            </div>
+          </div>
+
+          {trackStock && (
+             <div className="grid grid-cols-4 items-center gap-4 animate-in fade-in slide-in-from-top-1">
+                <Label htmlFor="stock" className="text-right">Stok Saat Ini</Label>
+                <Input
+                id="stock"
+                type="number"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="col-span-3"
+                />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>

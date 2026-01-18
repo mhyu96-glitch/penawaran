@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Pencil, Trash2, Package } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, Package, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +20,7 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import ItemForm from '@/components/ItemForm';
 import { formatCurrency } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export type Item = {
   id: string;
@@ -27,6 +28,8 @@ export type Item = {
   unit: string | null;
   unit_price: number;
   cost_price: number;
+  stock: number;
+  track_stock: boolean;
 };
 
 const ItemList = () => {
@@ -41,7 +44,7 @@ const ItemList = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('items')
-      .select('id, description, unit, unit_price, cost_price')
+      .select('id, description, unit, unit_price, cost_price, stock, track_stock')
       .eq('user_id', user.id)
       .order('description', { ascending: true });
 
@@ -88,7 +91,7 @@ const ItemList = () => {
               <Package className="h-7 w-7" />
               <CardTitle className="text-3xl">Pustaka Barang & Jasa</CardTitle>
             </div>
-            <CardDescription>Kelola item yang sering Anda gunakan untuk penawaran.</CardDescription>
+            <CardDescription>Kelola inventaris, stok, dan harga item Anda.</CardDescription>
           </div>
           <Button onClick={() => handleOpenForm()}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -111,6 +114,7 @@ const ItemList = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Deskripsi</TableHead>
+                  <TableHead>Stok</TableHead>
                   <TableHead>Harga Modal</TableHead>
                   <TableHead>Harga Satuan</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
@@ -120,6 +124,21 @@ const ItemList = () => {
                 {items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.description}</TableCell>
+                    <TableCell>
+                        {item.track_stock ? (
+                            item.stock <= 5 ? (
+                                <Badge variant="destructive" className="flex w-fit items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> {item.stock} {item.unit}
+                                </Badge>
+                            ) : (
+                                <Badge variant="secondary" className="flex w-fit items-center gap-1 text-green-700 bg-green-100 hover:bg-green-200">
+                                    <CheckCircle2 className="h-3 w-3" /> {item.stock} {item.unit}
+                                </Badge>
+                            )
+                        ) : (
+                            <span className="text-muted-foreground text-sm italic">Tak terbatas</span>
+                        )}
+                    </TableCell>
                     <TableCell>{formatCurrency(item.cost_price)}</TableCell>
                     <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                     <TableCell className="text-right space-x-2">
