@@ -34,6 +34,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import ProfitLossReport from "./pages/ProfitLossReport";
 import Automation from "./pages/Automation";
 import ProjectCalendar from "./pages/ProjectCalendar";
+import RecurringInvoiceList from "./pages/RecurringInvoiceList";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
                   <Route path="/client/:id" element={<ClientDetail />} />
                   <Route path="/items" element={<ItemList />} />
                   <Route path="/invoices" element={<InvoiceList />} />
+                  <Route path="/invoices/recurring" element={<RecurringInvoiceList />} />
                   <Route path="/invoice/new" element={<InvoiceGenerator />} />
                   <Route path="/invoice/edit/:id" element={<InvoiceGenerator />} />
                   <Route path="/invoice/:id" element={<InvoiceView />} />
