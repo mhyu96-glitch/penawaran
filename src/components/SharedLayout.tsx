@@ -30,7 +30,7 @@ const SharedLayout = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="bg-background border-b sticky top-0 z-30">
+      <header className="bg-background border-b sticky top-0 z-30 print:hidden">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8 gap-4">
           <div className="flex items-center gap-4">
             <Sheet>
