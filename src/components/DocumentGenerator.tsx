@@ -22,6 +22,7 @@ import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
+import TemplateManager from "./TemplateManager";
 
 type Item = {
   item_id?: string; // Link to library item
@@ -221,6 +222,14 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     }
   };
 
+  const handleApplyTemplate = (data: any) => {
+    if (data.docTitle) setDocTitle(data.docTitle);
+    if (data.items) setItems(data.items);
+    if (data.terms) setTerms(data.terms);
+    if (data.taxAmount) setTaxAmount(data.taxAmount);
+    if (data.discountAmount) setDiscountAmount(data.discountAmount);
+  };
+
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
     (newItems[index] as any)[field] = value;
@@ -328,12 +337,19 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     <div className="container mx-auto p-4 md:p-8">
       <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
       <Card className="w-full max-w-5xl mx-auto">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Icon className="h-7 w-7" />
-            <CardTitle className="text-3xl">{isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}</CardTitle>
+        <CardHeader className="flex flex-col md:flex-row justify-between items-start">
+          <div>
+            <div className="flex items-center gap-3">
+              <Icon className="h-7 w-7" />
+              <CardTitle className="text-3xl">{isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}</CardTitle>
+            </div>
+            <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : `Isi detail di bawah untuk membuat ${config.title} baru.`}</CardDescription>
           </div>
-          <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : `Isi detail di bawah untuk membuat ${config.title} baru.`}</CardDescription>
+          <TemplateManager 
+            type={docType} 
+            currentData={{ docTitle, items, terms, taxAmount, discountAmount }} 
+            onApplyTemplate={handleApplyTemplate} 
+          />
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid md:grid-cols-2 gap-8">
