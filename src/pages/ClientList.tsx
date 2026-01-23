@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Pencil, Trash2, Users, MoreVertical } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, Users, MoreVertical, Search, FileSpreadsheet } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +26,8 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import ClientForm from '@/components/ClientForm';
 import { Link } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import CSVImporter from '@/components/CSVImporter';
 
 export type Client = {
   id: string;
@@ -42,6 +44,7 @@ const ClientList = () => {
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchClients = async () => {
     if (!user) return;
@@ -87,6 +90,17 @@ const ClientList = () => {
     fetchClients(); // Refresh list after save
   };
 
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const search = searchTerm.toLowerCase();
+      return (
+        client.name.toLowerCase().includes(search) ||
+        (client.email && client.email.toLowerCase().includes(search)) ||
+        (client.phone && client.phone.toLowerCase().includes(search))
+      );
+    });
+  }, [clients, searchTerm]);
+
   const renderActions = (client: Client) => (
     <>
       <DropdownMenuItem asChild><Link to={`/client/${client.id}`}>Lihat Detail</Link></DropdownMenuItem>
@@ -100,18 +114,33 @@ const ClientList = () => {
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <Users className="h-7 w-7" />
-              <CardTitle className="text-3xl">Klien Saya</CardTitle>
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <Users className="h-7 w-7" />
+                <CardTitle className="text-3xl">Klien Saya</CardTitle>
+              </div>
+              <CardDescription>Kelola semua kontak klien Anda di sini.</CardDescription>
             </div>
-            <CardDescription>Kelola semua kontak klien Anda di sini.</CardDescription>
+            <div className="flex gap-2">
+                <CSVImporter type="clients" onSuccess={fetchClients} triggerButtonText="Impor" />
+                <Button onClick={() => handleOpenForm()}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Tambah Klien
+                </Button>
+            </div>
           </div>
-          <Button onClick={() => handleOpenForm()}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Tambah Klien Baru
-          </Button>
+
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Cari nama, email, atau telepon..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -120,9 +149,9 @@ const ClientList = () => {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : clients.length === 0 ? (
+          ) : filteredClients.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Anda belum menambahkan klien.</p>
+              <p className="text-muted-foreground">Tidak ada klien yang ditemukan.</p>
             </div>
           ) : (
             <>
@@ -138,7 +167,7 @@ const ClientList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clients.map((client) => (
+                    {filteredClients.map((client) => (
                       <TableRow key={client.id}>
                         <TableCell className="font-medium"><Link to={`/client/${client.id}`} className="hover:underline">{client.name}</Link></TableCell>
                         <TableCell>{client.email || '-'}</TableCell>
@@ -160,7 +189,7 @@ const ClientList = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden space-y-4">
-                {clients.map(client => (
+                {filteredClients.map(client => (
                   <Card key={client.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">

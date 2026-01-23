@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search, Filter } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -27,10 +27,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 
 type Quote = {
   id: string;
@@ -47,6 +49,10 @@ const QuoteList = () => {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const fetchQuotes = async () => {
     if (!user) return;
@@ -146,6 +152,18 @@ const QuoteList = () => {
     navigate(`/quote/edit/${newQuote.id}`);
   };
 
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter(quote => {
+      const matchesSearch = 
+        (quote.quote_number?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+        (quote.to_client?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter.length === 0 || statusFilter.includes(quote.status);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [quotes, searchTerm, statusFilter]);
+
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'Diterima': return 'default';
@@ -157,6 +175,12 @@ const QuoteList = () => {
   };
 
   const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
+
+  const toggleStatusFilter = (status: string) => {
+    setStatusFilter(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const renderStatusDropdown = (quote: Quote) => (
     <DropdownMenu>
@@ -191,20 +215,68 @@ const QuoteList = () => {
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <FileText className="h-7 w-7" />
-              <CardTitle className="text-3xl">Penawaran Saya</CardTitle>
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <FileText className="h-7 w-7" />
+                <CardTitle className="text-3xl">Penawaran Saya</CardTitle>
+              </div>
+              <CardDescription>Lihat dan kelola semua penawaran Anda di sini.</CardDescription>
             </div>
-            <CardDescription>Lihat dan kelola semua penawaran Anda di sini.</CardDescription>
+            <Button asChild>
+              <Link to="/quote/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Buat Penawaran Baru
+              </Link>
+            </Button>
           </div>
-          <Button asChild>
-            <Link to="/quote/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Buat Penawaran Baru
-            </Link>
-          </Button>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Cari nomor penawaran atau nama klien..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="border-dashed">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Status
+                        {statusFilter.length > 0 && (
+                            <Badge variant="secondary" className="ml-2 px-1 rounded-sm h-5 font-normal">
+                                {statusFilter.length}
+                            </Badge>
+                        )}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuLabel>Filter Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {quoteStatuses.map((status) => (
+                        <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={statusFilter.includes(status)}
+                            onCheckedChange={() => toggleStatusFilter(status)}
+                        >
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    {statusFilter.length > 0 && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => setStatusFilter([])} className="justify-center text-center">
+                                Reset Filter
+                            </DropdownMenuItem>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -213,12 +285,14 @@ const QuoteList = () => {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : quotes.length === 0 ? (
+          ) : filteredQuotes.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Anda belum membuat penawaran apa pun.</p>
-              <Button asChild variant="link">
-                <Link to="/quote/new">Mulai buat penawaran pertama Anda</Link>
-              </Button>
+              <p className="text-muted-foreground">Tidak ada penawaran yang sesuai dengan pencarian Anda.</p>
+              {quotes.length === 0 && (
+                  <Button asChild variant="link" className="mt-2">
+                    <Link to="/quote/new">Mulai buat penawaran pertama Anda</Link>
+                  </Button>
+              )}
             </div>
           ) : (
             <>
@@ -236,7 +310,7 @@ const QuoteList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {quotes.map((quote) => (
+                    {filteredQuotes.map((quote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                         <TableCell>{quote.to_client}</TableCell>
@@ -277,7 +351,7 @@ const QuoteList = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden space-y-4">
-                {quotes.map(quote => (
+                {filteredQuotes.map(quote => (
                   <Card key={quote.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
