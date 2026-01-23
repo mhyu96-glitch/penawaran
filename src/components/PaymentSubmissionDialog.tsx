@@ -18,8 +18,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { cn, formatCurrency } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
-
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0";
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentSubmissionDialogProps {
   isOpen: boolean;
@@ -56,23 +55,16 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
     formData.append('notes', notes);
 
     try {
-      const response = await fetch(`https://xukpisovkcflcwuhrzkx.supabase.co/functions/v1/submit-payment`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-        },
+      const { error } = await supabase.functions.invoke('submit-payment', {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Gagal mengirim bukti pembayaran.');
-      }
+      if (error) throw error;
 
       showSuccess('Bukti pembayaran berhasil dikirim! Menunggu konfirmasi.');
       setIsOpen(false);
     } catch (error: any) {
-      showError(error.message);
+      showError(error.message || 'Gagal mengirim bukti pembayaran.');
     } finally {
       setIsSubmitting(false);
     }

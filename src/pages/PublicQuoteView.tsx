@@ -107,19 +107,16 @@ const PublicQuoteView = () => {
     if (!id) return;
     setIsSubmitting(true);
     try {
-      const response = await fetch(`https://xukpisovkcflcwuhrzkx.supabase.co/functions/v1/update-quote-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0'
-        },
-        body: JSON.stringify({ quoteId: id, status: newStatus }),
+      const { error } = await supabase.functions.invoke('update-quote-status', {
+        body: { quoteId: id, status: newStatus }
       });
-      if (!response.ok) throw new Error('Gagal memperbarui status.');
+
+      if (error) throw error;
+      
       setActionTaken(newStatus);
       if (quote) setQuote({ ...quote, status: newStatus });
     } catch (error) {
-      console.error(error);
+      console.error("Gagal memperbarui status:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,10 +153,10 @@ const PublicQuoteView = () => {
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const ratio = canvasWidth / pdfWidth;
-            const imgHeight = canvasHeight / ratio;
+            
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
             let heightLeft = imgHeight;
             let position = 0;
 
