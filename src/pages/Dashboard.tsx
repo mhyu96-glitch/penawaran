@@ -237,15 +237,15 @@ const Dashboard = () => {
         </div>
 
       {/* Goal Section */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 dark:from-blue-950/40 dark:to-indigo-950/40 dark:border-blue-900">
         <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2 text-lg text-blue-900">
-                    <Target className="h-5 w-5 text-blue-600" /> Target Pendapatan Bulan Ini
+                <CardTitle className="flex items-center gap-2 text-lg text-blue-900 dark:text-blue-100">
+                    <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Target Pendapatan Bulan Ini
                 </CardTitle>
                 {!isEditingGoal ? (
                     <Button variant="ghost" size="sm" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
-                        <Pencil className="h-4 w-4 text-blue-600" />
+                        <Pencil className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </Button>
                 ) : (
                     <div className="flex gap-2">
@@ -253,7 +253,7 @@ const Dashboard = () => {
                             type="number" 
                             value={tempGoal} 
                             onChange={(e) => setTempGoal(e.target.value)} 
-                            className="h-8 w-32 bg-white"
+                            className="h-8 w-32 bg-white dark:bg-slate-900"
                             placeholder="Target Rp"
                         />
                         <Button size="sm" onClick={updateGoal} className="h-8 bg-blue-600 hover:bg-blue-700"><Check className="h-4 w-4" /></Button>
@@ -263,11 +263,11 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
             <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium mb-1">
+                <div className="flex justify-between text-sm font-medium mb-1 dark:text-slate-200">
                     <span>Tercapai: {formatCurrency(currentMonthRevenue)}</span>
-                    <span className="text-muted-foreground">Target: {formatCurrency(revenueGoal)}</span>
+                    <span className="text-muted-foreground dark:text-slate-400">Target: {formatCurrency(revenueGoal)}</span>
                 </div>
-                <Progress value={goalProgress} className="h-3 bg-blue-200" indicatorClassName="bg-blue-600" />
+                <Progress value={goalProgress} className="h-3 bg-blue-200 dark:bg-blue-900" indicatorClassName="bg-blue-600 dark:bg-blue-400" />
                 <p className="text-xs text-muted-foreground text-right pt-1">{goalProgress.toFixed(1)}% tercapai</p>
             </div>
         </CardContent>
@@ -275,23 +275,23 @@ const Dashboard = () => {
 
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (
-        <Card className="border-l-4 border-l-red-500 bg-red-50">
+        <Card className="border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20 dark:border-l-red-600">
             <CardHeader className="pb-2">
-                <CardTitle className="text-red-700 flex items-center gap-2 text-lg">
+                <CardTitle className="text-red-700 dark:text-red-400 flex items-center gap-2 text-lg">
                     <AlertTriangle className="h-5 w-5" /> Stok Menipis
                 </CardTitle>
-                <CardDescription className="text-red-600/80">Beberapa barang Anda perlu dipesan ulang segera.</CardDescription>
+                <CardDescription className="text-red-600/80 dark:text-red-300/80">Beberapa barang Anda perlu dipesan ulang segera.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {lowStockItems.map(item => (
-                        <div key={item.id} className="bg-white p-3 rounded border shadow-sm flex justify-between items-center">
+                        <div key={item.id} className="bg-white dark:bg-slate-900 p-3 rounded border dark:border-slate-800 shadow-sm flex justify-between items-center">
                             <span className="font-medium truncate mr-2">{item.description}</span>
                             <Badge variant="destructive">{item.stock} {item.unit}</Badge>
                         </div>
                     ))}
                 </div>
-                <Button asChild variant="link" className="px-0 text-red-700 mt-2">
+                <Button asChild variant="link" className="px-0 text-red-700 dark:text-red-400 mt-2">
                     <Link to="/items">Kelola Inventaris &rarr;</Link>
                 </Button>
             </CardContent>
@@ -313,7 +313,10 @@ const Dashboard = () => {
               <LineChart data={financialChartData}>
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                <Tooltip 
+                    formatter={(value) => formatCurrency(value as number)}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                />
                 <Legend />
                 <Line type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
@@ -327,12 +330,12 @@ const Dashboard = () => {
                 <div className="space-y-4">
                     {recentActivities.length > 0 ? (
                         recentActivities.map(activity => (
-                            <div key={activity.id} className="flex items-start gap-3 text-sm pb-3 border-b last:border-0 last:pb-0">
-                                <div className="bg-blue-100 p-2 rounded-full shrink-0 mt-0.5">
-                                    <Bell className="h-3 w-3 text-blue-600" />
+                            <div key={activity.id} className="flex items-start gap-3 text-sm pb-3 border-b last:border-0 last:pb-0 dark:border-slate-800">
+                                <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full shrink-0 mt-0.5">
+                                    <Bell className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-gray-900">{activity.message}</p>
+                                    <p className="font-medium text-gray-900 dark:text-slate-100">{activity.message}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: localeId })}
                                     </p>
