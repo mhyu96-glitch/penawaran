@@ -126,49 +126,64 @@ const InvoiceView = () => {
     setIsGeneratingPDF(true);
 
     const input = invoiceRef.current;
+    
+    // Simpan style asli
     const originalWidth = input.style.width;
-    input.style.width = '1024px'; 
+    const originalHeight = input.style.height;
+    const originalOverflow = input.style.overflow;
+    
+    // Force A4 width (794px)
+    input.style.width = '794px'; 
+    input.style.height = 'auto';
+    input.style.overflow = 'visible';
 
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    html2canvas(input, { scale: 1.5, useCORS: true })
-      .then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        
-        const ratio = canvasWidth / pdfWidth;
-        const imgHeight = canvasHeight / ratio;
-        
-        let heightLeft = imgHeight;
-        let position = 0;
+    // Wait a tick for layout recalculation
+    setTimeout(() => {
+        html2canvas(input, { 
+            scale: 2, 
+            useCORS: true,
+            logging: false,
+            windowWidth: 794
+        })
+        .then((canvas) => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            let heightLeft = imgHeight;
+            let position = 0;
 
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
 
-        while (heightLeft > 0) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-        
-        pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
-      })
-      .catch(err => {
-        console.error("Error generating PDF", err);
-        showError("Gagal membuat PDF.");
-      })
-      .finally(() => {
-        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-        input.style.width = originalWidth;
-        setIsGeneratingPDF(false);
-      });
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+            
+            pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+        })
+        .catch(err => {
+            console.error("Error generating PDF", err);
+            showError("Gagal membuat PDF.");
+        })
+        .finally(() => {
+            elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+            input.style.width = originalWidth;
+            input.style.height = originalHeight;
+            input.style.overflow = originalOverflow;
+            setIsGeneratingPDF(false);
+        });
+    }, 100);
   };
 
   const handleDeleteInvoice = async () => {

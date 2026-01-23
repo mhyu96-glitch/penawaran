@@ -188,49 +188,67 @@ const QuoteView = () => {
     setIsGeneratingPDF(true);
 
     const input = quoteRef.current;
+    
+    // Simpan style asli
     const originalWidth = input.style.width;
-    input.style.width = '1024px';
+    const originalHeight = input.style.height;
+    const originalOverflow = input.style.overflow;
+    
+    // Set style khusus untuk capture (794px = lebar A4 pada 96 DPI)
+    input.style.width = '794px';
+    input.style.height = 'auto'; // Biarkan tinggi otomatis agar semua konten termuat
+    input.style.overflow = 'visible'; // Pastikan tidak ada scrollbar
 
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    html2canvas(input, { scale: 1.5, useCORS: true })
-      .then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        
-        const ratio = canvasWidth / pdfWidth;
-        const imgHeight = canvasHeight / ratio;
-        
-        let heightLeft = imgHeight;
-        let position = 0;
+    // Beri jeda sedikit agar layout browser merender ulang dengan lebar baru
+    setTimeout(() => {
+        html2canvas(input, { 
+            scale: 2, // Tingkatkan skala untuk kualitas teks yang lebih baik
+            useCORS: true,
+            logging: false,
+            windowWidth: 794 // Paksa lebar window agar media query CSS konsisten
+        })
+        .then((canvas) => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            let heightLeft = imgHeight;
+            let position = 0;
 
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
+            // Halaman pertama
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
 
-        while (heightLeft > 0) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-        
-        pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
-      })
-      .catch(err => {
-        console.error("Error generating PDF", err);
-        showError("Gagal membuat PDF.");
-      })
-      .finally(() => {
-        elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-        input.style.width = originalWidth;
-        setIsGeneratingPDF(false);
-      });
+            // Halaman berikutnya jika konten panjang
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight; // Geser posisi gambar ke atas
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+            
+            pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
+        })
+        .catch(err => {
+            console.error("Error generating PDF", err);
+            showError("Gagal membuat PDF.");
+        })
+        .finally(() => {
+            // Kembalikan style ke semula
+            elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+            input.style.width = originalWidth;
+            input.style.height = originalHeight;
+            input.style.overflow = originalOverflow;
+            setIsGeneratingPDF(false);
+        });
+    }, 100);
   };
 
   const handleDeleteQuote = async () => {
