@@ -24,11 +24,13 @@ import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
 
 type Item = {
+  item_id?: string; // Link to library item
   description: string;
   quantity: number;
   unit: string;
   unit_price: number;
   cost_price: number;
+  [key: string]: any; // Allow other props for destructuring
 };
 
 interface Attachment {
@@ -59,7 +61,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [toAddress, setToAddress] = useState("");
   const [toPhone, setToPhone] = useState("");
   const [docNumber, setDocNumber] = useState("");
-  const [docTitle, setDocTitle] = useState(""); // New state for title
+  const [docTitle, setDocTitle] = useState(""); 
   const [docDate, setDocDate] = useState<Date | undefined>(new Date());
   const [expiryDate, setExpiryDate] = useState<Date | undefined>();
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
@@ -166,7 +168,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setToAddress(data.to_address || "");
       setToPhone(data.to_phone || "");
       setDocNumber(data[config.fields[0]] || "");
-      setDocTitle(data.title || ""); // Set title
+      setDocTitle(data.title || "");
       setDocDate(data[config.fields[1]] ? parseISO(data[config.fields[1]]) : undefined);
       setExpiryDate(data[config.fields[2]] ? parseISO(data[config.fields[2]]) : undefined);
       setStatus(data.status || "Draf");
@@ -174,7 +176,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setSelectedProjectId(data.project_id || undefined);
       if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
       
-      const itemsWithDefaults = data[config.itemTable].map((item: any) => ({ ...item, unit: item.unit || '', cost_price: item.cost_price || 0 }));
+      const itemsWithDefaults = data[config.itemTable].map((item: any) => ({ 
+        ...item, 
+        unit: item.unit || '', 
+        cost_price: item.cost_price || 0,
+        item_id: item.item_id 
+      }));
       setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
 
       setDiscountAmount(data.discount_amount || 0);
@@ -228,8 +235,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const handleAddItemsFromLibrary = (libraryItems: any[]) => {
     const newItems = libraryItems.map(item => ({
-        description: item.description, quantity: 1, unit: item.unit || '',
-        unit_price: item.unit_price, cost_price: item.cost_price || 0,
+        item_id: item.id, 
+        description: item.description, 
+        quantity: 1, 
+        unit: item.unit || '',
+        unit_price: item.unit_price, 
+        cost_price: item.cost_price || 0,
     }));
     const existingItems = items.filter(item => item.description.trim() !== '');
     setItems([...existingItems, ...newItems]);
@@ -248,7 +259,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
       client_id: selectedClientId, project_id: selectedProjectId,
       attachments: attachments,
-      title: docTitle, // Save title
+      title: docTitle, 
     };
     docPayload[config.fields[0]] = docNumber;
     docPayload[config.fields[1]] = docDate?.toISOString();
@@ -277,11 +288,18 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       currentDocId = data.id;
     }
 
-    const itemsPayload = items.filter(item => item.description).map(item => ({ ...item, [config.foreignKey]: currentDocId }));
+    // SANITIZE ITEMS: Remove id, created_at, etc. to treat as new inserts
+    const itemsPayload = items
+        .filter(item => item.description)
+        .map(({ id, created_at, ...item }: any) => ({
+            ...item,
+            [config.foreignKey]: currentDocId
+        }));
+    
     if (itemsPayload.length > 0) {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
       if (error) { 
-        showError(`Gagal menyimpan item.`); 
+        showError(`Gagal menyimpan item: ${error.message}`); 
         console.error(`Error saving ${docType} items:`, error);
         setIsSubmitting(false); 
         return; 
