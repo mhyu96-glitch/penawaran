@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check, Package, AlertTriangle, Plus } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -56,6 +56,14 @@ type Notification = {
     link: string | null;
 };
 
+type LowStockItem = {
+    id: string;
+    description: string;
+    stock: number;
+    min_stock_alert: number;
+    unit: string;
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -63,6 +71,7 @@ const Dashboard = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [recentActivities, setRecentActivities] = useState<Notification[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -29),
@@ -88,6 +97,9 @@ const Dashboard = () => {
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
       const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
       const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
+      
+      // Fetch items where stock is low (manual filtering needed as Supabase simple filtering is limited for column comparison)
+      const stockQuery = supabase.from('items').select('id, description, stock, min_stock_alert, unit').eq('user_id', user.id).eq('track_stock', true);
 
       if (fromDate) {
         expenseQuery.gte('expense_date', fromDate);
@@ -98,7 +110,7 @@ const Dashboard = () => {
         paymentQuery.lt('payment_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes, profileRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery, profileQuery]);
+      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes, profileRes, stockRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery, profileQuery, stockQuery]);
 
       if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
       if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
@@ -106,6 +118,12 @@ const Dashboard = () => {
       if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(paymentRes.data as Payment[]);
       if (activityRes.data) setRecentActivities(activityRes.data as Notification[]);
       if (profileRes.data) setRevenueGoal(profileRes.data.monthly_revenue_goal || 0);
+      
+      if (stockRes.data) {
+          // Filter in JS: stock <= min_stock_alert
+          const lowStock = stockRes.data.filter((item: any) => item.stock <= (item.min_stock_alert || 5));
+          setLowStockItems(lowStock);
+      }
       
       setLoading(false);
     };
@@ -254,6 +272,31 @@ const Dashboard = () => {
             </div>
         </CardContent>
       </Card>
+
+      {/* Low Stock Alert */}
+      {lowStockItems.length > 0 && (
+        <Card className="border-l-4 border-l-red-500 bg-red-50">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-red-700 flex items-center gap-2 text-lg">
+                    <AlertTriangle className="h-5 w-5" /> Stok Menipis
+                </CardTitle>
+                <CardDescription className="text-red-600/80">Beberapa barang Anda perlu dipesan ulang segera.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {lowStockItems.map(item => (
+                        <div key={item.id} className="bg-white p-3 rounded border shadow-sm flex justify-between items-center">
+                            <span className="font-medium truncate mr-2">{item.description}</span>
+                            <Badge variant="destructive">{item.stock} {item.unit}</Badge>
+                        </div>
+                    ))}
+                </div>
+                <Button asChild variant="link" className="px-0 text-red-700 mt-2">
+                    <Link to="/items">Kelola Inventaris &rarr;</Link>
+                </Button>
+            </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(netProfit)}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>

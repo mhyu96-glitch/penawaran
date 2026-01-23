@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 import { GlobalSearch } from './GlobalSearch';
+import MobileFAB from './MobileFAB';
 
 const SharedLayout = () => {
   const navigate = useNavigate();
@@ -113,6 +114,7 @@ const SharedLayout = () => {
       <main className="flex-1">
         <Outlet />
       </main>
+      <MobileFAB />
     </div>
   );
 };
