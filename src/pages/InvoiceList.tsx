@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download, Copy } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download, Copy, Search, Filter } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -27,10 +27,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 
 type Invoice = {
   id: string;
@@ -51,6 +53,10 @@ const InvoiceList = () => {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const fetchInvoices = async () => {
     if (!user) return;
@@ -118,8 +124,8 @@ const InvoiceList = () => {
       ...newInvoiceData,
       status: 'Draf',
       invoice_date: new Date().toISOString(),
-      due_date: null, // Reset due date
-      invoice_number: null, // Let system generate new number
+      due_date: null,
+      invoice_number: null,
       view_count: 0,
       last_viewed_at: null,
     };
@@ -151,16 +157,25 @@ const InvoiceList = () => {
     navigate(`/invoice/edit/${newInvoice.id}`);
   };
 
-  const handleExportCSV = () => {
-    if (invoices.length === 0) return;
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(invoice => {
+      const matchesSearch = 
+        (invoice.invoice_number?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+        (invoice.to_client?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter.length === 0 || statusFilter.includes(invoice.status);
 
-    // Define CSV headers
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, searchTerm, statusFilter]);
+
+  const handleExportCSV = () => {
+    if (filteredInvoices.length === 0) return;
+
     const headers = ["Nomor Faktur", "Klien", "Tanggal Dibuat", "Jatuh Tempo", "Status", "Pajak", "Diskon", "Uang Muka"];
-    
-    // Map data rows
-    const rows = invoices.map(inv => [
+    const rows = filteredInvoices.map(inv => [
       inv.invoice_number || 'N/A',
-      `"${inv.to_client}"`, // Quote strings with commas
+      `"${inv.to_client}"`,
       format(new Date(inv.created_at), 'yyyy-MM-dd'),
       inv.due_date ? format(new Date(inv.due_date), 'yyyy-MM-dd') : '-',
       inv.status,
@@ -169,18 +184,12 @@ const InvoiceList = () => {
       inv.down_payment_amount || 0
     ]);
 
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','), 
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    // Create download link
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Daftar_Faktur_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute('download', `Faktur_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -228,46 +237,100 @@ const InvoiceList = () => {
     </>
   );
 
+  const toggleStatusFilter = (status: string) => {
+    setStatusFilter(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <Receipt className="h-7 w-7" />
-              <CardTitle className="text-3xl">Faktur Saya</CardTitle>
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <div className="flex items-center gap-3">
+                <Receipt className="h-7 w-7" />
+                <CardTitle className="text-3xl">Faktur Saya</CardTitle>
+                </div>
+                <CardDescription>Kelola semua faktur Anda di sini.</CardDescription>
             </div>
-            <CardDescription>Kelola semua faktur Anda di sini.</CardDescription>
-          </div>
-          <div className="flex gap-2">
-            {invoices.length > 0 && (
-                <Button variant="outline" onClick={handleExportCSV}>
-                    <Download className="mr-2 h-4 w-4" />
-                    CSV
+            <div className="flex gap-2">
+                {filteredInvoices.length > 0 && (
+                    <Button variant="outline" onClick={handleExportCSV}>
+                        <Download className="mr-2 h-4 w-4" /> CSV
+                    </Button>
+                )}
+                <Button asChild>
+                    <Link to="/invoice/new">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Buat Faktur
+                    </Link>
                 </Button>
-            )}
-            <Button asChild>
-                <Link to="/invoice/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Buat Faktur Baru
-                </Link>
-            </Button>
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Cari nomor faktur atau nama klien..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="border-dashed">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Status
+                        {statusFilter.length > 0 && (
+                            <Badge variant="secondary" className="ml-2 px-1 rounded-sm h-5 font-normal">
+                                {statusFilter.length}
+                            </Badge>
+                        )}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuLabel>Filter Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {invoiceStatuses.map((status) => (
+                        <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={statusFilter.includes(status)}
+                            onCheckedChange={() => toggleStatusFilter(status)}
+                        >
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    {statusFilter.length > 0 && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => setStatusFilter([])} className="justify-center text-center">
+                                Reset Filter
+                            </DropdownMenuItem>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" />
             </div>
-          ) : invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Anda belum membuat faktur apa pun.</p>
+              <p className="text-muted-foreground">Tidak ada faktur yang sesuai dengan pencarian Anda.</p>
+              {invoices.length === 0 && (
+                  <Button asChild variant="link" className="mt-2">
+                    <Link to="/invoice/new">Mulai buat faktur pertama Anda</Link>
+                  </Button>
+              )}
             </div>
           ) : (
             <>
-              {/* Desktop View */}
               <div className="hidden md:block">
                 <Table>
                   <TableHeader>
@@ -281,7 +344,7 @@ const InvoiceList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map((invoice) => (
+                    {filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">{invoice.invoice_number || 'N/A'}</TableCell>
                         <TableCell>{invoice.to_client}</TableCell>
@@ -320,9 +383,8 @@ const InvoiceList = () => {
                   </TableBody>
                 </Table>
               </div>
-              {/* Mobile View */}
               <div className="md:hidden space-y-4">
-                {invoices.map(invoice => (
+                {filteredInvoices.map(invoice => (
                   <Card key={invoice.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
@@ -347,7 +409,7 @@ const InvoiceList = () => {
                             {renderStatusDropdown(invoice)}
                             {invoice.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {invoice.view_count}</span>}
                         </div>
-                      <span className="text-muted-foreground">Jatuh Tempo: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : 'N/A'}</span>
+                      <span className="text-muted-foreground">Due: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM') : 'N/A'}</span>
                     </CardFooter>
                   </Card>
                 ))}
