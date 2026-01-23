@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
-import { User, QrCode, PenTool, Eraser } from 'lucide-react';
+import { User, PenTool, Eraser } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import SignatureCanvas from 'react-signature-canvas';
 
@@ -20,7 +20,6 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [isUploadingQris, setIsUploadingQris] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -29,7 +28,6 @@ const Profile = () => {
   const [companyWebsite, setCompanyWebsite] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
-  const [qrisUrl, setQrisUrl] = useState<string | null>(null);
   const [brandColor, setBrandColor] = useState('#000000');
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   
@@ -55,7 +53,6 @@ const Profile = () => {
         setCompanyWebsite(data.company_website || '');
         setCompanyPhone(data.company_phone || '');
         setCompanyLogoUrl(data.company_logo_url || null);
-        setQrisUrl(data.qris_url || null);
         setBrandColor(data.brand_color || '#000000');
         setSignatureUrl(data.signature_url || null);
       }
@@ -98,46 +95,12 @@ const Profile = () => {
     setIsUploadingLogo(false);
   };
 
-  const handleUploadQris = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !event.target.files || event.target.files.length === 0) return;
-    const file = event.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/qris.${fileExt}`;
-
-    setIsUploadingQris(true);
-    const { error: uploadError } = await supabase.storage
-      .from('company_assets')
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      showError('Gagal mengunggah QRIS.');
-      setIsUploadingQris(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
-    const newQrisUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
-    
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ qris_url: newQrisUrl })
-      .eq('id', user.id);
-
-    if (updateError) showError('Gagal menyimpan URL QRIS.');
-    else {
-      setQrisUrl(newQrisUrl);
-      showSuccess('QRIS berhasil diunggah!');
-    }
-    setIsUploadingQris(false);
-  };
-
   const saveSignature = async () => {
     if (!user || !sigCanvas.current || sigCanvas.current.isEmpty()) {
         if (!signatureUrl) showError('Tanda tangan kosong.');
         return;
     }
 
-    // Convert canvas to blob
     const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
     const res = await fetch(dataURL);
     const blob = await res.blob();
@@ -158,7 +121,7 @@ const Profile = () => {
     const newSigUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
 
     setSignatureUrl(newSigUrl);
-    return newSigUrl; // Return for the main update function
+    return newSigUrl;
   };
 
   const clearSignature = () => {
@@ -171,7 +134,6 @@ const Profile = () => {
     setIsSubmitting(true);
 
     let finalSigUrl = signatureUrl;
-    // If user drew something new, save it first
     if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
         const savedUrl = await saveSignature();
         if (savedUrl) finalSigUrl = savedUrl;
@@ -242,7 +204,6 @@ const Profile = () => {
                     </div>
                 </div>
 
-                {/* Signature Section */}
                 <div className="space-y-2 border p-4 rounded-md bg-slate-50">
                     <Label className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Tanda Tangan Digital</Label>
                     <p className="text-xs text-muted-foreground mb-2">Gambar tanda tangan Anda di kotak ini. Tanda tangan ini akan otomatis muncul di semua dokumen.</p>
@@ -258,18 +219,6 @@ const Profile = () => {
                     <div className="flex justify-between items-center mt-2">
                         <Button type="button" variant="outline" size="sm" onClick={clearSignature}><Eraser className="mr-2 h-3 w-3" /> Bersihkan</Button>
                         {signatureUrl && <p className="text-xs text-green-600 font-medium">Tanda tangan tersimpan ada.</p>}
-                    </div>
-                </div>
-
-                <div className="flex items-start gap-4 border p-4 rounded-md bg-slate-50">
-                    <div className="h-20 w-20 flex items-center justify-center bg-white border rounded-md shrink-0 overflow-hidden">
-                       {qrisUrl ? <img src={qrisUrl} alt="QRIS" className="w-full h-full object-contain" /> : <QrCode className="h-10 w-10 text-slate-300" />}
-                    </div>
-                    <div className="space-y-2 w-full">
-                        <Label htmlFor="qris-upload">QRIS Statis (Opsional)</Label>
-                        <Input id="qris-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadQris} disabled={isUploadingQris} />
-                        <p className="text-xs text-muted-foreground">Unggah gambar QRIS toko Anda agar muncul di faktur.</p>
-                        {isUploadingQris && <p className="text-sm text-muted-foreground">Mengunggah...</p>}
                     </div>
                 </div>
 
