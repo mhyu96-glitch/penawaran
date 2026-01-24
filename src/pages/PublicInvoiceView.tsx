@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -121,12 +121,10 @@ const PublicInvoiceView = () => {
     setIsGeneratingPDF(true);
     const input = invoiceRef.current;
     
-    // Save original styles
     const originalWidth = input.style.width;
     const originalHeight = input.style.height;
     const originalOverflow = input.style.overflow;
     
-    // Force A4 dimensions
     input.style.width = '794px';
     input.style.height = 'auto';
     input.style.overflow = 'visible';
@@ -175,10 +173,10 @@ const PublicInvoiceView = () => {
     }, 100);
   };
 
-  const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
+  const subtotal = useMemo(() => calculateSubtotal(invoice?.invoice_items || []), [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   
   const totalPaid = useMemo(() => {
     const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
@@ -387,7 +385,7 @@ const PublicInvoiceView = () => {
                     {invoice.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}
                     {invoice.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
                     {invoice.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
-                    <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
+                    <td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td>
                   </tr>
                 ))}
               </tbody>

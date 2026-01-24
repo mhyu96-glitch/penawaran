@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { formatCurrency, safeFormat, safeFormatDistance } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 
 interface Attachment {
   name: string;
@@ -124,13 +124,10 @@ const InvoiceView = () => {
     setIsGeneratingPDF(true);
 
     const input = invoiceRef.current;
-    
-    // Simpan style asli
     const originalWidth = input.style.width;
     const originalHeight = input.style.height;
     const originalOverflow = input.style.overflow;
     
-    // Force A4 width (794px)
     input.style.width = '794px'; 
     input.style.height = 'auto';
     input.style.overflow = 'visible';
@@ -138,7 +135,6 @@ const InvoiceView = () => {
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    // Wait a tick for layout recalculation
     setTimeout(() => {
         html2canvas(input, { 
             scale: 2, 
@@ -220,11 +216,11 @@ const InvoiceView = () => {
     }
   };
 
-  const subtotal = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0) || 0, [invoice]);
-  const totalCost = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0) || 0, [invoice]);
+  const subtotal = useMemo(() => calculateSubtotal(invoice?.invoice_items || []), [invoice]);
+  const totalCost = useMemo(() => invoice?.invoice_items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price), 0) || 0, [invoice]);
   const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
   const totalPaid = useMemo(() => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0), [payments]);
   const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
@@ -302,7 +298,7 @@ const InvoiceView = () => {
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
-              <tbody>{invoice.invoice_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
+              <tbody>{invoice.invoice_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
@@ -342,7 +338,6 @@ const InvoiceView = () => {
             )}
           </div>
 
-          {/* Signature Section */}
           <div className="flex justify-end mt-8">
             <div className="text-center">
                 <p className="text-sm font-medium mb-4">Hormat Kami,</p>

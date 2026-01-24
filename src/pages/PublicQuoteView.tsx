@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, XCircle, Download, FileText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatCurrency, safeFormat } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -180,14 +180,10 @@ const PublicQuoteView = () => {
     }, 100);
   };
 
-  const subtotal = useMemo(() => {
-    if (!quote) return 0;
-    return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-  }, [quote]);
-
+  const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
 
   if (loading) {
     return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
@@ -278,7 +274,7 @@ const PublicQuoteView = () => {
                     {profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}
                     {profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
                     {profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
-                    <td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td>
+                    <td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td>
                   </tr>
                 ))}
               </tbody>

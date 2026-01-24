@@ -37,3 +37,16 @@ export const safeFormatDistance = (dateStr: string | null | undefined, fallback:
     return fallback;
   }
 };
+
+// Financial Calculations
+export const calculateItemTotal = (quantity: number, price: number) => {
+  return (Number(quantity) || 0) * (Number(price) || 0);
+};
+
+export const calculateSubtotal = (items: { quantity: number; unit_price: number }[]) => {
+  return items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.unit_price), 0);
+};
+
+export const calculateTotal = (subtotal: number, discount: number, tax: number) => {
+  return subtotal - (Number(discount) || 0) + (Number(tax) || 0);
+};

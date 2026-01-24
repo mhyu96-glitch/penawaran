@@ -22,7 +22,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency, safeFormat } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 
 interface Attachment {
   name: string;
@@ -41,7 +41,7 @@ type QuoteDetails = {
   to_phone: string;
   client_id: string;
   quote_number: string;
-  title: string; // Add title
+  title: string;
   quote_date: string;
   valid_until: string;
   discount_amount: number;
@@ -186,27 +186,23 @@ const QuoteView = () => {
     setIsGeneratingPDF(true);
 
     const input = quoteRef.current;
-    
-    // Simpan style asli
     const originalWidth = input.style.width;
     const originalHeight = input.style.height;
     const originalOverflow = input.style.overflow;
     
-    // Set style khusus untuk capture (794px = lebar A4 pada 96 DPI)
     input.style.width = '794px';
-    input.style.height = 'auto'; // Biarkan tinggi otomatis agar semua konten termuat
-    input.style.overflow = 'visible'; // Pastikan tidak ada scrollbar
+    input.style.height = 'auto'; 
+    input.style.overflow = 'visible'; 
 
     const elementsToHide = input.querySelectorAll('.no-pdf');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
-    // Beri jeda sedikit agar layout browser merender ulang dengan lebar baru
     setTimeout(() => {
         html2canvas(input, { 
-            scale: 2, // Tingkatkan skala untuk kualitas teks yang lebih baik
+            scale: 2, 
             useCORS: true,
             logging: false,
-            windowWidth: 794 // Paksa lebar window agar media query CSS konsisten
+            windowWidth: 794 
         })
         .then((canvas) => {
             const imgData = canvas.toDataURL('image/png');
@@ -220,13 +216,11 @@ const QuoteView = () => {
             let heightLeft = imgHeight;
             let position = 0;
 
-            // Halaman pertama
             pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
             heightLeft -= pdfHeight;
 
-            // Halaman berikutnya jika konten panjang
             while (heightLeft > 0) {
-                position = heightLeft - imgHeight; // Geser posisi gambar ke atas
+                position = heightLeft - imgHeight; 
                 pdf.addPage();
                 pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
                 heightLeft -= pdfHeight;
@@ -239,7 +233,6 @@ const QuoteView = () => {
             showError("Gagal membuat PDF.");
         })
         .finally(() => {
-            // Kembalikan style ke semula
             elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
             input.style.width = originalWidth;
             input.style.height = originalHeight;
@@ -266,19 +259,11 @@ const QuoteView = () => {
     showSuccess('Tautan publik telah disalin ke clipboard!');
   };
 
-  const subtotal = useMemo(() => {
-    if (!quote) return 0;
-    return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-  }, [quote]);
-
-  const totalCost = useMemo(() => {
-    if (!quote) return 0;
-    return quote.quote_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0);
-  }, [quote]);
-
+  const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
+  const totalCost = useMemo(() => quote?.quote_items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price), 0) || 0, [quote]);
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
 
 
@@ -350,7 +335,7 @@ const QuoteView = () => {
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
-              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
+              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
