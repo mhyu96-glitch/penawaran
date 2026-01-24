@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { FileText, Receipt, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { safeFormat } from '@/lib/utils';
+import { safeFormat, getStatusVariant } from '@/lib/utils';
 
 type Document = {
   id: string;
@@ -51,22 +51,6 @@ const ClientPortal = () => {
 
     fetchPortalData();
   }, [accessKey]);
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima':
-      case 'Lunas':
-        return 'default';
-      case 'Terkirim':
-        return 'secondary';
-      case 'Ditolak':
-      case 'Jatuh Tempo':
-        return 'destructive';
-      case 'Draf':
-      default:
-        return 'outline';
-    }
-  };
 
   if (loading) {
     return (

@@ -31,7 +31,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
-import { safeFormat, safeFormatDistance } from '@/lib/utils';
+import { safeFormat, safeFormatDistance, getStatusVariant } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -162,16 +162,6 @@ const QuoteList = () => {
       return matchesSearch && matchesStatus;
     });
   }, [quotes, searchTerm, statusFilter]);
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
 
   const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
 

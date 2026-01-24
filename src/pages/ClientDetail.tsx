@@ -10,7 +10,7 @@ import { Client } from './ClientList';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { showError, showSuccess } from '@/utils/toast';
-import { formatCurrency, safeFormat } from '@/lib/utils';
+import { formatCurrency, safeFormat, getStatusVariant } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -74,16 +74,6 @@ const ClientDetail = () => {
     const link = `${window.location.origin}/portal/${client.access_key}`;
     navigator.clipboard.writeText(link);
     showSuccess('Tautan portal klien telah disalin!');
-  };
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
   };
 
   if (loading) {

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
@@ -82,15 +82,6 @@ const ProjectDetail = () => {
 
     return { totalRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
   }, [invoices, expenses, quotes, timeEntries]);
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': case 'Lunas': case 'Completed': return 'default';
-      case 'Terkirim': case 'Ongoing': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      default: return 'outline';
-    }
-  };
 
   if (loading) {
     return (

@@ -12,6 +12,7 @@ import ProjectForm, { Project } from '@/components/ProjectForm';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import ProjectKanbanBoard from '@/components/ProjectKanbanBoard';
+import { getStatusVariant } from '@/lib/utils';
 
 type ProjectWithClient = Project & {
   clients: { name: string } | null;
@@ -83,14 +84,6 @@ const ProjectList = () => {
   const handleFormSave = () => {
     setIsFormOpen(false);
     fetchProjects();
-  };
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "outline" => {
-    switch (status) {
-      case 'Completed': return 'default';
-      case 'Ongoing': return 'secondary';
-      default: return 'outline';
-    }
   };
 
   return (
