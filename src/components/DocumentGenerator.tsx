@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, ArrowUp, ArrowDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
@@ -31,13 +31,13 @@ import {
 } from "@/components/ui/accordion";
 
 type Item = {
-  item_id?: string; // Link to library item
+  item_id?: string;
   description: string;
   quantity: number;
   unit: string;
   unit_price: number;
   cost_price: number;
-  [key: string]: any; // Allow other props for destructuring
+  [key: string]: any;
 };
 
 interface Attachment {
@@ -137,7 +137,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
       let newDocNumber;
       if (error) {
-        console.error(`Error fetching last ${docType} number`, error);
         newDocNumber = `${config.numberPrefix}-${year}-001`;
       } else {
         let nextNumber = 1;
@@ -243,9 +242,23 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   };
 
   const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  const addSectionHeader = () => setItems([...items, { description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }]);
+
   const removeItem = (index: number) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
     else setItems([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  };
+
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === items.length - 1) return;
+
+    const newItems = [...items];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Swap
+    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+    setItems(newItems);
   };
 
   const handleAddItemsFromLibrary = (libraryItems: any[]) => {
@@ -287,7 +300,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
       if (error) { 
         showError(`Gagal memperbarui ${config.title}.`); 
-        console.error(`Error updating ${config.title}:`, error);
         setIsSubmitting(false); 
         return; 
       }
@@ -296,14 +308,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { data, error } = await supabase.from(config.table).insert(docPayload).select().single();
       if (error || !data) { 
         showError(`Gagal membuat ${config.title}.`); 
-        console.error(`Error creating ${config.title}:`, error);
         setIsSubmitting(false); 
         return; 
       }
       currentDocId = data.id;
     }
 
-    // SANITIZE ITEMS: Remove id, created_at, etc. to treat as new inserts
     const itemsPayload = items
         .filter(item => item.description)
         .map(({ id, created_at, ...item }: any) => ({
@@ -315,7 +325,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
       if (error) { 
         showError(`Gagal menyimpan item: ${error.message}`); 
-        console.error(`Error saving ${docType} items:`, error);
         setIsSubmitting(false); 
         return; 
       }
@@ -329,10 +338,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   if (loading) {
     return (
       <div className="container mx-auto p-4 md:p-8">
-        <Card className="w-full max-w-4xl mx-auto">
-          <CardHeader><Skeleton className="h-8 w-64" /></CardHeader>
-          <CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent>
-        </Card>
+        <Card className="w-full max-w-4xl mx-auto"><CardHeader><Skeleton className="h-8 w-64" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent></Card>
       </div>
     );
   }
@@ -345,17 +351,10 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       <Card className="w-full max-w-5xl mx-auto">
         <CardHeader className="flex flex-col md:flex-row justify-between items-start">
           <div>
-            <div className="flex items-center gap-3">
-              <Icon className="h-7 w-7" />
-              <CardTitle className="text-3xl">{isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}</CardTitle>
-            </div>
+            <div className="flex items-center gap-3"><Icon className="h-7 w-7" /><CardTitle className="text-3xl">{isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}</CardTitle></div>
             <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : `Isi detail di bawah untuk membuat ${config.title} baru.`}</CardDescription>
           </div>
-          <TemplateManager 
-            type={docType} 
-            currentData={{ docTitle, items, terms, taxAmount, discountAmount }} 
-            onApplyTemplate={handleApplyTemplate} 
-          />
+          <TemplateManager type={docType} currentData={{ docTitle, items, terms, taxAmount, discountAmount }} onApplyTemplate={handleApplyTemplate} />
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid md:grid-cols-2 gap-8">
@@ -369,11 +368,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <div className="space-y-2">
             <Label>Judul / Perihal</Label>
-            <Input 
-                placeholder={`Contoh: Paket CCTV 4 Channel atau Pengadaan Komputer Kasir`} 
-                value={docTitle} 
-                onChange={e => setDocTitle(e.target.value)} 
-            />
+            <Input placeholder={`Contoh: Paket CCTV 4 Channel...`} value={docTitle} onChange={e => setDocTitle(e.target.value)} />
             <p className="text-xs text-muted-foreground">Judul ini bisa digunakan di pesan WhatsApp.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
@@ -386,30 +381,72 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <h3 className="font-semibold">Barang & Jasa</h3>
             <div className="rounded-md border overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead className="w-[50px] text-center">No.</TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
-                <TableBody>{items.map((item, index) => (<TableRow key={index}><TableCell className="text-center font-medium">{index + 1}</TableCell><TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell><TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell className="text-right font-medium">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</TableCell><TableCell className="text-center"><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}</TableBody>
+                <TableHeader><TableRow><TableHead className="w-[50px] text-center">No.</TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[100px] text-center">Aksi</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {items.map((item, index) => {
+                    const isSectionHeader = item.quantity === 0;
+                    
+                    if (isSectionHeader) {
+                      return (
+                        <TableRow key={index} className="bg-muted/50 hover:bg-muted/70">
+                          <TableCell className="text-center font-bold text-muted-foreground">#</TableCell>
+                          <TableCell colSpan={5}>
+                            <div className="flex items-center gap-2">
+                              <Heading className="h-4 w-4 text-blue-500" />
+                              <Input 
+                                placeholder="Nama Kategori (misal: Kamera, Jasa, dll)" 
+                                value={item.description} 
+                                onChange={e => handleItemChange(index, 'description', e.target.value)} 
+                                className="font-bold border-transparent bg-transparent focus-visible:ring-0 focus-visible:bg-background h-8 px-0"
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-muted-foreground">-</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'up')} disabled={index === 0} title="Geser Naik"><ArrowUp className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} title="Geser Turun"><ArrowDown className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return (
+                      <TableRow key={index}>
+                        <TableCell className="text-center font-medium">{index + 1}</TableCell>
+                        <TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell>
+                        <TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell>
+                        <TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</TableCell>
+                        <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'up')} disabled={index === 0} title="Geser Naik"><ArrowUp className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} title="Geser Turun"><ArrowDown className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
               </Table>
             </div>
-            <div className="flex gap-2"><Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button><Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button></div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
+              <Button variant="secondary" size="sm" onClick={addSectionHeader} className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"><Heading className="mr-2 h-4 w-4 text-blue-600" /> Tambah Kategori</Button>
+              <Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button>
+            </div>
           </div>
           <Separator />
           
-          {/* Profit Analysis Section */}
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="profit-analysis">
-                <AccordionTrigger className="text-blue-600 font-medium">
-                    <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" /> Estimasi Profit (Live)
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <ProfitAnalysisCard 
-                        items={items} 
-                        discountAmount={discountAmount} 
-                        taxAmount={taxAmount} 
-                        type={docType === 'quote' ? 'Penawaran' : 'Faktur'}
-                    />
-                </AccordionContent>
+                <AccordionTrigger className="text-blue-600 font-medium"><div className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Estimasi Profit (Live)</div></AccordionTrigger>
+                <AccordionContent><ProfitAnalysisCard items={items} discountAmount={discountAmount} taxAmount={taxAmount} type={docType === 'quote' ? 'Penawaran' : 'Faktur'}/></AccordionContent>
             </AccordionItem>
           </Accordion>
 
@@ -425,17 +462,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <Separator />
           <div className="space-y-2"><Label>Syarat & Ketentuan</Label><Textarea placeholder="Contoh: Pembayaran..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
-          {isEditMode && id && (
-            <>
-              <Separator />
-              <AttachmentManager
-                docId={id}
-                docType={docType}
-                initialAttachments={attachments}
-                onAttachmentsChange={setAttachments}
-              />
-            </>
-          )}
+          {isEditMode && id && (<><Separator /><AttachmentManager docId={id} docType={docType} initialAttachments={attachments} onAttachmentsChange={setAttachments} /></>)}
         </CardContent>
         <CardFooter><Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : (isEditMode ? `Simpan ${config.title}` : `Buat & Lihat ${config.title}`)}</Button></CardFooter>
       </Card>

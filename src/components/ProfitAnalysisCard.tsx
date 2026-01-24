@@ -25,7 +25,10 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
     let totalRevenue = 0;
     let totalCost = 0;
 
-    const itemsAnalysis = items.map(item => {
+    // Filter out items with 0 quantity (Category Headers)
+    const activeItems = items.filter(item => item.quantity > 0);
+
+    const itemsAnalysis = activeItems.map(item => {
       const revenue = calculateItemTotal(item.quantity, item.unit_price);
       const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
       const profit = revenue - cost;
@@ -103,21 +106,29 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {analysis.itemsAnalysis.map((item, idx) => (
-                        <TableRow key={idx}>
-                            <TableCell className="font-medium">
-                                {item.description} <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground">{formatCurrency(item.cost_price || 0)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-right font-bold text-green-600">{formatCurrency(item.profit)}</TableCell>
-                            <TableCell className="text-right">
-                                <Badge variant={item.margin > 30 ? 'default' : item.margin > 10 ? 'secondary' : 'destructive'} className="text-[10px]">
-                                    {item.margin.toFixed(0)}%
-                                </Badge>
+                    {analysis.itemsAnalysis.length > 0 ? (
+                        analysis.itemsAnalysis.map((item, idx) => (
+                            <TableRow key={idx}>
+                                <TableCell className="font-medium">
+                                    {item.description} <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                                </TableCell>
+                                <TableCell className="text-right text-muted-foreground">{formatCurrency(item.cost_price || 0)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                                <TableCell className="text-right font-bold text-green-600">{formatCurrency(item.profit)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Badge variant={item.margin > 30 ? 'default' : item.margin > 10 ? 'secondary' : 'destructive'} className="text-[10px]">
+                                        {item.margin.toFixed(0)}%
+                                    </Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                                Belum ada item dengan jumlah {'>'} 0.
                             </TableCell>
                         </TableRow>
-                    ))}
+                    )}
                 </TableBody>
             </Table>
         </div>
