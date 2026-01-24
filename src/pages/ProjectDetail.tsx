@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
@@ -66,15 +66,15 @@ const ProjectDetail = () => {
     const totalRevenue = invoices
       .filter(inv => inv.status === 'Lunas')
       .reduce((sum, inv) => {
-        const subtotal = inv.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-        return sum + (subtotal - (inv.discount_amount || 0) + (inv.tax_amount || 0));
+        const subtotal = calculateSubtotal(inv.invoice_items);
+        return sum + calculateTotal(subtotal, inv.discount_amount, inv.tax_amount);
       }, 0);
 
     const projectExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
     
     const costOfGoodsSold = quotes
       .filter(q => q.status === 'Diterima')
-      .reduce((sum, q) => sum + q.quote_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0), 0);
+      .reduce((sum, q) => sum + q.quote_items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
 
     const totalCosts = projectExpenses + costOfGoodsSold;
     const netProfit = totalRevenue - totalCosts;

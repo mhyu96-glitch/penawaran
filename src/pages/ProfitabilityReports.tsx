@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TrendingUp, Users, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, calculateItemTotal } from '@/lib/utils';
 
 type AcceptedQuote = {
   id: string;
@@ -60,8 +60,9 @@ const ProfitabilityReports = () => {
       clientProfit[clientId].quoteCount += 1;
 
       quote.quote_items.forEach(item => {
-        const revenue = item.quantity * item.unit_price;
-        const profit = item.quantity * (item.unit_price - (item.cost_price || 0));
+        const revenue = calculateItemTotal(item.quantity, item.unit_price);
+        const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
+        const profit = revenue - cost;
         
         // Aggregate by client
         clientProfit[clientId].totalRevenue += revenue;

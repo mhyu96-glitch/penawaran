@@ -12,7 +12,7 @@ import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency, safeFormat, safeFormatDistance } from '@/lib/utils';
+import { cn, formatCurrency, safeFormat, safeFormatDistance, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -146,7 +146,11 @@ const Dashboard = () => {
   const { totalProfit, acceptedQuotesCount } = useMemo(() => {
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
     const profit = acceptedQuotes.reduce((acc, quote) => {
-      const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
+      const quoteProfit = quote.quote_items.reduce((qAcc, item) => {
+          const revenue = calculateItemTotal(item.quantity, item.unit_price);
+          const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
+          return qAcc + (revenue - cost);
+      }, 0);
       return acc + quoteProfit;
     }, 0);
     return { totalProfit: profit, acceptedQuotesCount: acceptedQuotes.length };
@@ -160,8 +164,8 @@ const Dashboard = () => {
     let overdueAmount = 0;
     invoices.forEach(invoice => {
         if (invoice.status !== 'Lunas') {
-            const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-            const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
+            const subtotal = calculateSubtotal(invoice.invoice_items);
+            const total = calculateTotal(subtotal, invoice.discount_amount, invoice.tax_amount);
             unpaidAmount += total;
             
             // Safe date check

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, calculateItemTotal } from '@/lib/utils';
 import { TrendingUp, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -26,8 +26,8 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
     let totalCost = 0;
 
     const itemsAnalysis = items.map(item => {
-      const revenue = item.quantity * item.unit_price;
-      const cost = item.quantity * (item.cost_price || 0);
+      const revenue = calculateItemTotal(item.quantity, item.unit_price);
+      const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
       const profit = revenue - cost;
       const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
       
