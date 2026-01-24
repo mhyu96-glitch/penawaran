@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
-import { Save, FileInput } from 'lucide-react';
+import { Save, FileDown, Trash2 } from 'lucide-react';
 
 interface Template {
   id: string;
@@ -47,8 +47,12 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
       .eq('type', type)
       .order('created_at', { ascending: false });
 
-    if (error) console.error('Error fetching templates:', error);
-    else setTemplates(data as Template[]);
+    if (error) {
+        // Silent fail if table doesn't exist yet to prevent app crash
+        console.warn('Error fetching templates (table might not exist yet):', error);
+    } else {
+        setTemplates(data as Template[]);
+    }
   };
 
   useEffect(() => {
@@ -69,7 +73,7 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
     });
 
     if (error) {
-      showError('Gagal menyimpan template.');
+      showError(`Gagal menyimpan template: ${error.message}`);
     } else {
       showSuccess('Template berhasil disimpan.');
       setIsSaveOpen(false);
@@ -126,7 +130,7 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
       <Dialog open={isLoadOpen} onOpenChange={setIsLoadOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
-            <FileInput className="mr-2 h-4 w-4" /> Muat Template
+            <FileDown className="mr-2 h-4 w-4" /> Muat Template
           </Button>
         </DialogTrigger>
         <DialogContent>
@@ -135,19 +139,26 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
             <DialogDescription>Pilih template untuk mengisi form secara otomatis.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map(t => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {templates.length > 0 ? (
+                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Pilih template..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            ) : (
+                <p className="text-sm text-muted-foreground text-center">Belum ada template tersimpan.</p>
+            )}
+            
             {selectedTemplateId && (
                 <div className="flex justify-end">
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteTemplate(selectedTemplateId)}>Hapus Template Ini</Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteTemplate(selectedTemplateId)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Hapus Template
+                    </Button>
                 </div>
             )}
           </div>

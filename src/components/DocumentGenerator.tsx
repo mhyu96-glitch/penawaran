@@ -25,13 +25,13 @@ import AttachmentManager from "./AttachmentManager";
 import TemplateManager from "./TemplateManager";
 
 type Item = {
-  item_id?: string; // Link to library item
+  item_id?: string;
   description: string;
   quantity: number;
   unit: string;
   unit_price: number;
   cost_price: number;
-  [key: string]: any; // Allow other props for destructuring
+  [key: string]: any;
 };
 
 interface Attachment {
@@ -131,7 +131,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
       let newDocNumber;
       if (error) {
-        console.error(`Error fetching last ${docType} number`, error);
         newDocNumber = `${config.numberPrefix}-${year}-001`;
       } else {
         let nextNumber = 1;
@@ -281,7 +280,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
       if (error) { 
         showError(`Gagal memperbarui ${config.title}.`); 
-        console.error(`Error updating ${config.title}:`, error);
         setIsSubmitting(false); 
         return; 
       }
@@ -290,14 +288,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { data, error } = await supabase.from(config.table).insert(docPayload).select().single();
       if (error || !data) { 
         showError(`Gagal membuat ${config.title}.`); 
-        console.error(`Error creating ${config.title}:`, error);
         setIsSubmitting(false); 
         return; 
       }
       currentDocId = data.id;
     }
 
-    // SANITIZE ITEMS: Remove id, created_at, etc. to treat as new inserts
     const itemsPayload = items
         .filter(item => item.description)
         .map(({ id, created_at, ...item }: any) => ({
@@ -309,7 +305,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
       if (error) { 
         showError(`Gagal menyimpan item: ${error.message}`); 
-        console.error(`Error saving ${docType} items:`, error);
         setIsSubmitting(false); 
         return; 
       }
