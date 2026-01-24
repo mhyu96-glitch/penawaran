@@ -98,7 +98,8 @@ const SortableItemRow = ({
     position: isDragging ? 'relative' as const : undefined,
   };
 
-  const isSectionHeader = item.quantity === 0;
+  // Pastikan konversi ke number untuk pengecekan yang akurat
+  const isSectionHeader = Number(item.quantity) === 0;
 
   if (isSectionHeader) {
     return (
@@ -110,12 +111,12 @@ const SortableItemRow = ({
         </TableCell>
         <TableCell colSpan={5}>
           <div className="flex items-center gap-2">
-            <Heading className="h-4 w-4 text-blue-500" />
+            <Heading className="h-4 w-4 text-blue-500 shrink-0" />
             <Input 
               placeholder="Nama Kategori (misal: Kamera, Jasa, dll)" 
               value={item.description} 
               onChange={e => handleItemChange(index, 'description', e.target.value)} 
-              className="font-bold border-transparent bg-transparent focus-visible:ring-0 focus-visible:bg-background h-8 px-0 shadow-none"
+              className="font-bold border-transparent bg-transparent focus-visible:ring-0 focus-visible:bg-background h-8 px-2 shadow-none placeholder:text-muted-foreground/50"
             />
           </div>
         </TableCell>
@@ -354,7 +355,15 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
-    (newItems[index] as any)[field] = value;
+    
+    // Auto-convert numeric fields to avoid string concatenation or "0" string issues
+    if (field === 'quantity' || field === 'unit_price' || field === 'cost_price') {
+       const numValue = parseFloat(value.toString());
+       (newItems[index] as any)[field] = isNaN(numValue) ? 0 : numValue;
+    } else {
+       (newItems[index] as any)[field] = value;
+    }
+    
     setItems(newItems);
   };
 
