@@ -18,13 +18,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { generatePdf } from '@/utils/pdfGenerator';
 
 interface Attachment {
   name: string;
@@ -119,65 +118,11 @@ const InvoiceView = () => {
     fetchInvoiceData();
   }, [id, navigate]);
 
-  const handleSaveAsPDF = () => {
+  const handleSaveAsPDF = async () => {
     if (!invoiceRef.current || !invoice) return;
     setIsGeneratingPDF(true);
-
-    const input = invoiceRef.current;
-    const originalWidth = input.style.width;
-    const originalHeight = input.style.height;
-    const originalOverflow = input.style.overflow;
-    
-    input.style.width = '794px'; 
-    input.style.height = 'auto';
-    input.style.overflow = 'visible';
-
-    const elementsToHide = input.querySelectorAll('.no-pdf');
-    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
-
-    setTimeout(() => {
-        html2canvas(input, { 
-            scale: 2, 
-            useCORS: true,
-            logging: false,
-            windowWidth: 794
-        })
-        .then((canvas) => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            const imgProps = pdf.getImageProperties(imgData);
-            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-                heightLeft -= pdfHeight;
-            }
-            
-            pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
-        })
-        .catch(err => {
-            console.error("Error generating PDF", err);
-            showError("Gagal membuat PDF.");
-        })
-        .finally(() => {
-            elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-            input.style.width = originalWidth;
-            input.style.height = originalHeight;
-            input.style.overflow = originalOverflow;
-            setIsGeneratingPDF(false);
-        });
-    }, 100);
+    await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+    setIsGeneratingPDF(false);
   };
 
   const handleDeleteInvoice = async () => {

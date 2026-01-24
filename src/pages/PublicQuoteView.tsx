@@ -8,8 +8,7 @@ import { CheckCircle, XCircle, Download, FileText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generatePdf } from '@/utils/pdfGenerator';
 
 interface Attachment {
   name: string;
@@ -120,64 +119,11 @@ const PublicQuoteView = () => {
     }
   };
 
-  const handleSaveAsPDF = () => {
+  const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
-    const input = quoteRef.current;
-    
-    // Save original styles
-    const originalWidth = input.style.width;
-    const originalHeight = input.style.height;
-    const originalOverflow = input.style.overflow;
-    
-    // Force A4 dimensions
-    input.style.width = '794px';
-    input.style.height = 'auto';
-    input.style.overflow = 'visible';
-
-    const elementsToHide = input.querySelectorAll('.no-pdf');
-    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
-
-    // Slight delay for layout refresh
-    setTimeout(() => {
-        html2canvas(input, { 
-            scale: 2, 
-            useCORS: true,
-            logging: false,
-            windowWidth: 794
-        })
-        .then((canvas) => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            const imgProps = pdf.getImageProperties(imgData);
-            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-                heightLeft -= pdfHeight;
-            }
-            
-            pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
-        })
-        .finally(() => {
-            elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-            input.style.width = originalWidth;
-            input.style.height = originalHeight;
-            input.style.overflow = originalOverflow;
-            setIsGeneratingPDF(false);
-        });
-    }, 100);
+    await generatePdf(quoteRef.current, `Penawaran-${quote.quote_number || quote.id}.pdf`);
+    setIsGeneratingPDF(false);
   };
 
   const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
