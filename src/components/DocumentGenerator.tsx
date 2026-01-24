@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
@@ -22,6 +22,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
 import TemplateManager from "./TemplateManager";
+import ProfitAnalysisCard from "./ProfitAnalysisCard";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 type Item = {
   item_id?: string; // Link to library item
@@ -386,6 +393,26 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <div className="flex gap-2"><Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button><Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button></div>
           </div>
           <Separator />
+          
+          {/* Profit Analysis Section */}
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="profit-analysis">
+                <AccordionTrigger className="text-blue-600 font-medium">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" /> Estimasi Profit (Live)
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <ProfitAnalysisCard 
+                        items={items} 
+                        discountAmount={discountAmount} 
+                        taxAmount={taxAmount} 
+                        type={docType === 'quote' ? 'Penawaran' : 'Faktur'}
+                    />
+                </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
           <div className="flex justify-end">
             <div className="w-full max-w-sm space-y-4">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>

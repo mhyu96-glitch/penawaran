@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check, Package, AlertTriangle, Plus } from 'lucide-react';
+import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check, Package, AlertTriangle, Plus, Receipt } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
@@ -262,42 +262,57 @@ const Dashboard = () => {
             </Popover>
         </div>
 
-      {/* Goal Section */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
-        <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2 text-lg text-blue-900">
-                    <Target className="h-5 w-5 text-blue-600" /> Target Pendapatan Bulan Ini
-                </CardTitle>
-                {!isEditingGoal ? (
-                    <Button variant="ghost" size="sm" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
-                        <Pencil className="h-4 w-4 text-blue-600" />
-                    </Button>
-                ) : (
-                    <div className="flex gap-2">
-                        <Input 
-                            type="number" 
-                            value={tempGoal} 
-                            onChange={(e) => setTempGoal(e.target.value)} 
-                            className="h-8 w-32 bg-white"
-                            placeholder="Target Rp"
-                        />
-                        <Button size="sm" onClick={updateGoal} className="h-8 bg-blue-600 hover:bg-blue-700"><Check className="h-4 w-4" /></Button>
-                    </div>
-                )}
-            </div>
-        </CardHeader>
-        <CardContent>
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium mb-1">
-                    <span>Tercapai: {formatCurrency(currentMonthRevenue)}</span>
-                    <span className="text-muted-foreground">Target: {formatCurrency(revenueGoal)}</span>
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Goal Section */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 md:col-span-2">
+            <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center gap-2 text-lg text-blue-900">
+                        <Target className="h-5 w-5 text-blue-600" /> Target Pendapatan Bulan Ini
+                    </CardTitle>
+                    {!isEditingGoal ? (
+                        <Button variant="ghost" size="sm" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
+                            <Pencil className="h-4 w-4 text-blue-600" />
+                        </Button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Input 
+                                type="number" 
+                                value={tempGoal} 
+                                onChange={(e) => setTempGoal(e.target.value)} 
+                                className="h-8 w-32 bg-white"
+                                placeholder="Target Rp"
+                            />
+                            <Button size="sm" onClick={updateGoal} className="h-8 bg-blue-600 hover:bg-blue-700"><Check className="h-4 w-4" /></Button>
+                        </div>
+                    )}
                 </div>
-                <Progress value={goalProgress} className="h-3 bg-blue-200" indicatorClassName="bg-blue-600" />
-                <p className="text-xs text-muted-foreground text-right pt-1">{goalProgress.toFixed(1)}% tercapai</p>
-            </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-sm font-medium mb-1">
+                        <span>Tercapai: {formatCurrency(currentMonthRevenue)}</span>
+                        <span className="text-muted-foreground">Target: {formatCurrency(revenueGoal)}</span>
+                    </div>
+                    <Progress value={goalProgress} className="h-3 bg-blue-200" indicatorClassName="bg-blue-600" />
+                    <p className="text-xs text-muted-foreground text-right pt-1">{goalProgress.toFixed(1)}% tercapai</p>
+                </div>
+            </CardContent>
+        </Card>
+
+        {/* Quick Actions Card (Desktop) */}
+        <Card className="hidden md:flex flex-col justify-center">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Aksi Cepat</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2">
+                <Button asChild variant="outline" className="justify-start"><Link to="/invoice/new"><Receipt className="mr-2 h-4 w-4 text-blue-600" /> Faktur</Link></Button>
+                <Button asChild variant="outline" className="justify-start"><Link to="/quote/new"><FileText className="mr-2 h-4 w-4 text-green-600" /> Penawaran</Link></Button>
+                <Button asChild variant="outline" className="justify-start"><Link to="/expenses"><Wallet className="mr-2 h-4 w-4 text-orange-600" /> Beban</Link></Button>
+                <Button asChild variant="outline" className="justify-start"><Link to="/clients"><Users className="mr-2 h-4 w-4 text-purple-600" /> Klien</Link></Button>
+            </CardContent>
+        </Card>
+      </div>
 
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (
