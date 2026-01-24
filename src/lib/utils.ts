@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { format, formatDistanceToNow, isValid } from "date-fns";
+import { id as localeId } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -12,4 +14,26 @@ export const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
+};
+
+export const safeFormat = (dateStr: string | null | undefined, formatStr: string, fallback: string = 'N/A') => {
+  if (!dateStr) return fallback;
+  try {
+    const date = new Date(dateStr);
+    if (!isValid(date)) return 'Invalid Date';
+    return format(date, formatStr, { locale: localeId });
+  } catch (e) {
+    return 'Error';
+  }
+};
+
+export const safeFormatDistance = (dateStr: string | null | undefined, fallback: string = '-') => {
+  if (!dateStr) return fallback;
+  try {
+    const date = new Date(dateStr);
+    if (!isValid(date)) return fallback;
+    return formatDistanceToNow(date, { addSuffix: true, locale: localeId });
+  } catch (e) {
+    return fallback;
+  }
 };

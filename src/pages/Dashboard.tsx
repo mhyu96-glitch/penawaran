@@ -7,13 +7,13 @@ import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, Lay
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, formatDistanceToNow, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth, isValid } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, safeFormat, safeFormatDistance } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -98,7 +98,6 @@ const Dashboard = () => {
       const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
       const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
       
-      // Fetch items where stock is low (manual filtering needed as Supabase simple filtering is limited for column comparison)
       const stockQuery = supabase.from('items').select('id, description, stock, min_stock_alert, unit').eq('user_id', user.id).eq('track_stock', true);
 
       if (fromDate) {
@@ -120,7 +119,6 @@ const Dashboard = () => {
       if (profileRes.data) setRevenueGoal(profileRes.data.monthly_revenue_goal || 0);
       
       if (stockRes.data) {
-          // Filter in JS: stock <= min_stock_alert
           const lowStock = stockRes.data.filter((item: any) => item.stock <= (item.min_stock_alert || 5));
           setLowStockItems(lowStock);
       }
@@ -166,8 +164,13 @@ const Dashboard = () => {
             const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
             const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
             unpaidAmount += total;
-            if (invoice.due_date && isPast(new Date(invoice.due_date))) {
-                overdueAmount += total;
+            
+            // Safe date check
+            if (invoice.due_date) {
+                const dueDate = new Date(invoice.due_date);
+                if (isValid(dueDate) && isPast(dueDate)) {
+                    overdueAmount += total;
+                }
             }
         }
     });
@@ -183,34 +186,54 @@ const Dashboard = () => {
 
   const financialChartData = useMemo(() => {
     if (!date?.from || !date?.to) return [];
-    const days = eachDayOfInterval({ start: date.from, end: date.to });
-    return days.map(day => {
-        const formattedDate = format(day, 'dd MMM');
-        const dayStart = startOfDay(day);
+    try {
+        const days = eachDayOfInterval({ start: date.from, end: date.to });
+        return days.map(day => {
+            const formattedDate = format(day, 'dd MMM');
+            const dayStart = startOfDay(day);
 
-        const dailyRevenue = payments
-            .filter(p => startOfDay(new Date(p.payment_date)).getTime() === dayStart.getTime())
-            .reduce((sum, p) => sum + p.amount, 0);
+            const dailyRevenue = payments
+                .filter(p => {
+                    const d = new Date(p.payment_date);
+                    return isValid(d) && startOfDay(d).getTime() === dayStart.getTime();
+                })
+                .reduce((sum, p) => sum + p.amount, 0);
 
-        const dailyExpenses = expenses
-            .filter(e => startOfDay(new Date(e.expense_date)).getTime() === dayStart.getTime())
-            .reduce((sum, e) => sum + e.amount, 0);
+            const dailyExpenses = expenses
+                .filter(e => {
+                    const d = new Date(e.expense_date);
+                    return isValid(d) && startOfDay(d).getTime() === dayStart.getTime();
+                })
+                .reduce((sum, e) => sum + e.amount, 0);
 
-        return { name: formattedDate, Pendapatan: dailyRevenue, Pengeluaran: dailyExpenses };
-    });
+            return { name: formattedDate, Pendapatan: dailyRevenue, Pengeluaran: dailyExpenses };
+        });
+    } catch (e) {
+        console.error("Error generating chart data", e);
+        return [];
+    }
   }, [payments, expenses, date]);
 
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
-  const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
+  
+  const overdueInvoices = useMemo(() => {
+      return invoices
+        .filter(inv => {
+            if (inv.status === 'Lunas' || !inv.due_date) return false;
+            const d = new Date(inv.due_date);
+            return isValid(d) && isPast(d);
+        })
+        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+        .slice(0, 5);
+  }, [invoices]);
 
-  // Goal Progress Calculation (This month only)
   const currentMonthRevenue = useMemo(() => {
     const start = startOfMonth(new Date());
     const end = endOfMonth(new Date());
     return payments
         .filter(p => {
             const d = new Date(p.payment_date);
-            return d >= start && d <= end;
+            return isValid(d) && d >= start && d <= end;
         })
         .reduce((sum, p) => sum + p.amount, 0);
   }, [payments]);
@@ -334,7 +357,7 @@ const Dashboard = () => {
                                 <div>
                                     <p className="font-medium text-gray-900">{activity.message}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: localeId })}
+                                        {safeFormatDistance(activity.created_at)}
                                     </p>
                                     {activity.link && (
                                         <Button asChild variant="link" className="h-auto p-0 text-xs mt-1">
@@ -369,7 +392,7 @@ const Dashboard = () => {
                 {pendingQuotes.length > 0 ? (
                     <Table>
                         <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Dikirim</TableHead></TableRow></TableHeader>
-                        <TableBody>{pendingQuotes.map(q => (<TableRow key={q.id}><TableCell><Link to={`/quote/${q.id}`} className="font-medium hover:underline">{q.to_client}</Link></TableCell><TableCell className="text-right">{format(new Date(q.created_at), 'PPP', { locale: localeId })}</TableCell></TableRow>))}</TableBody>
+                        <TableBody>{pendingQuotes.map(q => (<TableRow key={q.id}><TableCell><Link to={`/quote/${q.id}`} className="font-medium hover:underline">{q.to_client}</Link></TableCell><TableCell className="text-right">{safeFormat(q.created_at, 'PPP')}</TableCell></TableRow>))}</TableBody>
                     </Table>
                 ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada penawaran yang tertunda.</p>}
             </CardContent>

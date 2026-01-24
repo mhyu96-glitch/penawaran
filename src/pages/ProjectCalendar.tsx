@@ -16,7 +16,8 @@ import {
   isSameDay, 
   addMonths, 
   subMonths,
-  isToday
+  isToday,
+  isValid
 } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText, Receipt, FolderKanban } from 'lucide-react';
@@ -77,13 +78,16 @@ const ProjectCalendar = () => {
     if (invoicesRes.data) {
       invoicesRes.data.forEach((inv: any) => {
         if (inv.due_date) {
-          newEvents.push({
-            id: inv.id,
-            title: `Faktur #${inv.invoice_number || 'N/A'} - ${inv.to_client}`,
-            date: new Date(inv.due_date),
-            type: 'invoice',
-            status: inv.status
-          });
+          const date = new Date(inv.due_date);
+          if (isValid(date)) {
+            newEvents.push({
+                id: inv.id,
+                title: `Faktur #${inv.invoice_number || 'N/A'} - ${inv.to_client}`,
+                date: date,
+                type: 'invoice',
+                status: inv.status
+            });
+          }
         }
       });
     }
@@ -92,13 +96,16 @@ const ProjectCalendar = () => {
     if (quotesRes.data) {
       quotesRes.data.forEach((quote: any) => {
         if (quote.valid_until) {
-          newEvents.push({
-            id: quote.id,
-            title: `Penawaran #${quote.quote_number || 'N/A'} - ${quote.to_client}`,
-            date: new Date(quote.valid_until),
-            type: 'quote',
-            status: quote.status
-          });
+          const date = new Date(quote.valid_until);
+          if (isValid(date)) {
+            newEvents.push({
+                id: quote.id,
+                title: `Penawaran #${quote.quote_number || 'N/A'} - ${quote.to_client}`,
+                date: date,
+                type: 'quote',
+                status: quote.status
+            });
+          }
         }
       });
     }
@@ -106,13 +113,16 @@ const ProjectCalendar = () => {
     // Process Projects
     if (projectsRes.data) {
       projectsRes.data.forEach((proj: any) => {
-        newEvents.push({
-          id: proj.id,
-          title: `Mulai Proyek: ${proj.name}`,
-          date: new Date(proj.created_at),
-          type: 'project',
-          status: proj.status
-        });
+        const date = new Date(proj.created_at);
+        if (isValid(date)) {
+            newEvents.push({
+                id: proj.id,
+                title: `Mulai Proyek: ${proj.name}`,
+                date: date,
+                type: 'project',
+                status: proj.status
+            });
+        }
       });
     }
 
