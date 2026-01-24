@@ -249,17 +249,6 @@ const InvoiceView = () => {
     }
   };
 
-  const safeFormat = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return format(date, 'PPP', { locale: localeId });
-    } catch (error) {
-      return 'Error';
-    }
-  };
-
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return null;
 
@@ -308,14 +297,14 @@ const InvoiceView = () => {
               <h2 className="text-3xl font-bold uppercase text-slate-300 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
               <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge></div>
               <p className="text-sm text-slate-500 mt-2">No: {invoice.invoice_number}</p>
-              <p className="text-sm text-slate-500">Tanggal: {safeFormat(invoice.invoice_date)}</p>
+              <p className="text-sm text-slate-500">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
             <div><h3 className="font-semibold text-slate-500 mb-2 text-sm">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
-            <div className="text-right"><h3 className="font-semibold text-slate-500 mb-2 text-sm">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date)}</p></div>
+            <div className="text-right"><h3 className="font-semibold text-slate-500 mb-2 text-sm">Jatuh Tempo:</h3><p className="text-sm">{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p></div>
           </div>
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
@@ -373,7 +362,7 @@ const InvoiceView = () => {
             </div>
           </div>
 
-          {payments.length > 0 && (<Card className="print:hidden no-pdf bg-white border-slate-200"><CardHeader><CardTitle className="text-slate-900">Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow className="border-slate-200 hover:bg-slate-50"><TableHead className="text-slate-500">Tanggal</TableHead><TableHead className="text-slate-500">Jumlah</TableHead><TableHead className="text-slate-500">Status</TableHead><TableHead className="text-slate-500">Bukti</TableHead><TableHead className="text-right text-slate-500">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id} className="border-slate-100 hover:bg-slate-50"><TableCell className="text-slate-700">{safeFormat(p.payment_date)}</TableCell><TableCell className="text-slate-700">{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm" className="border-slate-200 text-slate-700 hover:bg-slate-100"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 hover:bg-slate-100" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4 text-slate-600" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
+          {payments.length > 0 && (<Card className="print:hidden no-pdf bg-white border-slate-200"><CardHeader><CardTitle className="text-slate-900">Riwayat Pembayaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow className="border-slate-200 hover:bg-slate-50"><TableHead className="text-slate-500">Tanggal</TableHead><TableHead className="text-slate-500">Jumlah</TableHead><TableHead className="text-slate-500">Status</TableHead><TableHead className="text-slate-500">Bukti</TableHead><TableHead className="text-right text-slate-500">Aksi</TableHead></TableRow></TableHeader><TableBody>{payments.map(p => (<TableRow key={p.id} className="border-slate-100 hover:bg-slate-50"><TableCell className="text-slate-700">{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell className="text-slate-700">{formatCurrency(p.amount)}</TableCell><TableCell><Badge variant={getStatusVariant(p.status)}>{p.status}</Badge></TableCell><TableCell>{p.proof_url ? <Button asChild variant="outline" size="sm" className="border-slate-200 text-slate-700 hover:bg-slate-100"><a href={p.proof_url} target="_blank" rel="noopener noreferrer">Lihat <ExternalLink className="ml-2 h-3 w-3" /></a></Button> : '-'}</TableCell><TableCell className="text-right space-x-2">{p.status === 'Pending' ? (<><Button size="sm" onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</Button><Button size="sm" variant="destructive" onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')}><X className="mr-2 h-4 w-4" /> Tolak</Button></>) : (<><Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 hover:bg-slate-100" onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="h-4 w-4 text-slate-600" /></Button><AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus catatan pembayaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>)}</TableCell></TableRow>))}</TableBody></Table></CardContent></Card>)}
           {invoice.attachments && invoice.attachments.length > 0 && (
             <div className="no-pdf">
               <h3 className="font-semibold text-slate-500 mb-2">Lampiran:</h3>
