@@ -48,31 +48,6 @@ type Invoice = {
   down_payment_amount: number;
 };
 
-// Helper for safe date formatting to prevent crashes
-const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
-  if (!dateStr) return 'N/A';
-  try {
-    const date = new Date(dateStr);
-    // Check if date is valid
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return format(date, formatStr, { locale: localeId });
-  } catch (e) {
-    console.error("Date format error", e);
-    return 'Error';
-  }
-};
-
-const safeFormatDistance = (dateStr: string | null | undefined) => {
-  if (!dateStr) return '-';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return formatDistanceToNow(date, { addSuffix: true, locale: localeId });
-  } catch (e) {
-    return '-';
-  }
-};
-
 const InvoiceList = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -201,8 +176,8 @@ const InvoiceList = () => {
     const rows = filteredInvoices.map(inv => [
       inv.invoice_number || 'N/A',
       `"${inv.to_client}"`,
-      safeFormat(inv.created_at, 'yyyy-MM-dd'),
-      safeFormat(inv.due_date, 'yyyy-MM-dd'),
+      format(new Date(inv.created_at), 'yyyy-MM-dd'),
+      inv.due_date ? format(new Date(inv.due_date), 'yyyy-MM-dd') : '-',
       inv.status,
       inv.tax_amount || 0,
       inv.discount_amount || 0,
@@ -383,14 +358,14 @@ const InvoiceList = () => {
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        Terakhir dilihat: {safeFormatDistance(invoice.last_viewed_at)}
+                                        Terakhir dilihat: {invoice.last_viewed_at ? formatDistanceToNow(new Date(invoice.last_viewed_at), { addSuffix: true, locale: localeId }) : '-'}
                                     </TooltipContent>
                                 </Tooltip>
                             ) : (
                                 <span className="text-muted-foreground text-sm">-</span>
                             )}
                         </TableCell>
-                        <TableCell>{safeFormat(invoice.due_date, 'PPP')}</TableCell>
+                        <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="h-4 w-4" /></Link></Button>
@@ -434,7 +409,7 @@ const InvoiceList = () => {
                             {renderStatusDropdown(invoice)}
                             {invoice.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {invoice.view_count}</span>}
                         </div>
-                      <span className="text-muted-foreground">Due: {safeFormat(invoice.due_date, 'dd MMM')}</span>
+                      <span className="text-muted-foreground">Due: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM') : 'N/A'}</span>
                     </CardFooter>
                   </Card>
                 ))}
