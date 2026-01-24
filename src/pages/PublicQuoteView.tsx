@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, XCircle, Download, FileText } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -241,7 +239,7 @@ const PublicQuoteView = () => {
             <div className="text-right">
               <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
               <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
             </div>
           </div>
         </CardHeader>
@@ -257,7 +255,7 @@ const PublicQuoteView = () => {
                 <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
                 <p className="font-bold text-lg">{quote.title || '-'}</p>
                 <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
-                <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
+                <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">

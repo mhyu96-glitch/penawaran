@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -24,7 +22,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 
 interface Attachment {
   name: string;
@@ -335,7 +333,7 @@ const QuoteView = () => {
               <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
               <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
               <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
             </div>
           </div>
         </CardHeader>
@@ -346,7 +344,7 @@ const QuoteView = () => {
                 <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
                 <p className="font-bold text-lg">{quote.title || '-'}</p>
                 <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
-                <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
+                <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">

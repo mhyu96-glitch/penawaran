@@ -4,11 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -353,7 +351,7 @@ const PublicInvoiceView = () => {
                 <Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-2">No: {invoice.invoice_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(invoice.invoice_date), 'PPP', { locale: localeId })}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(invoice.invoice_date, 'PPP')}</p>
             </div>
           </div>
         </CardHeader>
@@ -367,7 +365,7 @@ const PublicInvoiceView = () => {
             </div>
             <div className="text-right">
                 <h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3>
-                <p className="text-sm">{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</p>
+                <p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p>
             </div>
           </div>
           <div className="overflow-x-auto rounded-lg border">
@@ -527,7 +525,7 @@ const PublicInvoiceView = () => {
                   <TableBody>
                     {visiblePayments.map(p => (
                       <TableRow key={p.id}>
-                        <TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell>
+                        <TableCell>{safeFormat(p.payment_date, 'PPP')}</TableCell>
                         <TableCell>{formatCurrency(p.amount)}</TableCell>
                         <TableCell>{p.notes || '-'}</TableCell>
                       </TableRow>
