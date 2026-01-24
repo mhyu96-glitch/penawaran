@@ -10,7 +10,7 @@ import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePl
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
-import { cn, safeFormat } from "@/lib/utils";
+import { cn, safeFormat, formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
@@ -380,7 +380,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader><TableRow><TableHead className="w-[50px] text-center">No.</TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
-                <TableBody>{items.map((item, index) => (<TableRow key={index}><TableCell className="text-center font-medium">{index + 1}</TableCell><TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell><TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell className="text-right font-medium">{(Number(item.quantity) * Number(item.unit_price)).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell><TableCell className="text-center"><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}</TableBody>
+                <TableBody>{items.map((item, index) => (<TableRow key={index}><TableCell className="text-center font-medium">{index + 1}</TableCell><TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell><TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell><TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell><TableCell className="text-right font-medium">{formatCurrency(Number(item.quantity) * Number(item.unit_price))}</TableCell><TableCell className="text-center"><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}</TableBody>
               </Table>
             </div>
             <div className="flex gap-2"><Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button><Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button></div>
@@ -388,11 +388,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           <Separator />
           <div className="flex justify-end">
             <div className="w-full max-w-sm space-y-4">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
               <div className="flex justify-between items-center"><span className="text-muted-foreground">Diskon (Rp)</span><Input type="number" className="w-32 text-right" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} /></div>
               <div className="flex justify-between items-center"><span className="text-muted-foreground">Pajak (Rp)</span><Input type="number" className="w-32 text-right" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} /></div>
               <Separator />
-              <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span></div>
+              <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{formatCurrency(total)}</span></div>
               {docType === 'invoice' && (<div className="flex justify-between items-center"><span className="text-muted-foreground">Uang Muka (DP) (Rp)</span><Input type="number" className="w-32 text-right" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} /></div>)}
             </div>
           </div>

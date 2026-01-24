@@ -13,6 +13,7 @@ import { Item } from '@/pages/ItemList';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatCurrency } from '@/lib/utils';
 
 interface ItemLibraryDialogProps {
   isOpen: boolean;
@@ -64,10 +65,10 @@ const ItemLibraryDialog = ({ isOpen, setIsOpen, onAddItems }: ItemLibraryDialogP
             </TableHeader>
             <TableBody>
               {items.map(item => (
-                <TableRow key={item.id} onClick={() => handleSelect(item.id)} className="cursor-pointer">
+                <TableRow key={item.id} onClick={() => handleSelect(item.id)} className="cursor-pointer hover:bg-slate-50">
                   <TableCell><Checkbox checked={!!selectedItems[item.id]} /></TableCell>
                   <TableCell>{item.description}</TableCell>
-                  <TableCell>{item.unit_price.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</TableCell>
+                  <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

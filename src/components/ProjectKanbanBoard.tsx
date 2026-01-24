@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eye, FolderKanban } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '@/lib/utils';
 
 // Tipe proyek dengan data klien (sama seperti di ProjectList)
 type ProjectWithClient = Project & {
@@ -67,7 +68,7 @@ const ProjectCard = ({ project, onEdit, onDelete }: { project: ProjectWithClient
         <CardContent className="p-4 py-2">
           {project.budget && project.budget > 0 ? (
             <p className="text-xs text-muted-foreground">
-              Anggaran: {project.budget.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })}
+              Anggaran: {formatCurrency(project.budget)}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground italic">Belum ada anggaran</p>
