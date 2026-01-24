@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Pencil, Trash2, Wallet, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, Wallet, Calendar as CalendarIcon, Filter, X, Download } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +99,29 @@ const ExpenseList = () => {
 
   const totalFiltered = useMemo(() => filteredExpenses.reduce((sum, e) => sum + e.amount, 0), [filteredExpenses]);
 
+  const handleExportCSV = () => {
+    if (filteredExpenses.length === 0) return;
+
+    const headers = ["Tanggal", "Deskripsi", "Kategori", "Jumlah", "Catatan"];
+    const rows = filteredExpenses.map(exp => [
+      safeFormat(exp.expense_date, 'yyyy-MM-dd'),
+      `"${exp.description}"`,
+      `"${exp.category || '-'}"`,
+      exp.amount,
+      `"${exp.notes || ''}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Pengeluaran_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
@@ -111,10 +134,17 @@ const ExpenseList = () => {
                 </div>
                 <CardDescription>Catat dan kelola semua pengeluaran bisnis Anda.</CardDescription>
             </div>
-            <Button onClick={() => handleOpenForm()}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Tambah
-            </Button>
+            <div className="flex gap-2">
+                {filteredExpenses.length > 0 && (
+                    <Button variant="outline" onClick={handleExportCSV}>
+                        <Download className="mr-2 h-4 w-4" /> CSV
+                    </Button>
+                )}
+                <Button onClick={() => handleOpenForm()}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Tambah
+                </Button>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">

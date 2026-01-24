@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone, Send } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 import DocumentTimeline from '@/components/DocumentTimeline';
+import SendDocumentDialog from '@/components/SendDocumentDialog';
 
 interface Attachment {
   name: string;
@@ -58,6 +59,7 @@ type QuoteDetails = {
     unit_price: number;
     cost_price: number;
   }[];
+  clients?: { email: string; phone: string } | null;
 };
 
 type ProfileInfo = {
@@ -78,6 +80,7 @@ const QuoteView = () => {
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const quoteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,7 +89,7 @@ const QuoteView = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('quotes')
-        .select('*, quote_items(*)')
+        .select('*, quote_items(*), clients(email, phone)')
         .eq('id', id)
         .single();
 
@@ -158,31 +161,6 @@ const QuoteView = () => {
     navigate(`/invoice/edit/${newInvoice.id}`);
   };
 
-  const handleWhatsAppShare = () => {
-    if (!quote) return;
-
-    if (!quote.to_phone) {
-        showError("Nomor telepon klien tidak tersedia. Silakan edit penawaran untuk menambahkan nomor telepon.");
-        return;
-    }
-
-    const phoneNumber = quote.to_phone.replace(/\D/g, '');
-    const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
-
-    const messageTemplate = profile?.whatsapp_quote_template || 'Halo {client_name}, berikut adalah penawaran #{number} perihal {title}. Silakan tinjau detailnya melalui tautan berikut: {link}';
-    const publicLink = `${window.location.origin}/quote/public/${quote.id}`;
-
-    const message = messageTemplate
-      .replace(/{client_name}/g, quote.to_client)
-      .replace(/{number}/g, quote.quote_number)
-      .replace(/{title}/g, quote.title || 'Barang & Jasa')
-      .replace(/{company_name}/g, quote.from_company)
-      .replace(/{link}/g, publicLink);
-
-    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-  };
-
   const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
@@ -199,12 +177,6 @@ const QuoteView = () => {
       showSuccess('Penawaran berhasil dihapus.');
       navigate('/quotes');
     }
-  };
-
-  const handleShareLink = () => {
-    const link = `${window.location.origin}/quote/public/${id}`;
-    navigator.clipboard.writeText(link);
-    showSuccess('Tautan publik telah disalin ke clipboard!');
   };
 
   const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
@@ -226,12 +198,26 @@ const QuoteView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+        <SendDocumentDialog
+            isOpen={isSendDialogOpen}
+            setIsOpen={setIsSendDialogOpen}
+            docType="quote"
+            docId={quote.id}
+            docNumber={quote.quote_number}
+            clientName={quote.to_client}
+            clientEmail={quote.clients?.email}
+            clientPhone={quote.clients?.phone || quote.to_phone}
+            publicLink={`${window.location.origin}/quote/public/${quote.id}`}
+            onSend={() => {}} // No refresh needed for quote status usually, but can reload if needed
+        />
+
         {/* Header Actions */}
         <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
             <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
-                <Button onClick={handleWhatsAppShare} className="bg-green-600 hover:bg-green-700 text-white"><Smartphone className="mr-2 h-4 w-4" /> Kirim WA</Button>
-                {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Salin Tautan</Button>)}
+                <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
+                    <Send className="mr-2 h-4 w-4" /> Kirim
+                </Button>
                 {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
                 <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
@@ -239,7 +225,7 @@ const QuoteView = () => {
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
                 <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
-                <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
+                <Button onClick={() => window.print()} variant="outline"><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
 

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText, Send } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 import DocumentTimeline from '@/components/DocumentTimeline';
+import SendDocumentDialog from '@/components/SendDocumentDialog';
 
 interface Attachment {
   name: string;
@@ -52,6 +53,7 @@ type InvoiceDetails = {
   to_client: string;
   to_address: string;
   to_phone: string;
+  client_id: string | null;
   invoice_number: string;
   invoice_date: string;
   due_date: string;
@@ -68,6 +70,7 @@ type InvoiceDetails = {
     unit_price: number;
     cost_price: number;
   }[];
+  clients?: { email: string; phone: string } | null;
 };
 
 type ProfileInfo = {
@@ -91,13 +94,20 @@ const InvoiceView = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
+  const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const fetchInvoiceData = async () => {
     if (!id) return;
     setLoading(true);
-    const invoiceRes = await supabase.from('invoices').select('*, invoice_items(*)').eq('id', id).single();
+    // Fetch invoice with client details (email/phone) for sending
+    const invoiceRes = await supabase
+        .from('invoices')
+        .select('*, invoice_items(*), clients(email, phone)')
+        .eq('id', id)
+        .single();
+    
     if (invoiceRes.error) {
       showError('Faktur tidak ditemukan.');
       navigate('/invoices');
@@ -148,12 +158,6 @@ const InvoiceView = () => {
     }
   };
 
-  const handleShareLink = () => {
-    const link = `${window.location.origin}/invoice/public/${id}`;
-    navigator.clipboard.writeText(link);
-    showSuccess('Tautan publik faktur telah disalin!');
-  };
-
   const handlePaymentStatusUpdate = async (paymentId: string, newStatus: 'Lunas' | 'Ditolak') => {
     const { error } = await supabase.from('payments').update({ status: newStatus }).eq('id', paymentId);
     if (error) {
@@ -194,20 +198,35 @@ const InvoiceView = () => {
                 fetchInvoiceData();
             }}
         />
+
+        <SendDocumentDialog
+            isOpen={isSendDialogOpen}
+            setIsOpen={setIsSendDialogOpen}
+            docType="invoice"
+            docId={invoice.id}
+            docNumber={invoice.invoice_number}
+            clientName={invoice.to_client}
+            clientEmail={invoice.clients?.email}
+            clientPhone={invoice.clients?.phone || invoice.to_phone}
+            publicLink={`${window.location.origin}/invoice/public/${invoice.id}`}
+            onSend={fetchInvoiceData}
+        />
         
         {/* Header Actions */}
         <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
             <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
-                <Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Bagikan</Button>
-                {invoice.status !== 'Lunas' && <Button onClick={() => { setSelectedPayment(null); setIsPaymentFormOpen(true); }}><Landmark className="mr-2 h-4 w-4" /> Catat Pembayaran</Button>}
+                <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
+                    <Send className="mr-2 h-4 w-4" /> Kirim
+                </Button>
+                {invoice.status !== 'Lunas' && <Button variant="outline" onClick={() => { setSelectedPayment(null); setIsPaymentFormOpen(true); }}><Landmark className="mr-2 h-4 w-4" /> Catat Pembayaran</Button>}
                 <Button asChild variant="outline"><Link to={`/invoice/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteInvoice}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
                 <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
-                <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
+                <Button onClick={() => window.print()} variant="outline"><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
 
