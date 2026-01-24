@@ -2,8 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, calculateItemTotal } from '@/lib/utils';
-import { TrendingUp, DollarSign, Package, AlertTriangle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { TrendingUp, Package } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface Item {
@@ -49,88 +48,90 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
   }, [items, discountAmount]);
 
   return (
-    <Card className="border-l-4 border-l-blue-500 shadow-md bg-slate-50 print:hidden mt-8">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 rounded-full">
-                <TrendingUp className="h-5 w-5 text-blue-700" />
+    <Card className="border-l-4 border-l-blue-500 shadow-sm bg-white overflow-hidden print:hidden mt-6">
+      <CardHeader className="bg-slate-50/50 pb-4 border-b">
+        <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 rounded-lg shadow-sm">
+                <TrendingUp className="h-5 w-5 text-white" />
             </div>
             <div>
-                <CardTitle className="text-lg text-blue-900">Analisis Keuntungan (Internal)</CardTitle>
-                <CardDescription>Laporan profitabilitas untuk {type} ini. Hanya terlihat oleh Anda.</CardDescription>
+                <CardTitle className="text-base font-bold text-slate-800">Analisis Keuntungan</CardTitle>
+                <CardDescription className="text-xs">Statistik internal untuk {type} ini.</CardDescription>
             </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Total Penjualan (Net)</p>
-                <p className="text-xl font-bold text-gray-800">{formatCurrency(analysis.netRevenue)}</p>
-                {discountAmount > 0 && <p className="text-xs text-red-500 mt-1">Termasuk diskon {formatCurrency(discountAmount)}</p>}
+      <CardContent className="p-4 space-y-6">
+        {/* KPI Grid - Fixed 2 columns for better sidebar fit */}
+        <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Penjualan Net</p>
+                <p className="text-lg font-bold text-slate-900 truncate" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Total Modal (HPP)</p>
-                <p className="text-xl font-bold text-gray-600">{formatCurrency(analysis.totalCost)}</p>
+            <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Total Modal</p>
+                <p className="text-lg font-bold text-slate-600 truncate" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border shadow-sm bg-green-50 border-green-100">
-                <p className="text-xs text-green-600 uppercase font-semibold">Laba Kotor</p>
-                <p className="text-xl font-bold text-green-700">{formatCurrency(analysis.grossProfit)}</p>
+            <div className="p-3 rounded-xl border bg-green-50/50 border-green-100 space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-green-600 font-semibold">Laba Kotor</p>
+                <p className="text-lg font-bold text-green-700 truncate" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Margin Keuntungan</p>
-                <div className="flex items-center gap-2">
-                    <p className={`text-xl font-bold ${analysis.netMargin < 10 ? 'text-red-500' : 'text-blue-600'}`}>
+            <div className="p-3 rounded-xl border bg-blue-50/50 border-blue-100 space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-blue-600 font-semibold">Margin</p>
+                <div className="flex items-center gap-1">
+                    <p className={`text-lg font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-blue-700'}`}>
                         {analysis.netMargin.toFixed(1)}%
                     </p>
-                    {analysis.netMargin < 10 && <AlertTriangle className="h-4 w-4 text-red-500" />}
                 </div>
             </div>
         </div>
 
-        <Separator />
-
         {/* Detailed Table */}
-        <div className="rounded-md border bg-white">
-            <div className="p-3 bg-gray-50 border-b font-medium text-sm flex items-center gap-2">
-                <Package className="h-4 w-4" /> Rincian Profitabilitas per Item
+        <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <Package className="h-4 w-4" />
+                <span>Rincian per Item</span>
             </div>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Deskripsi</TableHead>
-                        <TableHead className="text-right">Modal Satuan</TableHead>
-                        <TableHead className="text-right">Jual Satuan</TableHead>
-                        <TableHead className="text-right">Total Laba</TableHead>
-                        <TableHead className="text-right">Margin</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {analysis.itemsAnalysis.length > 0 ? (
-                        analysis.itemsAnalysis.map((item, idx) => (
-                            <TableRow key={idx}>
-                                <TableCell className="font-medium">
-                                    {item.description} <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">{formatCurrency(item.cost_price || 0)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                                <TableCell className="text-right font-bold text-green-600">{formatCurrency(item.profit)}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant={item.margin > 30 ? 'default' : item.margin > 10 ? 'secondary' : 'destructive'} className="text-[10px]">
-                                        {item.margin.toFixed(0)}%
-                                    </Badge>
+            
+            <div className="rounded-lg border overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-slate-50">
+                        <TableRow>
+                            <TableHead className="w-[50%] text-xs font-semibold text-slate-600 h-9 pl-3">Item</TableHead>
+                            <TableHead className="text-right text-xs font-semibold text-slate-600 h-9 px-2">Modal</TableHead>
+                            <TableHead className="text-right text-xs font-semibold text-slate-600 h-9 pr-3">Laba</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {analysis.itemsAnalysis.length > 0 ? (
+                            analysis.itemsAnalysis.map((item, idx) => (
+                                <TableRow key={idx} className="hover:bg-slate-50/50">
+                                    <TableCell className="py-2.5 pl-3 text-xs font-medium align-top">
+                                        <div className="line-clamp-2 leading-snug text-slate-800" title={item.description}>{item.description}</div>
+                                        <div className="text-[10px] text-slate-500 mt-0.5 font-normal">
+                                            {item.quantity} x {formatCurrency(item.unit_price)}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right py-2.5 px-2 text-xs text-slate-500 align-top">
+                                        {formatCurrency(item.cost_price || 0)}
+                                    </TableCell>
+                                    <TableCell className="text-right py-2.5 pr-3 text-xs font-bold text-green-600 align-top">
+                                        {formatCurrency(item.profit)}
+                                        <div className={`text-[9px] font-normal mt-0.5 ${item.margin < 15 ? 'text-orange-500' : 'text-slate-400'}`}>
+                                            {item.margin.toFixed(0)}%
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center text-xs text-muted-foreground py-8">
+                                    Belum ada item.
                                 </TableCell>
                             </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
-                                Belum ada item dengan jumlah {'>'} 0.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
       </CardContent>
     </Card>
