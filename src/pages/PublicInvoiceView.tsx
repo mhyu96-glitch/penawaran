@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import useMidtransSnap from '@/hooks/useMidtransSnap';
 import { generatePdf } from '@/utils/pdfGenerator';
+import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 
 interface Attachment {
   name: string;
@@ -315,31 +316,16 @@ const PublicInvoiceView = () => {
                 <p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr className="border-b">
-                  <th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th>
-                  <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  {invoice.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}
-                  {invoice.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}
-                  {invoice.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.invoice_items.map((item, index) => (
-                  <tr key={index} className="border-b last:border-none">
-                    <td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>
-                    {invoice.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}
-                    {invoice.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
-                    {invoice.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
-                    <td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          
+          <DocumentItemsTable 
+            items={invoice.invoice_items} 
+            config={{
+                showQuantity: invoice.show_quantity_column,
+                showUnit: invoice.show_unit_column,
+                showUnitPrice: invoice.show_unit_price_column
+            }}
+          />
+
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="w-full md:w-auto space-y-2 no-pdf">
                 {invoice.status !== 'Lunas' && balanceDue > 0 ? (

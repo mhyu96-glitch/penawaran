@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
+import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 
 interface Attachment {
   name: string;
@@ -39,6 +40,7 @@ type QuoteDetails = {
     quantity: number;
     unit: string;
     unit_price: number;
+    cost_price: number; // Added to match type even if not displayed
   }[];
 };
 
@@ -200,32 +202,16 @@ const PublicQuoteView = () => {
                 <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr className="border-b">
-                  <th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th>
-                  <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-                  {profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}
-                  {profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}
-                  {profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}
-                  <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quote.quote_items.map((item, index) => (
-                  <tr key={index} className="border-b last:border-none">
-                    <td className="p-3 text-center align-top">{index + 1}</td>
-                    <td className="p-3 align-top">{item.description}</td>
-                    {profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}
-                    {profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
-                    {profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
-                    <td className="p-3 text-right align-top">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          
+          <DocumentItemsTable 
+            items={quote.quote_items} 
+            config={{
+                showQuantity: profile?.show_quantity_column,
+                showUnit: profile?.show_unit_column,
+                showUnitPrice: profile?.show_unit_price_column
+            }}
+          />
+
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
@@ -263,6 +249,7 @@ const PublicQuoteView = () => {
             </CardFooter>
         )}
       </Card>
+      <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );
 };
