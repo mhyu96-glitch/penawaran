@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare, CreditCard, Key, QrCode } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, AlertTriangle, MessageSquare, CreditCard, Key } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,14 +22,12 @@ const Settings = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
-  const [isUploadingQris, setIsUploadingQris] = useState(false);
 
   // Existing states
   const [defaultTerms, setDefaultTerms] = useState('');
   const [defaultTaxAmount, setDefaultTaxAmount] = useState(0);
   const [defaultDiscountAmount, setDefaultDiscountAmount] = useState(0);
   const [paymentInstructions, setPaymentInstructions] = useState('');
-  const [qrisUrl, setQrisUrl] = useState<string | null>(null);
 
   // New states for document customization
   const [customFooter, setCustomFooter] = useState('');
@@ -64,7 +62,6 @@ const Settings = () => {
         setDefaultTaxAmount(data.default_tax_amount || 0);
         setDefaultDiscountAmount(data.default_discount_amount || 0);
         setPaymentInstructions(data.payment_instructions || '');
-        setQrisUrl(data.qris_url || null);
         setCustomFooter(data.custom_footer || '');
         setShowQuantity(data.show_quantity_column ?? true);
         setShowUnit(data.show_unit_column ?? true);
@@ -80,41 +77,6 @@ const Settings = () => {
 
     fetchSettings();
   }, [user]);
-
-  const handleUploadQris = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !event.target.files || event.target.files.length === 0) return;
-    const file = event.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/qris.${fileExt}`;
-
-    setIsUploadingQris(true);
-    const { error: uploadError } = await supabase.storage
-      .from('company_assets')
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      showError('Gagal mengunggah QRIS.');
-      setIsUploadingQris(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage.from('company_assets').getPublicUrl(filePath);
-    const newQrisUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
-    
-    // Save immediately to DB
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ qris_url: newQrisUrl })
-      .eq('id', user.id);
-
-    if (updateError) {
-        showError('Gagal menyimpan URL QRIS.');
-    } else {
-        setQrisUrl(newQrisUrl);
-        showSuccess('QRIS berhasil diunggah!');
-    }
-    setIsUploadingQris(false);
-  };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -380,28 +342,7 @@ const Settings = () => {
                     <Separator />
 
                     <div className="space-y-2">
-                        <Label>QRIS (Statis)</Label>
-                        <div className="flex items-start gap-4 border p-4 rounded-md bg-slate-50">
-                            <div className="h-24 w-24 flex items-center justify-center bg-white border rounded-md shrink-0 overflow-hidden relative">
-                                {qrisUrl ? (
-                                    <img src={qrisUrl} alt="QRIS" className="w-full h-full object-contain" />
-                                ) : (
-                                    <QrCode className="h-10 w-10 text-slate-300" />
-                                )}
-                            </div>
-                            <div className="space-y-2 w-full">
-                                <Label htmlFor="qris-upload">Unggah Gambar QRIS</Label>
-                                <Input id="qris-upload" type="file" accept="image/png, image/jpeg" onChange={handleUploadQris} disabled={isUploadingQris} />
-                                <p className="text-xs text-muted-foreground">Gambar ini akan muncul di faktur agar klien bisa scan dan bayar.</p>
-                                {isUploadingQris && <p className="text-sm text-muted-foreground animate-pulse">Mengunggah...</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-medium">Midtrans (Pembayaran Online Otomatis)</h3>
+                        <h3 className="text-lg font-medium">Midtrans (Pembayaran Online)</h3>
                         <p className="text-sm text-muted-foreground mb-4">
                             Aktifkan pembayaran otomatis via VA, GoPay, dll. Anda perlu mendaftar di <a href="https://midtrans.com" target="_blank" className="underline text-blue-600">Midtrans</a>.
                         </p>

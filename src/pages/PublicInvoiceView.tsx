@@ -82,7 +82,6 @@ const PublicInvoiceView = () => {
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPaymentInfoOpen, setIsPaymentInfoOpen] = useState(false);
-  const [isQrisOpen, setIsQrisOpen] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const hasTracked = useRef(false);
@@ -281,7 +280,6 @@ const PublicInvoiceView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-      {/* Manual Payment Instructions Dialog */}
       <Dialog open={isPaymentInfoOpen} onOpenChange={setIsPaymentInfoOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader className="flex flex-col items-center space-y-3 pb-2">
@@ -291,45 +289,65 @@ const PublicInvoiceView = () => {
                 <div className="text-center">
                     <DialogTitle className="text-xl font-bold text-gray-900">Instruksi Pembayaran Manual</DialogTitle>
                     <DialogDescription className="text-gray-500 mt-1">
-                        Silakan transfer manual ke rekening berikut.
+                        Jika Anda tidak dapat menggunakan pembayaran online, silakan transfer manual.
                     </DialogDescription>
                 </div>
             </DialogHeader>
 
             <div className="space-y-6 my-2">
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative group hover:border-blue-300 transition-all duration-300">
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-medium font-sans leading-relaxed">
-                        {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
-                    </pre>
-                    <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={handleCopyInstructions} 
-                        className="mt-4 w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
-                    >
-                        <Copy className="mr-2 h-3.5 w-3.5" /> Salin Instruksi
-                    </Button>
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                        <div className="bg-blue-100 p-1.5 rounded-md">
+                            <CreditCard className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="font-semibold text-sm text-gray-700">Transfer Bank / Manual</span>
+                    </div>
+                    
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative group hover:border-blue-300 transition-all duration-300">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-medium font-sans leading-relaxed">
+                            {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
+                        </pre>
+                        <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={handleCopyInstructions} 
+                            className="mt-4 w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
+                        >
+                            <Copy className="mr-2 h-3.5 w-3.5" /> Salin Instruksi
+                        </Button>
+                    </div>
                 </div>
-            </div>
-        </DialogContent>
-      </Dialog>
+                
+                {invoice.qris_url && (
+                    <>
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white px-2 text-muted-foreground">Atau bayar dengan</span>
+                            </div>
+                        </div>
 
-      {/* QRIS Dialog */}
-      <Dialog open={isQrisOpen} onOpenChange={setIsQrisOpen}>
-        <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-                <DialogTitle className="text-center">Scan QRIS untuk Bayar</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col items-center justify-center p-6 space-y-4">
-                {invoice.qris_url ? (
-                    <img src={invoice.qris_url} alt="QRIS Code" className="w-64 h-64 object-contain border rounded-lg shadow-sm" />
-                ) : (
-                    <p className="text-muted-foreground">QRIS tidak tersedia.</p>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 px-1 justify-center">
+                                <div className="bg-purple-100 p-1.5 rounded-md">
+                                    <QrCode className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <span className="font-semibold text-sm text-gray-700">Scan QRIS</span>
+                            </div>
+                            
+                            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
+                                    <img src={invoice.qris_url} alt="QRIS" className="w-40 h-40 object-contain" />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-3 text-center max-w-[220px]">
+                                    Dukungan pembayaran melalui GoPay, OVO, Dana, ShopeePay, dan Mobile Banking.
+                                </p>
+                            </div>
+                        </div>
+                    </>
                 )}
-                <p className="text-sm text-center text-muted-foreground">
-                    Dukungan pembayaran: GoPay, OVO, Dana, ShopeePay, Mobile Banking.
-                </p>
-                <Button className="w-full" onClick={() => setIsQrisOpen(false)}>Tutup</Button>
             </div>
         </DialogContent>
       </Dialog>
@@ -411,7 +429,7 @@ const PublicInvoiceView = () => {
                             </Button>
                         ) : (
                             <div className="text-xs text-muted-foreground p-2 bg-yellow-50 rounded border border-yellow-200">
-                                Pembayaran online tidak tersedia.
+                                Pembayaran online tidak tersedia (Merchant Key belum diatur).
                             </div>
                         )}
 
@@ -419,13 +437,6 @@ const PublicInvoiceView = () => {
                             <Button size="sm" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full sm:w-auto">
                                 <CreditCard className="mr-2 h-4 w-4" /> Transfer Manual
                             </Button>
-                            
-                            {invoice.qris_url && (
-                                <Button size="sm" variant="outline" onClick={() => setIsQrisOpen(true)} className="w-full sm:w-auto border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800">
-                                    <QrCode className="mr-2 h-4 w-4" /> Scan QRIS
-                                </Button>
-                            )}
-
                             <Button size="sm" onClick={handleWhatsAppClick} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
                                 <Smartphone className="mr-2 h-4 w-4" /> Konfirmasi WhatsApp
                             </Button>
@@ -436,6 +447,9 @@ const PublicInvoiceView = () => {
                                 *Nomor WhatsApp belum diatur oleh pemilik usaha.
                             </p>
                         )}
+                        <p className="text-xs text-muted-foreground mt-2 max-w-xs">
+                            Pembayaran online mendukung Transfer Bank (Virtual Account), GoPay, ShopeePay, dan QRIS.
+                        </p>
                     </>
                 ) : (
                     <Alert variant="default" className="bg-green-50 border-green-200">
