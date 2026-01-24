@@ -7,9 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, safeFormat } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -80,7 +78,7 @@ const ProjectTimeTracker = ({ projectId, initialEntries, onEntryUpdate }: Projec
           <PopoverTrigger asChild>
             <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
+              {date ? safeFormat(date.toISOString(), 'PPP') : <span>Pilih tanggal</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={setDate} initialFocus /></PopoverContent>
@@ -101,7 +99,7 @@ const ProjectTimeTracker = ({ projectId, initialEntries, onEntryUpdate }: Projec
           <TableBody>
             {entries.map(entry => (
               <TableRow key={entry.id}>
-                <TableCell>{format(new Date(entry.entry_date), 'PPP', { locale: localeId })}</TableCell>
+                <TableCell>{safeFormat(entry.entry_date, 'PPP')}</TableCell>
                 <TableCell>{formatDuration(entry.duration_minutes)}</TableCell>
                 <TableCell>{entry.notes}</TableCell>
               </TableRow>

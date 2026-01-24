@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Wallet, AreaChart, Calendar as CalendarIcon, Printer } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, addDays } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';

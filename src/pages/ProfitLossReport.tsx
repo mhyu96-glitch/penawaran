@@ -127,7 +127,7 @@ const ProfitLossReport = () => {
         <CardHeader>
             <CardTitle>Laporan Laba Rugi</CardTitle>
             <CardDescription>
-                Untuk periode {date?.from && format(date.from, "d MMMM yyyy")} - {date?.to && format(date.to, "d MMMM yyyy")}
+                Untuk periode {date?.from ? format(date.from, "d MMMM yyyy") : '-'} - {date?.to ? format(date.to, "d MMMM yyyy") : '-'}
             </CardDescription>
         </CardHeader>
         <CardContent>
