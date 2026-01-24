@@ -20,24 +20,11 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import ExpenseForm, { Expense } from '@/components/ExpenseForm';
 import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, safeFormat } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-// Helper for safe date formatting
-const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
-  if (!dateStr) return 'N/A';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return format(date, formatStr, { locale: localeId });
-  } catch (e) {
-    return 'Error';
-  }
-};
 
 const ExpenseList = () => {
   const { user } = useAuth();

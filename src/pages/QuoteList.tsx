@@ -7,8 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search, Filter } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +31,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
+import { safeFormat, safeFormatDistance } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -42,29 +41,6 @@ type Quote = {
   status: string;
   view_count: number;
   last_viewed_at: string | null;
-};
-
-// Helper for safe date formatting
-const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
-  if (!dateStr) return 'N/A';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return format(date, formatStr, { locale: localeId });
-  } catch (e) {
-    return 'Error';
-  }
-};
-
-const safeFormatDistance = (dateStr: string | null | undefined) => {
-  if (!dateStr) return '-';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return formatDistanceToNow(date, { addSuffix: true, locale: localeId });
-  } catch (e) {
-    return '-';
-  }
 };
 
 const QuoteList = () => {

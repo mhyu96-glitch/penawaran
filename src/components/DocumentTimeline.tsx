@@ -3,8 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { History, Eye, Mail, FileEdit, CheckCircle, AlertCircle, Plus } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
+import { safeFormatDistance } from '@/lib/utils';
 
 interface DocumentTimelineProps {
   docId: string;
@@ -77,7 +76,7 @@ const DocumentTimeline = ({ docId, type }: DocumentTimelineProps) => {
                     <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium leading-none">{activity.description}</p>
                     <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: localeId })}
+                        {safeFormatDistance(activity.created_at)}
                     </p>
                     </div>
                 </div>
