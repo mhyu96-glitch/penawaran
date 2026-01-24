@@ -7,12 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Mail, Phone, MapPin, UserCircle, DollarSign, Save, Share2 } from 'lucide-react';
 import { Client } from './ClientList';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { showError, showSuccess } from '@/utils/toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -152,7 +150,7 @@ const ClientDetail = () => {
                         <TableRow key={quote.id}>
                             <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                             <TableCell><Badge variant={getStatusVariant(quote.status)}>{quote.status || 'Draf'}</Badge></TableCell>
-                            <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
+                            <TableCell>{safeFormat(quote.created_at, 'PPP')}</TableCell>
                             <TableCell className="text-right">
                             <Button asChild variant="outline" size="sm">
                                 <Link to={`/quote/${quote.id}`}>Lihat</Link>

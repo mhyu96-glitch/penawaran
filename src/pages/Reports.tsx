@@ -11,7 +11,7 @@ import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, safeFormat } from '@/lib/utils';
 
 type Payment = {
   amount: number;
@@ -148,7 +148,7 @@ const Reports = () => {
                     <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Keterangan</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {payments.map((p, i) => (
-                            <TableRow key={`p-${i}`}><TableCell>{format(new Date(p.payment_date), 'PPP', { locale: localeId })}</TableCell><TableCell>Pembayaran Faktur #{p.invoices?.invoice_number || 'N/A'}</TableCell><TableCell className="text-right">{formatCurrency(p.amount)}</TableCell></TableRow>
+                            <TableRow key={`p-${i}`}><TableCell>{safeFormat(p.payment_date, 'PPP')}</TableCell><TableCell>Pembayaran Faktur #{p.invoices?.invoice_number || 'N/A'}</TableCell><TableCell className="text-right">{formatCurrency(p.amount)}</TableCell></TableRow>
                         ))}
                         {payments.length === 0 && <TableRow><TableCell colSpan={3} className="text-center">Tidak ada pendapatan pada periode ini.</TableCell></TableRow>}
                     </TableBody>
@@ -162,7 +162,7 @@ const Reports = () => {
                     <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {expenses.map((e, i) => (
-                            <TableRow key={`e-${i}`}><TableCell>{format(new Date(e.expense_date), 'PPP', { locale: localeId })}</TableCell><TableCell>{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>
+                            <TableRow key={`e-${i}`}><TableCell>{safeFormat(e.expense_date, 'PPP')}</TableCell><TableCell>{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>
                         ))}
                         {expenses.length === 0 && <TableRow><TableCell colSpan={3} className="text-center">Tidak ada pengeluaran pada periode ini.</TableCell></TableRow>}
                     </TableBody>
