@@ -307,14 +307,14 @@ const QuoteView = () => {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+    <div className="bg-gray-100 dark:bg-slate-950 min-h-screen p-4 sm:p-8">
         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
-            <Button asChild variant="outline"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link></Button>
+            <Button asChild variant="outline" className="bg-background"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link></Button>
             <div className="flex items-center gap-2 flex-wrap justify-end">
                 <Button onClick={handleWhatsAppShare} className="bg-green-600 hover:bg-green-700 text-white"><Smartphone className="mr-2 h-4 w-4" /> Kirim WA</Button>
                 {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Salin Tautan</Button>)}
                 {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
-                <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
+                <Button asChild variant="outline" className="bg-background"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -323,59 +323,61 @@ const QuoteView = () => {
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
-      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
-        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
+        
+      {/* FORCE WHITE PAPER STYLE IN DARK MODE */}
+      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none bg-white text-slate-900 border-none">
+        <CardHeader className="bg-slate-50 p-8 rounded-t-lg border-b border-slate-100">
           <div className="flex justify-between items-start">
             <div>
               {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
-              <p className="text-sm text-muted-foreground">{quote.from_address}</p>
-              <p className="text-sm text-muted-foreground">{quote.from_website}</p>
+              <p className="text-sm text-slate-500">{quote.from_address}</p>
+              <p className="text-sm text-slate-500">{quote.from_website}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+              <h2 className="text-3xl font-bold uppercase text-slate-300 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
               <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
-              <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+              <p className="text-sm text-slate-500 mt-2">No: {quote.quote_number}</p>
+              <p className="text-sm text-slate-500">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
-            <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
+            <div><h3 className="font-semibold text-slate-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
             <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
+                <h3 className="font-semibold text-slate-500 mb-2 text-sm">Perihal:</h3>
                 <p className="font-bold text-lg">{quote.title || '-'}</p>
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
+                <h3 className="font-semibold text-slate-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
                 <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p>
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100"><tr className="border-b"><th className="p-3 text-center font-medium text-gray-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-gray-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-gray-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-gray-700 w-[150px]">Total</th></tr></thead>
-              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
+              <thead className="bg-slate-50"><tr className="border-b border-slate-200"><th className="p-3 text-center font-medium text-slate-700 w-[40px]">No.</th><th className="p-3 text-left font-medium text-slate-700">Deskripsi</th>{profile?.show_quantity_column && <th className="p-3 text-center font-medium text-slate-700 w-[80px]">Jumlah</th>}{profile?.show_unit_column && <th className="p-3 text-center font-medium text-slate-700 w-[80px]">Satuan</th>}{profile?.show_unit_price_column && <th className="p-3 text-right font-medium text-slate-700 w-[150px]">Harga Satuan</th>}<th className="p-3 text-right font-medium text-slate-700 w-[150px]">Total</th></tr></thead>
+              <tbody>{quote.quote_items.map((item, index) => (<tr key={index} className="border-b border-slate-100 last:border-none"><td className="p-3 text-center align-top">{index + 1}</td><td className="p-3 align-top">{item.description}</td>{profile?.show_quantity_column && <td className="p-3 text-center align-top">{item.quantity}</td>}{profile?.show_unit_column && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}{profile?.show_unit_price_column && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}<td className="p-3 text-right align-top">{formatCurrency(item.quantity * item.unit_price)}</td></tr>))}</tbody>
             </table>
           </div>
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-              <Separator />
+              <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
+              <Separator className="bg-slate-200" />
               <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
               <div className="no-pdf">
-                <Separator className="print:hidden" />
-                <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
+                <Separator className="print:hidden bg-slate-200" />
+                <div className="flex justify-between text-sm print:hidden"><span className="text-slate-500">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
                 <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
               </div>
             </div>
           </div>
-          {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
+          {quote.terms && (<div><h3 className="font-semibold text-slate-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-slate-600 whitespace-pre-wrap">{quote.terms}</p></div>)}
           {quote.attachments && quote.attachments.length > 0 && (
             <div className="no-pdf">
-              <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+              <h3 className="font-semibold text-slate-500 mb-2">Lampiran:</h3>
               <div className="space-y-2">
                 {quote.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center p-2 border rounded-md">
+                  <div key={index} className="flex items-center p-2 border border-slate-200 rounded-md hover:bg-slate-50">
                     <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
                       <FileText className="h-4 w-4" />
                       {attachment.name}
@@ -387,8 +389,8 @@ const QuoteView = () => {
           )}
         </CardContent>
         {profile?.custom_footer && (
-            <CardFooter className="p-8 pt-4 border-t">
-                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
+            <CardFooter className="p-8 pt-4 border-t border-slate-100">
+                <p className="text-xs text-slate-400 text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
             </CardFooter>
         )}
       </Card>
