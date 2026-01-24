@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
+import { safeFormatDistance } from '@/lib/utils';
 
 type Notification = {
   id: string;
@@ -115,7 +114,7 @@ const NotificationBell = () => {
               >
                 <p className="text-sm">{n.message}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: localeId })}
+                  {safeFormatDistance(n.created_at)}
                 </p>
               </div>
             ))

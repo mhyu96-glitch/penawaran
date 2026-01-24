@@ -7,11 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Repeat, PlayCircle, PauseCircle, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
 import RecurringInvoiceForm from '@/components/RecurringInvoiceForm';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 
 type RecurringProfile = {
   id: string;
@@ -121,7 +119,7 @@ const RecurringInvoiceList = () => {
                             <TableCell>{p.template_data.title}</TableCell>
                             <TableCell className="capitalize">{p.frequency === 'monthly' ? 'Bulanan' : p.frequency}</TableCell>
                             <TableCell>{formatCurrency(p.template_data.items?.[0]?.unit_price || 0)}</TableCell>
-                            <TableCell>{format(new Date(p.next_run_date), 'PPP', { locale: localeId })}</TableCell>
+                            <TableCell>{safeFormat(p.next_run_date, 'PPP')}</TableCell>
                             <TableCell>
                                 <Badge variant={p.status === 'active' ? 'default' : 'secondary'}>
                                     {p.status === 'active' ? 'Aktif' : 'Dijeda'}

@@ -6,10 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, safeFormat } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
@@ -183,7 +181,7 @@ const ProjectDetail = () => {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Pengeluaran</CardTitle></CardHeader>
         <CardContent>
-          {expenses.length > 0 ? <Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{expenses.map(e => <TableRow key={e.id}><TableCell>{format(new Date(e.expense_date), 'PPP', { locale: localeId })}</TableCell><TableCell className="font-medium">{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada pengeluaran.</p>}
+          {expenses.length > 0 ? <Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{expenses.map(e => <TableRow key={e.id}><TableCell>{safeFormat(e.expense_date, 'PPP')}</TableCell><TableCell className="font-medium">{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada pengeluaran.</p>}
         </CardContent>
       </Card>
     </div>

@@ -6,9 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { FileText, Receipt, Eye } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { safeFormat } from '@/lib/utils';
 
 type Document = {
   id: string;
@@ -111,7 +110,7 @@ const ClientPortal = () => {
                     </TableCell>
                     <TableCell>{doc.number || 'N/A'}</TableCell>
                     <TableCell><Badge variant={getStatusVariant(doc.status)}>{doc.status || 'Draf'}</Badge></TableCell>
-                    <TableCell>{format(new Date(doc.created_at), 'PPP', { locale: localeId })}</TableCell>
+                    <TableCell>{safeFormat(doc.created_at, 'PPP')}</TableCell>
                     <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
                         <Link to={doc.public_link} target="_blank" rel="noopener noreferrer">
