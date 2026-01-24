@@ -44,6 +44,29 @@ type Quote = {
   last_viewed_at: string | null;
 };
 
+// Helper for safe date formatting
+const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, formatStr, { locale: localeId });
+  } catch (e) {
+    return 'Error';
+  }
+};
+
+const safeFormatDistance = (dateStr: string | null | undefined) => {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
+    return formatDistanceToNow(date, { addSuffix: true, locale: localeId });
+  } catch (e) {
+    return '-';
+  }
+};
+
 const QuoteList = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -324,14 +347,14 @@ const QuoteList = () => {
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        Terakhir dilihat: {quote.last_viewed_at ? formatDistanceToNow(new Date(quote.last_viewed_at), { addSuffix: true, locale: localeId }) : '-'}
+                                        Terakhir dilihat: {safeFormatDistance(quote.last_viewed_at)}
                                     </TooltipContent>
                                 </Tooltip>
                             ) : (
                                 <span className="text-muted-foreground text-sm">-</span>
                             )}
                         </TableCell>
-                        <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
+                        <TableCell>{safeFormat(quote.created_at, 'PPP')}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link></Button>
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link></Button>
@@ -376,7 +399,7 @@ const QuoteList = () => {
                         {renderStatusDropdown(quote)}
                         {quote.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {quote.view_count}</span>}
                       </div>
-                      <span className="text-muted-foreground">{format(new Date(quote.created_at), 'dd MMM yyyy')}</span>
+                      <span className="text-muted-foreground">{safeFormat(quote.created_at, 'dd MMM yyyy')}</span>
                     </CardFooter>
                   </Card>
                 ))}

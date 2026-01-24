@@ -27,6 +27,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// Helper for safe date formatting
+const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return format(date, formatStr, { locale: localeId });
+  } catch (e) {
+    return 'Error';
+  }
+};
+
 const ExpenseList = () => {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -174,7 +186,7 @@ const ExpenseList = () => {
               <TableBody>
                 {filteredExpenses.map((expense) => (
                   <TableRow key={expense.id}>
-                    <TableCell>{format(new Date(expense.expense_date), 'PPP', { locale: localeId })}</TableCell>
+                    <TableCell>{safeFormat(expense.expense_date, 'PPP')}</TableCell>
                     <TableCell className="font-medium">{expense.description}</TableCell>
                     <TableCell>
                         {expense.category ? <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">{expense.category}</span> : '-'}
