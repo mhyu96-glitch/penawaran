@@ -61,19 +61,24 @@ const InvoiceList = () => {
   const fetchInvoices = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('id, invoice_number, to_client, created_at, status, due_date, view_count, last_viewed_at, tax_amount, discount_amount, down_payment_amount')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, to_client, created_at, status, due_date, view_count, last_viewed_at, tax_amount, discount_amount, down_payment_amount')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching invoices:', error);
-      showError('Gagal memuat daftar faktur.');
-    } else {
-      setInvoices(data as Invoice[]);
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        showError('Gagal memuat daftar faktur.');
+      } else {
+        setInvoices(data as Invoice[]);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching invoices:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -176,8 +181,8 @@ const InvoiceList = () => {
     const rows = filteredInvoices.map(inv => [
       inv.invoice_number || 'N/A',
       `"${inv.to_client}"`,
-      format(new Date(inv.created_at), 'yyyy-MM-dd'),
-      inv.due_date ? format(new Date(inv.due_date), 'yyyy-MM-dd') : '-',
+      safeFormat(inv.created_at, 'yyyy-MM-dd'),
+      inv.due_date ? safeFormat(inv.due_date, 'yyyy-MM-dd') : '-',
       inv.status,
       inv.tax_amount || 0,
       inv.discount_amount || 0,
@@ -241,6 +246,28 @@ const InvoiceList = () => {
     setStatusFilter(prev => 
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
+  };
+
+  const safeFormat = (dateString: string | null | undefined, formatStr: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return format(date, formatStr, { locale: localeId });
+    } catch (error) {
+      return 'Error';
+    }
+  };
+
+  const safeFormatDistance = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return formatDistanceToNow(date, { addSuffix: true, locale: localeId });
+    } catch (error) {
+      return '-';
+    }
   };
 
   return (
@@ -352,20 +379,20 @@ const InvoiceList = () => {
                         <TableCell>
                             {invoice.view_count > 0 ? (
                                 <Tooltip>
-                                    <TooltipTrigger>
-                                        <div className="flex items-center gap-1 text-sm text-green-600 font-medium">
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1 text-sm text-green-600 font-medium cursor-default">
                                             <Eye className="h-4 w-4" /> {invoice.view_count}x
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        Terakhir dilihat: {invoice.last_viewed_at ? formatDistanceToNow(new Date(invoice.last_viewed_at), { addSuffix: true, locale: localeId }) : '-'}
+                                        Terakhir dilihat: {safeFormatDistance(invoice.last_viewed_at)}
                                     </TooltipContent>
                                 </Tooltip>
                             ) : (
                                 <span className="text-muted-foreground text-sm">-</span>
                             )}
                         </TableCell>
-                        <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</TableCell>
+                        <TableCell>{safeFormat(invoice.due_date, 'PPP')}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="h-4 w-4" /></Link></Button>
@@ -409,7 +436,7 @@ const InvoiceList = () => {
                             {renderStatusDropdown(invoice)}
                             {invoice.view_count > 0 && <span className="text-green-600 text-xs flex items-center gap-1"><Eye className="h-3 w-3"/> {invoice.view_count}</span>}
                         </div>
-                      <span className="text-muted-foreground">Due: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM') : 'N/A'}</span>
+                      <span className="text-muted-foreground">Due: {safeFormat(invoice.due_date, 'dd MMM')}</span>
                     </CardFooter>
                   </Card>
                 ))}
