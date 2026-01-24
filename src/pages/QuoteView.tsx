@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone, Send } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone, Send, FolderKanban } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ type QuoteDetails = {
   to_client: string;
   to_address: string;
   to_phone: string;
-  client_id: string;
+  client_id: string | null;
   quote_number: string;
   title: string;
   quote_date: string;
@@ -161,6 +161,36 @@ const QuoteView = () => {
     navigate(`/invoice/edit/${newInvoice.id}`);
   };
 
+  const handleCreateProject = async () => {
+    if (!quote || !user) return;
+
+    const subtotal = calculateSubtotal(quote.quote_items);
+    const total = calculateTotal(subtotal, quote.discount_amount, quote.tax_amount);
+
+    const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+            user_id: user.id,
+            client_id: quote.client_id,
+            name: quote.title || `Proyek ${quote.quote_number}`,
+            description: `Dibuat dari penawaran ${quote.quote_number}`,
+            status: 'Ongoing',
+            budget: total
+        })
+        .select()
+        .single();
+
+    if (error) {
+        showError(`Gagal membuat proyek: ${error.message}`);
+    } else {
+        // Link quote to new project
+        await supabase.from('quotes').update({ project_id: newProject.id }).eq('id', quote.id);
+        
+        showSuccess('Proyek berhasil dibuat!');
+        navigate(`/project/${newProject.id}`);
+    }
+  };
+
   const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
@@ -218,7 +248,12 @@ const QuoteView = () => {
                 <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
                     <Send className="mr-2 h-4 w-4" /> Kirim
                 </Button>
-                {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
+                {quote.status === 'Diterima' && (
+                    <>
+                        <Button onClick={handleCreateInvoice} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50"><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>
+                        <Button onClick={handleCreateProject} variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
+                    </>
+                )}
                 <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>

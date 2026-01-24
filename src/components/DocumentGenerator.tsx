@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
@@ -30,7 +30,27 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+// DnD Imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 type Item = {
+  uid: string; // Local unique ID for DnD
   item_id?: string;
   description: string;
   quantity: number;
@@ -50,11 +70,100 @@ interface DocumentGeneratorProps {
   docType: 'quote' | 'invoice';
 }
 
+// Sortable Row Component
+const SortableItemRow = ({ 
+  item, 
+  index, 
+  handleItemChange, 
+  removeItem 
+}: { 
+  item: Item; 
+  index: number; 
+  handleItemChange: (index: number, field: keyof Item, value: any) => void; 
+  removeItem: (index: number) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.uid });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 'auto',
+    position: isDragging ? 'relative' as const : undefined,
+  };
+
+  const isSectionHeader = item.quantity === 0;
+
+  if (isSectionHeader) {
+    return (
+      <TableRow ref={setNodeRef} style={style} className={cn("bg-muted/50 hover:bg-muted/70", isDragging && "opacity-50")}>
+        <TableCell className="text-center">
+          <Button variant="ghost" size="icon" className="cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </TableCell>
+        <TableCell colSpan={5}>
+          <div className="flex items-center gap-2">
+            <Heading className="h-4 w-4 text-blue-500" />
+            <Input 
+              placeholder="Nama Kategori (misal: Kamera, Jasa, dll)" 
+              value={item.description} 
+              onChange={e => handleItemChange(index, 'description', e.target.value)} 
+              className="font-bold border-transparent bg-transparent focus-visible:ring-0 focus-visible:bg-background h-8 px-0 shadow-none"
+            />
+          </div>
+        </TableCell>
+        <TableCell className="text-right font-medium text-muted-foreground">-</TableCell>
+        <TableCell className="text-center">
+          <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  return (
+    <TableRow ref={setNodeRef} style={style} className={cn("bg-background", isDragging && "opacity-50")}>
+      <TableCell className="text-center">
+        <Button variant="ghost" size="icon" className="cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </TableCell>
+      <TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
+      <TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell>
+      <TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell>
+      <TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell>
+      <TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell>
+      <TableCell className="text-right font-medium">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</TableCell>
+      <TableCell className="text-center">
+        <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Sensors for DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const [loading, setLoading] = useState(isEditMode);
   const [clients, setClients] = useState<Client[]>([]);
@@ -71,7 +180,10 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [docTitle, setDocTitle] = useState(""); 
   const [docDate, setDocDate] = useState<Date | undefined>(new Date());
   const [expiryDate, setExpiryDate] = useState<Date | undefined>();
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  
+  // Initialize with one item containing a UID
+  const [items, setItems] = useState<Item[]>([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
@@ -183,12 +295,13 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
       
       const itemsWithDefaults = data[config.itemTable].map((item: any) => ({ 
+        uid: crypto.randomUUID(), // Assign new UID for local DnD
         ...item, 
         unit: item.unit || '', 
         cost_price: item.cost_price || 0,
         item_id: item.item_id 
       }));
-      setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+      setItems(itemsWithDefaults.length > 0 ? itemsWithDefaults : [{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
 
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
@@ -229,7 +342,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const handleApplyTemplate = (data: any) => {
     if (data.docTitle) setDocTitle(data.docTitle);
-    if (data.items) setItems(data.items);
+    if (data.items) {
+        // Ensure applied template items have UIDs
+        const itemsWithUid = data.items.map((i: any) => ({ ...i, uid: crypto.randomUUID() }));
+        setItems(itemsWithUid);
+    }
     if (data.terms) setTerms(data.terms);
     if (data.taxAmount) setTaxAmount(data.taxAmount);
     if (data.discountAmount) setDiscountAmount(data.discountAmount);
@@ -241,28 +358,17 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     setItems(newItems);
   };
 
-  const addItem = () => setItems([...items, { description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
-  const addSectionHeader = () => setItems([...items, { description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }]);
+  const addItem = () => setItems([...items, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  const addSectionHeader = () => setItems([...items, { uid: crypto.randomUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }]);
 
   const removeItem = (index: number) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
-    else setItems([{ description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
-  };
-
-  const moveItem = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === items.length - 1) return;
-
-    const newItems = [...items];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    // Swap
-    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
-    setItems(newItems);
+    else setItems([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   };
 
   const handleAddItemsFromLibrary = (libraryItems: any[]) => {
     const newItems = libraryItems.map(item => ({
+        uid: crypto.randomUUID(),
         item_id: item.id, 
         description: item.description, 
         quantity: 1, 
@@ -272,6 +378,17 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     }));
     const existingItems = items.filter(item => item.description.trim() !== '');
     setItems([...existingItems, ...newItems]);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setItems((items) => {
+        const oldIndex = items.findIndex((item) => item.uid === active.id);
+        const newIndex = items.findIndex((item) => item.uid === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
 
   const subtotal = useMemo(() => calculateSubtotal(items), [items]);
@@ -316,7 +433,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
     const itemsPayload = items
         .filter(item => item.description)
-        .map(({ id, created_at, ...item }: any) => ({
+        .map(({ uid, id, created_at, ...item }: any) => ({
             ...item,
             [config.foreignKey]: currentDocId
         }));
@@ -380,60 +497,31 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
             <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead className="w-[50px] text-center">No.</TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[100px] text-center">Aksi</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {items.map((item, index) => {
-                    const isSectionHeader = item.quantity === 0;
-                    
-                    if (isSectionHeader) {
-                      return (
-                        <TableRow key={index} className="bg-muted/50 hover:bg-muted/70">
-                          <TableCell className="text-center font-bold text-muted-foreground">#</TableCell>
-                          <TableCell colSpan={5}>
-                            <div className="flex items-center gap-2">
-                              <Heading className="h-4 w-4 text-blue-500" />
-                              <Input 
-                                placeholder="Nama Kategori (misal: Kamera, Jasa, dll)" 
-                                value={item.description} 
-                                onChange={e => handleItemChange(index, 'description', e.target.value)} 
-                                className="font-bold border-transparent bg-transparent focus-visible:ring-0 focus-visible:bg-background h-8 px-0"
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-muted-foreground">-</TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'up')} disabled={index === 0} title="Geser Naik"><ArrowUp className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} title="Geser Turun"><ArrowDown className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-
-                    return (
-                      <TableRow key={index}>
-                        <TableCell className="text-center font-medium">{index + 1}</TableCell>
-                        <TableCell><Input placeholder="Deskripsi" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
-                        <TableCell><Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center" /></TableCell>
-                        <TableCell><Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} /></TableCell>
-                        <TableCell><Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right" /></TableCell>
-                        <TableCell><Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right" /></TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</TableCell>
-                        <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'up')} disabled={index === 0} title="Geser Naik"><ArrowUp className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} title="Geser Turun"><ArrowDown className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <Table>
+                  <TableHeader><TableRow><TableHead className="w-[50px] text-center"></TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    <SortableContext 
+                      items={items.map(i => i.uid)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {items.map((item, index) => (
+                        <SortableItemRow 
+                          key={item.uid}
+                          item={item}
+                          index={index}
+                          handleItemChange={handleItemChange}
+                          removeItem={removeItem}
+                        />
+                      ))}
+                    </SortableContext>
+                  </TableBody>
+                </Table>
+              </DndContext>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
