@@ -24,6 +24,7 @@ import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculat
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
+import DocumentTimeline from '@/components/DocumentTimeline';
 
 interface Attachment {
   name: string;
@@ -207,11 +208,9 @@ const QuoteView = () => {
   };
 
   const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
-  const totalCost = useMemo(() => quote?.quote_items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price), 0) || 0, [quote]);
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
-  const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
 
   if (loading) {
     return (
@@ -227,9 +226,10 @@ const QuoteView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
-        <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center print:hidden">
-            <Button asChild variant="outline"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar</Link></Button>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+        {/* Header Actions */}
+        <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
+            <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
+            <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
                 <Button onClick={handleWhatsAppShare} className="bg-green-600 hover:bg-green-700 text-white"><Smartphone className="mr-2 h-4 w-4" /> Kirim WA</Button>
                 {quote.status === 'Terkirim' && (<Button onClick={handleShareLink} variant="secondary"><Share2 className="mr-2 h-4 w-4" /> Salin Tautan</Button>)}
                 {quote.status === 'Diterima' && (<Button onClick={handleCreateInvoice}><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>)}
@@ -238,95 +238,97 @@ const QuoteView = () => {
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
-                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Ekspor PDF</>}</Button>
+                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
-      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
-        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
-              <p className="text-sm text-muted-foreground">{quote.from_address}</p>
-              <p className="text-sm text-muted-foreground">{quote.from_website}</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
-              <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
-              <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-8 space-y-8">
-          <div className="grid grid-cols-2 gap-8">
-            <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
-            <div className="text-right">
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
-                <p className="font-bold text-lg">{quote.title || '-'}</p>
-                <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
-                <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
-            </div>
-          </div>
-          
-          <DocumentItemsTable 
-            items={quote.quote_items} 
-            config={{
-                showQuantity: profile?.show_quantity_column,
-                showUnit: profile?.show_unit_column,
-                showUnitPrice: profile?.show_unit_price_column
-            }}
-          />
 
-          <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-              <Separator />
-              <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
-              <div className="no-pdf">
-                <Separator className="print:hidden" />
-                <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
-                <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
-              </div>
-            </div>
-          </div>
-          {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
-          {quote.attachments && quote.attachments.length > 0 && (
-            <div className="no-pdf">
-              <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
-              <div className="space-y-2">
-                {quote.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center p-2 border rounded-md">
-                    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                      <FileText className="h-4 w-4" />
-                      {attachment.name}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-        {profile?.custom_footer && (
-            <CardFooter className="p-8 pt-4 border-t">
-                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
-            </CardFooter>
-        )}
-      </Card>
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+            {/* Main Content: Quote Preview */}
+            <div className="lg:col-span-2 space-y-8">
+                <Card ref={quoteRef} className="shadow-lg print:shadow-none print:border-none">
+                    <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
+                    <div className="flex justify-between items-start">
+                        <div>
+                        {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
+                        <p className="text-sm text-muted-foreground">{quote.from_address}</p>
+                        <p className="text-sm text-muted-foreground">{quote.from_website}</p>
+                        </div>
+                        <div className="text-right">
+                        <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+                        <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
+                        <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
+                        <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
+                        </div>
+                    </div>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-8">
+                    <div className="grid grid-cols-2 gap-8">
+                        <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
+                        <div className="text-right">
+                            <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
+                            <p className="font-bold text-lg">{quote.title || '-'}</p>
+                            <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
+                            <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
+                        </div>
+                    </div>
+                    
+                    <DocumentItemsTable 
+                        items={quote.quote_items} 
+                        config={{
+                            showQuantity: profile?.show_quantity_column,
+                            showUnit: profile?.show_unit_column,
+                            showUnitPrice: profile?.show_unit_price_column
+                        }}
+                    />
 
-      {/* Profit Analysis Card - Internal Only */}
-      <div className="max-w-4xl mx-auto">
-        <ProfitAnalysisCard 
-            items={quote.quote_items} 
-            discountAmount={quote.discount_amount} 
-            taxAmount={quote.tax_amount} 
-            type="Penawaran"
-        />
-      </div>
+                    <div className="flex justify-end">
+                        <div className="w-full max-w-xs space-y-2">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
+                        </div>
+                    </div>
+                    {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
+                    {quote.attachments && quote.attachments.length > 0 && (
+                        <div className="no-pdf">
+                        <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+                        <div className="space-y-2">
+                            {quote.attachments.map((attachment, index) => (
+                            <div key={index} className="flex items-center p-2 border rounded-md">
+                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                                <FileText className="h-4 w-4" />
+                                {attachment.name}
+                                </a>
+                            </div>
+                            ))}
+                        </div>
+                        </div>
+                    )}
+                    </CardContent>
+                    {profile?.custom_footer && (
+                        <CardFooter className="p-8 pt-4 border-t">
+                            <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
+                        </CardFooter>
+                    )}
+                </Card>
+            </div>
 
-      <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
+            {/* Sidebar: Analysis & History */}
+            <div className="space-y-6 print:hidden">
+                <ProfitAnalysisCard 
+                    items={quote.quote_items} 
+                    discountAmount={quote.discount_amount} 
+                    taxAmount={quote.tax_amount} 
+                    type="Penawaran"
+                />
+                
+                <DocumentTimeline docId={id!} type="quote" />
+            </div>
+        </div>
+        <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );
 };
