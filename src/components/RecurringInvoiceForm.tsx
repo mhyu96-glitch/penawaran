@@ -10,10 +10,8 @@ import { showError, showSuccess } from '@/utils/toast';
 import { Client } from '@/pages/ClientList';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, safeFormat } from '@/lib/utils';
 
 interface RecurringInvoiceFormProps {
   isOpen: boolean;
@@ -133,7 +131,7 @@ const RecurringInvoiceForm = ({ isOpen, setIsOpen, onSave }: RecurringInvoiceFor
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />{startDate ? format(startDate, "PPP", { locale: localeId }) : <span>Pilih tanggal</span>}
+                            <CalendarIcon className="mr-2 h-4 w-4" />{startDate ? safeFormat(startDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus /></PopoverContent>
