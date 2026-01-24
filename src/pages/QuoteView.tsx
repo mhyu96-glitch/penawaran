@@ -20,9 +20,10 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
+import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 
 interface Attachment {
   name: string;
@@ -212,17 +213,6 @@ const QuoteView = () => {
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
 
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto p-8">
@@ -325,6 +315,17 @@ const QuoteView = () => {
             </CardFooter>
         )}
       </Card>
+
+      {/* Profit Analysis Card - Internal Only */}
+      <div className="max-w-4xl mx-auto">
+        <ProfitAnalysisCard 
+            items={quote.quote_items} 
+            discountAmount={quote.discount_amount} 
+            taxAmount={quote.tax_amount} 
+            type="Penawaran"
+        />
+      </div>
+
       <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );

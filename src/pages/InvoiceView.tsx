@@ -22,9 +22,10 @@ import { Badge } from '@/components/ui/badge';
 import PaymentForm from '@/components/PaymentForm';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
+import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 
 interface Attachment {
   name: string;
@@ -177,18 +178,6 @@ const InvoiceView = () => {
     }
   }, [balanceDue, invoice]);
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Lunas': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Jatuh Tempo': return 'destructive';
-      case 'Draf': return 'outline';
-      case 'Pending': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
   if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
   if (!invoice) return null;
 
@@ -262,11 +251,6 @@ const InvoiceView = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
-              <div className="no-pdf">
-                <Separator className="print:hidden" />
-                <div className="flex justify-between text-sm print:hidden"><span className="text-muted-foreground">Total Modal</span><span>{formatCurrency(totalCost)}</span></div>
-                <div className="flex justify-between font-semibold text-green-600 print:hidden"><span >Keuntungan</span><span>{formatCurrency(profit)}</span></div>
-              </div>
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
@@ -324,6 +308,17 @@ const InvoiceView = () => {
             </CardFooter>
         )}
       </Card>
+      
+      {/* Profit Analysis Card - Internal Only */}
+      <div className="max-w-4xl mx-auto">
+        <ProfitAnalysisCard 
+            items={invoice.invoice_items} 
+            discountAmount={invoice.discount_amount} 
+            taxAmount={invoice.tax_amount} 
+            type="Faktur"
+        />
+      </div>
+
       <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );

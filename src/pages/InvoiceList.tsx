@@ -32,7 +32,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
-import { safeFormat, safeFormatDistance } from '@/lib/utils';
+import { safeFormat, safeFormatDistance, getStatusVariant } from '@/lib/utils';
 
 type Invoice = {
   id: string;
@@ -195,16 +195,6 @@ const InvoiceList = () => {
     document.body.removeChild(link);
   };
   
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Lunas': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Jatuh Tempo': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
-
   const invoiceStatuses = ['Draf', 'Terkirim', 'Lunas', 'Jatuh Tempo'];
 
   const renderStatusDropdown = (invoice: Invoice) => (
