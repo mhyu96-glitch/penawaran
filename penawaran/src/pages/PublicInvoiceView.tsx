@@ -1,0 +1,483 @@
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { showError, showSuccess } from '@/utils/toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import useMidtransSnap from '@/hooks/useMidtransSnap';
+import { generatePdf } from '@/utils/pdfGenerator';
+import { DocumentItemsTable } from '@/components/DocumentItemsTable';
+
+interface Attachment {
+  name: string;
+  url: string;
+  path: string;
+}
+
+type Payment = {
+    id: string;
+    amount: number;
+    payment_date: string;
+    notes: string | null;
+    status: string;
+};
+
+type InvoiceDetails = {
+  id: string;
+  from_company: string;
+  from_address: string;
+  from_website: string;
+  to_client: string;
+  to_address: string;
+  to_phone: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  discount_amount: number;
+  tax_amount: number;
+  down_payment_amount: number;
+  terms: string;
+  status: string;
+  attachments: Attachment[];
+  invoice_items: {
+    description: string;
+    quantity: number;
+    unit: string;
+    unit_price: number;
+    cost_price: number;
+  }[];
+  payments: Payment[];
+  payment_instructions: string;
+  custom_footer: string | null;
+  company_phone: string | null;
+  whatsapp_invoice_template: string | null;
+  show_quantity_column: boolean;
+  show_unit_column: boolean;
+  show_unit_price_column: boolean;
+  qris_url: string | null;
+  midtrans_client_key: string | null;
+  midtrans_is_production: boolean;
+  signature_url: string | null;
+};
+
+const PublicInvoiceView = () => {
+  const { id } = useParams<{ id: string }>();
+  const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isPaymentInfoOpen, setIsPaymentInfoOpen] = useState(false);
+  const [isQrisOpen, setIsQrisOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const invoiceRef = useRef<HTMLDivElement>(null);
+  const hasTracked = useRef(false);
+  
+  const isSnapReady = useMidtransSnap(
+    invoice?.midtrans_client_key || null,
+    invoice?.midtrans_is_production || false
+  );
+
+  const fetchInvoice = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('get-public-invoice-details', {
+        body: { invoiceId: id },
+      });
+      if (error) throw error;
+      setInvoice(data);
+
+      if (!hasTracked.current) {
+          hasTracked.current = true;
+          await supabase.rpc('track_document_view', { p_id: id, p_type: 'invoice' });
+      }
+
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      setInvoice(null);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchInvoice();
+  }, [id]);
+
+  const handleSaveAsPDF = async () => {
+    if (!invoiceRef.current || !invoice) return;
+    setIsGeneratingPDF(true);
+    await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+    setIsGeneratingPDF(false);
+  };
+
+  const subtotal = useMemo(() => calculateSubtotal(invoice?.invoice_items || []), [invoice]);
+  const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
+  const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
+  
+  const totalPaid = useMemo(() => {
+    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
+    return paymentsAmount + (invoice?.down_payment_amount || 0);
+  }, [invoice]);
+
+  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+
+  const handleWhatsAppClick = () => {
+    if (!invoice) return;
+    
+    if (!invoice.company_phone) {
+        showError("Nomor WhatsApp belum diatur oleh pemilik usaha.");
+        return;
+    }
+
+    const phoneNumber = invoice.company_phone.replace(/\D/g, '');
+    const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
+
+    let messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
+    
+    const message = messageTemplate
+      .replace(/{client_name}/g, invoice.to_client)
+      .replace(/{number}/g, invoice.invoice_number || 'N/A')
+      .replace(/{amount}/g, formatCurrency(balanceDue))
+      .replace(/{company_name}/g, invoice.from_company)
+      .replace(/{link}/g, window.location.href);
+
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    
+    window.open(url, '_blank');
+  };
+
+  const handleCopyInstructions = () => {
+    if (!invoice) return;
+    navigator.clipboard.writeText(invoice.payment_instructions);
+    showSuccess("Instruksi pembayaran disalin ke clipboard!");
+  };
+
+  const handlePayNow = async () => {
+    if (!invoice || !isSnapReady) {
+        if (!invoice?.midtrans_client_key) {
+            showError("Konfigurasi pembayaran belum lengkap. Hubungi pemilik usaha.");
+        }
+        return;
+    }
+    
+    setIsProcessingPayment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-midtrans-transaction', {
+        body: { invoiceId: invoice.id },
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data || !data.token) throw new Error("Gagal mendapatkan token pembayaran.");
+
+      window.snap.pay(data.token, {
+        onSuccess: function(result: any) {
+          showSuccess("Pembayaran berhasil!");
+          console.log(result);
+          setTimeout(() => fetchInvoice(), 2000);
+        },
+        onPending: function(result: any) {
+          showSuccess("Menunggu pembayaran...");
+          console.log(result);
+        },
+        onError: function(result: any) {
+          showError("Pembayaran gagal.");
+          console.error(result);
+        },
+        onClose: function() {
+          setIsProcessingPayment(false);
+        }
+      });
+
+    } catch (err: any) {
+      showError(`Terjadi kesalahan: ${err.message}`);
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'Lunas': return 'default';
+      case 'Terkirim': return 'secondary';
+      case 'Jatuh Tempo': return 'destructive';
+      case 'Draf': return 'outline';
+      case 'Pending': return 'secondary';
+      case 'Ditolak': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
+  if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
+  if (!invoice) return <div className="container mx-auto p-8 text-center"><h1>Faktur tidak ditemukan atau tidak valid.</h1></div>;
+
+  return (
+    <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+      {/* Manual Payment Instructions Dialog */}
+      <Dialog open={isPaymentInfoOpen} onOpenChange={setIsPaymentInfoOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader className="flex flex-col items-center space-y-3 pb-2">
+                <div className="bg-green-100 p-3 rounded-full">
+                    <Wallet className="h-8 w-8 text-green-600" />
+                </div>
+                <div className="text-center">
+                    <DialogTitle className="text-xl font-bold text-gray-900">Instruksi Pembayaran Manual</DialogTitle>
+                    <DialogDescription className="text-gray-500 mt-1">
+                        Silakan transfer manual ke rekening berikut.
+                    </DialogDescription>
+                </div>
+            </DialogHeader>
+
+            <div className="space-y-6 my-2">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative group hover:border-blue-300 transition-all duration-300">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-medium font-sans leading-relaxed">
+                        {invoice.payment_instructions || "Belum ada instruksi pembayaran."}
+                    </pre>
+                    <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={handleCopyInstructions} 
+                        className="mt-4 w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
+                    >
+                        <Copy className="mr-2 h-3.5 w-3.5" /> Salin Instruksi
+                    </Button>
+                </div>
+            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QRIS Dialog */}
+      <Dialog open={isQrisOpen} onOpenChange={setIsQrisOpen}>
+        <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+                <DialogTitle className="text-center">Scan QRIS untuk Bayar</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center p-6 space-y-4">
+                {invoice.qris_url ? (
+                    <img src={invoice.qris_url} alt="QRIS Code" className="w-64 h-64 object-contain border rounded-lg shadow-sm" />
+                ) : (
+                    <p className="text-muted-foreground">QRIS tidak tersedia.</p>
+                )}
+                <p className="text-sm text-center text-muted-foreground">
+                    Dukungan pembayaran: GoPay, OVO, Dana, ShopeePay, Mobile Banking.
+                </p>
+                <Button className="w-full" onClick={() => setIsQrisOpen(false)}>Tutup</Button>
+            </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end no-pdf">
+        <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>
+          {isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
+        </Button>
+      </div>
+      <Card ref={invoiceRef} className="max-w-4xl mx-auto shadow-lg">
+        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">{invoice.from_company}</h1>
+              <p className="text-sm text-muted-foreground">{invoice.from_address}</p>
+              <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest">Faktur</h2>
+              <div className="mt-1">
+                <Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">No: {invoice.invoice_number}</p>
+              <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(invoice.invoice_date, 'PPP')}</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-8 space-y-8">
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditagihkan Kepada:</h3>
+              <p className="font-bold">{invoice.to_client}</p>
+              <p className="text-sm">{invoice.to_address}</p>
+              <p className="text-sm">{invoice.to_phone}</p>
+            </div>
+            <div className="text-right">
+                <h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3>
+                <p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p>
+            </div>
+          </div>
+          
+          <DocumentItemsTable 
+            items={invoice.invoice_items} 
+            config={{
+                showQuantity: invoice.show_quantity_column,
+                showUnit: invoice.show_unit_column,
+                showUnitPrice: invoice.show_unit_price_column
+            }}
+          />
+
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            <div className="w-full md:w-auto space-y-2 no-pdf">
+                {invoice.status !== 'Lunas' && balanceDue > 0 ? (
+                    <>
+                        {invoice.midtrans_client_key ? (
+                            <Button 
+                                size="lg" 
+                                onClick={handlePayNow} 
+                                disabled={!isSnapReady || isProcessingPayment}
+                                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transform transition-transform active:scale-95"
+                            >
+                                <Zap className="mr-2 h-4 w-4 fill-current" /> 
+                                {isProcessingPayment ? 'Memproses...' : 'Bayar Online Sekarang'}
+                            </Button>
+                        ) : (
+                            <div className="text-xs text-muted-foreground p-2 bg-yellow-50 rounded border border-yellow-200">
+                                Pembayaran online tidak tersedia.
+                            </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setIsPaymentInfoOpen(true)} className="w-full sm:w-auto">
+                                <CreditCard className="mr-2 h-4 w-4" /> Transfer Manual
+                            </Button>
+                            
+                            {invoice.qris_url && (
+                                <Button size="sm" variant="outline" onClick={() => setIsQrisOpen(true)} className="w-full sm:w-auto border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800">
+                                    <QrCode className="mr-2 h-4 w-4" /> Scan QRIS
+                                </Button>
+                            )}
+
+                            <Button size="sm" onClick={handleWhatsAppClick} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
+                                <Smartphone className="mr-2 h-4 w-4" /> Konfirmasi WhatsApp
+                            </Button>
+                        </div>
+                        
+                        {!invoice.company_phone && (
+                            <p className="text-xs text-red-500 mt-1">
+                                *Nomor WhatsApp belum diatur oleh pemilik usaha.
+                            </p>
+                        )}
+                    </>
+                ) : (
+                    <Alert variant="default" className="bg-green-50 border-green-200">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertTitle className="text-green-800">Lunas</AlertTitle>
+                        <AlertDescription className="text-green-700">
+                            Faktur ini telah lunas. Terima kasih atas pembayaran Anda!
+                        </AlertDescription>
+                    </Alert>
+                )}
+            </div>
+            <div className="w-full max-w-xs space-y-2 self-end">
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
+              <Separator />
+              <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
+              {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
+              <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
+              <Separator />
+              <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
+            </div>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {invoice.payment_instructions && (
+                 <Alert className="no-pdf h-full">
+                    <CreditCard className="h-4 w-4" />
+                    <AlertTitle>Instruksi Pembayaran Manual</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap">{invoice.payment_instructions}</AlertDescription>
+                </Alert>
+            )}
+
+            {invoice.qris_url && (
+                 <div className="border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
+                    <p className="font-semibold mb-2 text-sm">Scan QRIS Toko</p>
+                    <img src={invoice.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
+                 </div>
+            )}
+          </div>
+
+          {/* Signature Section */}
+          <div className="flex justify-end mt-8">
+            <div className="text-center">
+                <p className="text-sm font-medium mb-4">Hormat Kami,</p>
+                {invoice.signature_url ? (
+                    <img src={invoice.signature_url} alt="Tanda Tangan" className="h-24 mx-auto mb-2 object-contain" />
+                ) : (
+                    <div className="h-24" />
+                )}
+                <p className="text-sm font-bold">{invoice.from_company}</p>
+            </div>
+          </div>
+
+          {invoice.terms && (
+            <div>
+                <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.terms}</p>
+            </div>
+          )}
+          {invoice.attachments && invoice.attachments.length > 0 && (
+            <div className="no-pdf">
+              <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+              <div className="space-y-2">
+                {invoice.attachments.map((attachment, index) => (
+                  <div key={index} className="flex items-center p-2 border rounded-md">
+                    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                      <FileText className="h-4 w-4" />
+                      {attachment.name}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {visiblePayments.length > 0 && (
+            <Card className="no-pdf">
+              <CardHeader>
+                <CardTitle>Riwayat Pembayaran</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Jumlah</TableHead>
+                      <TableHead>Metode/Catatan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visiblePayments.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell>{safeFormat(p.payment_date, 'PPP')}</TableCell>
+                        <TableCell>{formatCurrency(p.amount)}</TableCell>
+                        <TableCell>{p.notes || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+        {invoice.custom_footer && (
+            <CardFooter className="p-8 pt-4 border-t">
+                <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{invoice.custom_footer}</p>
+            </CardFooter>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default PublicInvoiceView;
