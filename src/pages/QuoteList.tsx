@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -30,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
+import { getStatusVariant } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -37,13 +41,17 @@ type Quote = {
   to_client: string;
   created_at: string;
   status: string;
+  project_id?: string;
 };
 
 const QuoteList = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
 
   const fetchQuotes = async () => {
     if (!user) return;
@@ -59,6 +67,10 @@ const QuoteList = () => {
     } else {
       setQuotes(data as Quote[]);
     }
+
+    const { data: projData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
+    if (projData) setProjects(projData);
+
     setLoading(false);
   };
 
@@ -153,6 +165,15 @@ const QuoteList = () => {
 
   const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
 
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter(q => {
+        const matchesSearch = (q.quote_number || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             (q.to_client || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesProject = selectedProject === "all" || q.project_id === selectedProject;
+        return matchesSearch && matchesProject;
+    });
+  }, [quotes, searchTerm, selectedProject]);
+
   const renderStatusDropdown = (quote: Quote) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -202,6 +223,21 @@ const QuoteList = () => {
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari nomor penawaran atau klien..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="Semua Proyek" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Semua Proyek</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -230,7 +266,7 @@ const QuoteList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {quotes.map((quote) => (
+                    {filteredQuotes.map((quote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
                         <TableCell>{quote.to_client}</TableCell>
@@ -255,7 +291,7 @@ const QuoteList = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden space-y-4">
-                {quotes.map(quote => (
+                {filteredQuotes.map(quote => (
                   <Card key={quote.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">

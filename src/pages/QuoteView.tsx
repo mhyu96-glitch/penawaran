@@ -24,7 +24,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency } from '@/lib/utils';
+import { cn, getStatusVariant } from '@/lib/utils';
 
 interface Attachment {
   name: string;
@@ -49,6 +49,7 @@ type QuoteDetails = {
   tax_amount: number;
   terms: string;
   status: string;
+  template_style?: 'modern' | 'professional' | 'minimalist';
   attachments: Attachment[]; // New field for attachments
   quote_items: {
     description: string;
@@ -167,29 +168,12 @@ const QuoteView = () => {
     html2canvas(input, { scale: 1.5, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        
-        const ratio = canvasWidth / pdfWidth;
-        const imgHeight = canvasHeight / ratio;
-        
-        let heightLeft = imgHeight;
-        let position = 0;
+        const pdfWidth = 210; // A4 width in mm
+        const ratio = canvas.width / pdfWidth;
+        const pdfHeight = canvas.height / ratio;
 
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-        
+        const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
       })
       .catch(err => {
@@ -203,6 +187,50 @@ const QuoteView = () => {
       });
   };
 
+  const handleDuplicateQuote = async () => {
+    if (!quote || !user) return;
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: origId, created_at, updated_at, quote_number, quote_items, ...newData } = quote;
+    
+    const { data: newQuote, error: insertError } = await supabase
+      .from('quotes')
+      .insert({ 
+        ...newData, 
+        status: 'Draf', 
+        quote_date: new Date().toISOString(), 
+        valid_until: null, 
+        quote_number: null 
+      })
+      .select()
+      .single();
+
+    if (insertError || !newQuote) {
+      showError('Gagal menduplikasi penawaran.');
+      console.error('Duplicate quote error:', insertError);
+      return;
+    }
+
+    if (quote.quote_items && quote.quote_items.length > 0) {
+      const newItems = quote.quote_items.map(item => ({
+        quote_id: newQuote.id,
+        description: item.description,
+        quantity: Number(item.quantity) || 0,
+        unit: item.unit || '',
+        unit_price: Number(item.unit_price) || 0,
+        cost_price: Number(item.cost_price) || 0,
+      }));
+
+      const { error: itemsError } = await supabase.from('quote_items').insert(newItems);
+      if (itemsError) {
+        console.error('Duplicate items error:', itemsError);
+      }
+    }
+
+    showSuccess('Penawaran berhasil diduplikasi ke draf.');
+    navigate(`/quote/edit/${newQuote.id}`);
+  };
+
   const handleDeleteQuote = async () => {
     if (!id) return;
     const { error } = await supabase.from('quotes').delete().match({ id });
@@ -214,49 +242,66 @@ const QuoteView = () => {
     }
   };
 
-  const handleShareLink = () => {
-    const link = `${window.location.origin}/quote/public/${id}`;
-    navigator.clipboard.writeText(link);
-    showSuccess('Tautan publik telah disalin ke clipboard!');
-  };
-
-  const subtotal = useMemo(() => {
-    if (!quote) return 0;
-    return quote.quote_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-  }, [quote]);
-
-  const totalCost = useMemo(() => {
-    if (!quote) return 0;
-    return quote.quote_items.reduce((acc, item) => acc + item.quantity * (item.cost_price || 0), 0);
-  }, [quote]);
-
-  const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
-  const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
-  const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
-  const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
-
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
+  const renderHeader = () => {
+    switch (quote.template_style) {
+      case 'professional':
+        return (
+          <CardHeader className="bg-white border-b-2 border-gray-100 p-8">
+            <div className="flex justify-between items-center">
+              <div>
+                {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Logo" className="max-h-16 mb-4" /> : <h1 className="text-xl font-bold tracking-tight uppercase" style={{ color: profile?.brand_color || '#1e293b' }}>{quote.from_company}</h1>}
+                <p className="max-w-xs text-xs text-muted-foreground uppercase tracking-widest">{quote.from_address}</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-4xl font-light text-gray-300 uppercase tracking-[0.5em] mb-4">Quota</h2>
+                <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                <div className="mt-4 space-y-1 text-sm font-medium">
+                  <p>NO: <span className="text-muted-foreground">{quote.quote_number}</span></p>
+                  <p>DATE: <span className="text-muted-foreground">{format(new Date(quote.quote_date), 'dd/MM/yyyy')}</span></p>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        );
+      case 'minimalist':
+        return (
+          <CardHeader className="p-8 pb-0">
+            <div className="flex flex-col gap-4">
+                <div className="flex justify-between border-b pb-4">
+                    <h1 className="text-lg font-bold">{quote.from_company}</h1>
+                    <div className="text-right text-xs text-muted-foreground">{quote.from_website}</div>
+                </div>
+                <div className="flex justify-between items-end">
+                    <h2 className="text-2xl font-mono uppercase">Quote.</h2>
+                    <div className="text-right text-sm">
+                        <p className="font-mono">#{quote.quote_number}</p>
+                        <p className="text-muted-foreground text-xs">{format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+                    </div>
+                </div>
+            </div>
+          </CardHeader>
+        );
+      case 'modern':
+      default:
+        return (
+          <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
+                <p className="text-sm text-muted-foreground">{quote.from_address}</p>
+                <p className="text-sm text-muted-foreground">{quote.from_website}</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+                <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
+                <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
+                <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+              </div>
+            </div>
+          </CardHeader>
+        );
     }
   };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto p-8">
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  if (!quote) {
-    return null;
-  }
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
@@ -270,27 +315,19 @@ const QuoteView = () => {
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
                     <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                 </AlertDialog>
+                <Button onClick={handleDuplicateQuote} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                    <Download className="mr-2 h-4 w-4 rotate-180" /> Duplikat
+                </Button>
                 <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> Ekspor PDF</>}</Button>
                 <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
             </div>
         </div>
-      <Card ref={quoteRef} className="max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none">
-        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
-              <p className="text-sm text-muted-foreground">{quote.from_address}</p>
-              <p className="text-sm text-muted-foreground">{quote.from_website}</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
-              <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
-              <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
-              <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-8 space-y-8">
+      <Card ref={quoteRef} className={cn("max-w-4xl mx-auto shadow-lg print:shadow-none print:border-none", 
+        quote.template_style === 'minimalist' ? 'font-mono' : '',
+        quote.template_style === 'professional' ? 'rounded-none' : ''
+      )}>
+        {renderHeader()}
+        <CardContent className={cn("p-8 space-y-8", quote.template_style === 'professional' ? 'bg-[#fafafa]' : '')}>
           <div className="grid grid-cols-2 gap-8">
             <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
             <div className="text-right"><h3 className="font-semibold text-gray-500 mb-2 text-sm">Berlaku Hingga:</h3><p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'PPP', { locale: localeId }) : 'N/A'}</p></div>

@@ -12,7 +12,7 @@ import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { showError, showSuccess } from '@/utils/toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getStatusVariant } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -78,15 +78,7 @@ const ClientDetail = () => {
     showSuccess('Tautan portal klien telah disalin!');
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
+
 
   if (loading) {
     return (

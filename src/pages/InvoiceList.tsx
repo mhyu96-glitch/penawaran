@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Search, Landmark } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import {
@@ -30,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
+import { getStatusVariant } from '@/lib/utils';
 
 type Invoice = {
   id: string;
@@ -38,12 +42,16 @@ type Invoice = {
   created_at: string;
   status: string;
   due_date: string;
+  project_id?: string;
 };
 
 const InvoiceList = () => {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
 
   const fetchInvoices = async () => {
     if (!user) return;
@@ -60,6 +68,10 @@ const InvoiceList = () => {
     } else {
       setInvoices(data as Invoice[]);
     }
+
+    const { data: projData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
+    if (projData) setProjects(projData);
+
     setLoading(false);
   };
 
@@ -103,6 +115,15 @@ const InvoiceList = () => {
   };
 
   const invoiceStatuses = ['Draf', 'Terkirim', 'Lunas', 'Jatuh Tempo'];
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(i => {
+        const matchesSearch = (i.invoice_number || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             (i.to_client || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesProject = selectedProject === "all" || i.project_id === selectedProject;
+        return matchesSearch && matchesProject;
+    });
+  }, [invoices, searchTerm, selectedProject]);
 
   const renderStatusDropdown = (invoice: Invoice) => (
     <DropdownMenu>
@@ -152,6 +173,21 @@ const InvoiceList = () => {
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari nomor faktur atau klien..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="Semua Proyek" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Semua Proyek</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -177,7 +213,7 @@ const InvoiceList = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map((invoice) => (
+                    {filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">{invoice.invoice_number || 'N/A'}</TableCell>
                         <TableCell>{invoice.to_client}</TableCell>
@@ -201,7 +237,7 @@ const InvoiceList = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden space-y-4">
-                {invoices.map(invoice => (
+                {filteredInvoices.map(invoice => (
                   <Card key={invoice.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">

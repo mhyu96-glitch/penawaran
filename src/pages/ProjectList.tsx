@@ -9,8 +9,8 @@ import { PlusCircle, Pencil, Trash2, FolderKanban } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import ProjectForm, { Project } from '@/components/ProjectForm';
+import { getStatusVariant } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
 
 type ProjectWithClient = Project & {
   clients: { name: string } | null;
@@ -64,13 +64,7 @@ const ProjectList = () => {
     fetchProjects();
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "outline" => {
-    switch (status) {
-      case 'Completed': return 'default';
-      case 'Ongoing': return 'secondary';
-      default: return 'outline';
-    }
-  };
+
 
   return (
     <div className="container mx-auto p-4 md:p-8">

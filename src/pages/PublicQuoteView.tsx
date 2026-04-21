@@ -9,9 +9,11 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatCurrency } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Badge } from '@/components/ui/badge';
+import { Printer } from 'lucide-react';
+import { cn, formatCurrency, getStatusVariant } from '@/lib/utils';
 
 interface Attachment {
   name: string;
@@ -35,6 +37,7 @@ type QuoteDetails = {
   tax_amount: number;
   terms: string;
   status: string;
+  template_style?: 'modern' | 'professional' | 'minimalist';
   attachments: Attachment[]; // New field for attachments
   quote_items: {
     description: string;
@@ -45,6 +48,8 @@ type QuoteDetails = {
 };
 
 type ProfileInfo = {
+    company_logo_url: string | null;
+    brand_color: string | null;
     custom_footer: string | null;
     show_quantity_column: boolean;
     show_unit_column: boolean;
@@ -82,7 +87,7 @@ const PublicQuoteView = () => {
             setActionTaken(data.status);
         }
         // Fetch profile settings
-        const { data: profileData } = await supabase.from('profiles').select('custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', quoteData.user_id).single();
+        const { data: profileData } = await supabase.from('profiles').select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column').eq('id', quoteData.user_id).single();
         setProfile(profileData);
       }
       setLoading(false);
@@ -126,26 +131,12 @@ const PublicQuoteView = () => {
     html2canvas(input, { scale: 1.5, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / pdfWidth;
-        const imgHeight = canvasHeight / ratio;
-        let heightLeft = imgHeight;
-        let position = 0;
+        const pdfWidth = 210; // A4 width in mm
+        const ratio = canvas.width / pdfWidth;
+        const pdfHeight = canvas.height / ratio;
 
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-        
+        const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`Penawaran-${quote.quote_number || quote.id}.pdf`);
       })
       .finally(() => {
@@ -163,6 +154,78 @@ const PublicQuoteView = () => {
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'Diterima': return 'default';
+      case 'Terkirim': return 'secondary';
+      case 'Ditolak': return 'destructive';
+      case 'Draf': return 'outline';
+      default: return 'outline';
+    }
+  };
+
+  const renderHeader = () => {
+    if (!quote) return null;
+    switch (quote.template_style) {
+      case 'professional':
+        return (
+          <CardHeader className="bg-white border-b-2 border-gray-100 p-8">
+            <div className="flex justify-between items-center">
+              <div>
+                {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Logo" className="max-h-16 mb-4" /> : <h1 className="text-xl font-bold tracking-tight uppercase" style={{ color: profile?.brand_color || '#1e293b' }}>{quote.from_company}</h1>}
+                <p className="max-w-xs text-xs text-muted-foreground uppercase tracking-widest">{quote.from_address}</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-4xl font-light text-gray-300 uppercase tracking-[0.5em] mb-4">Quota</h2>
+                <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                <div className="mt-4 space-y-1 text-sm font-medium">
+                  <p>NO: <span className="text-muted-foreground">{quote.quote_number}</span></p>
+                  <p>DATE: <span className="text-muted-foreground">{format(new Date(quote.quote_date), 'dd/MM/yyyy')}</span></p>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        );
+      case 'minimalist':
+        return (
+          <CardHeader className="p-8 pb-0">
+            <div className="flex flex-col gap-4">
+                <div className="flex justify-between border-b pb-4">
+                    <h1 className="text-lg font-bold">{quote.from_company}</h1>
+                    <div className="text-right text-xs text-muted-foreground">{quote.from_website}</div>
+                </div>
+                <div className="flex justify-between items-end">
+                    <h2 className="text-2xl font-mono uppercase">Quote.</h2>
+                    <div className="text-right text-sm">
+                        <p className="font-mono">#{quote.quote_number}</p>
+                        <p className="text-muted-foreground text-xs">{format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+                    </div>
+                </div>
+            </div>
+          </CardHeader>
+        );
+      case 'modern':
+      default:
+        return (
+          <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
+                <p className="text-sm text-muted-foreground">{quote.from_address}</p>
+                <p className="text-sm text-muted-foreground">{quote.from_website}</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+                <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
+                <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
+                <p className="text-sm text-muted-foreground">Tanggal: {format(new Date(quote.quote_date), 'PPP', { locale: localeId })}</p>
+              </div>
+            </div>
+          </CardHeader>
+        );
+    }
+  };
 
   if (loading) {
     return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;

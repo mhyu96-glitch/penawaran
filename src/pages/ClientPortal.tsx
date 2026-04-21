@@ -9,6 +9,7 @@ import { FileText, Receipt, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency, getStatusVariant } from '@/lib/utils';
 
 type Document = {
   id: string;
@@ -53,21 +54,7 @@ const ClientPortal = () => {
     fetchPortalData();
   }, [accessKey]);
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima':
-      case 'Lunas':
-        return 'default';
-      case 'Terkirim':
-        return 'secondary';
-      case 'Ditolak':
-      case 'Jatuh Tempo':
-        return 'destructive';
-      case 'Draf':
-      default:
-        return 'outline';
-    }
-  };
+
 
   if (loading) {
     return (

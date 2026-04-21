@@ -9,10 +9,11 @@ import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, Li
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, getStatusVariant } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ProjectDetails = {
   id: string;
@@ -85,14 +86,7 @@ const ProjectDetail = () => {
     return { totalRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
   }, [invoices, expenses, quotes, timeEntries]);
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': case 'Lunas': case 'Completed': return 'default';
-      case 'Terkirim': case 'Ongoing': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      default: return 'outline';
-    }
-  };
+
 
   if (loading) {
     return (
@@ -148,44 +142,63 @@ const ProjectDetail = () => {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Biaya</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Laba Bersih</CardTitle><TrendingUp className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.netProfit)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div></CardContent></Card>
-      </div>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-white border w-full justify-start h-12 p-1">
+            <TabsTrigger value="overview" className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Ikhtisar</TabsTrigger>
+            <TabsTrigger value="documents" className="flex items-center gap-2"><FileText className="h-4 w-4" /> Dokumen</TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center gap-2"><ListTodo className="h-4 w-4" /> Tugas & Waktu</TabsTrigger>
+            <TabsTrigger value="expenses" className="flex items-center gap-2"><Wallet className="h-4 w-4" /> Pengeluaran</TabsTrigger>
+        </TabsList>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><ListTodo className="h-5 w-5" /> Daftar Tugas</CardTitle></CardHeader>
-          <CardContent><ProjectTaskList projectId={project.id} initialTasks={tasks} onTaskUpdate={fetchProjectData} /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Catatan Waktu</CardTitle></CardHeader>
-          <CardContent><ProjectTimeTracker projectId={project.id} initialEntries={timeEntries} onEntryUpdate={fetchProjectData} /></CardContent>
-        </Card>
-      </div>
+        <TabsContent value="overview" className="space-y-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Biaya</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Laba Bersih</CardTitle><TrendingUp className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.netProfit)}</div></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div></CardContent></Card>
+            </div>
+            {/* You can add a project-specific chart here later */}
+        </TabsContent>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Penawaran</CardTitle></CardHeader>
-          <CardContent>
-            {quotes.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{quotes.map(q => <TableRow key={q.id}><TableCell className="font-medium">{q.quote_number}</TableCell><TableCell><Badge variant={getStatusVariant(q.status)}>{q.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/quote/${q.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada penawaran.</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" /> Faktur</CardTitle></CardHeader>
-          <CardContent>
-            {invoices.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{invoices.map(i => <TableRow key={i.id}><TableCell className="font-medium">{i.invoice_number}</TableCell><TableCell><Badge variant={getStatusVariant(i.status)}>{i.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/invoice/${i.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada faktur.</p>}
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Pengeluaran</CardTitle></CardHeader>
-        <CardContent>
-          {expenses.length > 0 ? <Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{expenses.map(e => <TableRow key={e.id}><TableCell>{format(new Date(e.expense_date), 'PPP', { locale: localeId })}</TableCell><TableCell className="font-medium">{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada pengeluaran.</p>}
-        </CardContent>
-      </Card>
+        <TabsContent value="documents" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Daftar Penawaran</CardTitle><CardDescription>Semua penawaran yang terkait dengan proyek ini.</CardDescription></CardHeader>
+                    <CardContent>
+                        {quotes.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{quotes.map(q => <TableRow key={q.id}><TableCell className="font-medium">{q.quote_number}</TableCell><TableCell><Badge variant={getStatusVariant(q.status)}>{q.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/quote/${q.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada penawaran.</p>}
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" /> Daftar Faktur</CardTitle><CardDescription>Semua faktur yang terkait dengan proyek ini.</CardDescription></CardHeader>
+                    <CardContent>
+                        {invoices.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{invoices.map(i => <TableRow key={i.id}><TableCell className="font-medium">{i.invoice_number}</TableCell><TableCell><Badge variant={getStatusVariant(i.status)}>{i.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/invoice/${i.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada faktur.</p>}
+                    </CardContent>
+                </Card>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="tasks" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+                <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><ListTodo className="h-5 w-5" /> Daftar Tugas Proyek</CardTitle></CardHeader>
+                <CardContent><ProjectTaskList projectId={project.id} initialTasks={tasks} onTaskUpdate={fetchProjectData} /></CardContent>
+                </Card>
+                <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Catatan Waktu Pekerjaan</CardTitle></CardHeader>
+                <CardContent><ProjectTimeTracker projectId={project.id} initialEntries={timeEntries} onEntryUpdate={fetchProjectData} /></CardContent>
+                </Card>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-6">
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Rincian Pengeluaran</CardTitle></CardHeader>
+                <CardContent>
+                {expenses.length > 0 ? <Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{expenses.map(e => <TableRow key={e.id}><TableCell>{format(new Date(e.expense_date), 'PPP', { locale: localeId })}</TableCell><TableCell className="font-medium">{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada pengeluaran.</p>}
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

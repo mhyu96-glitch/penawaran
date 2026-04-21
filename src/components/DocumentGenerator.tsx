@@ -69,6 +69,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [status, setStatus] = useState("Draf");
   const [attachments, setAttachments] = useState<Attachment[]>([]); // New state for attachments
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [templateStyle, setTemplateStyle] = useState<'modern' | 'professional' | 'minimalist'>('modern');
   const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
 
   const config = useMemo(() => ({
@@ -179,6 +180,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setTaxAmount(data.tax_amount || 0);
       setTerms(data.terms || "");
       setAttachments(data.attachments || []); // Set initial attachments
+      setTemplateStyle((data.template_style as any) || "modern");
       setLoading(false);
     };
 
@@ -214,7 +216,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const newItems = [...items];
-    (newItems[index] as any)[field] = value;
+    if (field === 'quantity' || field === 'unit_price' || field === 'cost_price') {
+      const strVal = String(value);
+      (newItems[index] as any)[field] = strVal === '' ? 0 : parseFloat(strVal) || 0;
+    } else {
+      (newItems[index] as any)[field] = value;
+    }
     setItems(newItems);
   };
 
@@ -243,14 +250,15 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     const docPayload: { [key: string]: any } = {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
-      discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
+      discount_amount: Number(discountAmount) || 0, tax_amount: Number(taxAmount) || 0, terms: terms, status: status,
       client_id: selectedClientId, project_id: selectedProjectId,
       attachments: attachments, // Include attachments in the payload
+      template_style: templateStyle, // Save selected template style
     };
     docPayload[config.fields[0]] = docNumber;
     docPayload[config.fields[1]] = docDate?.toISOString();
     docPayload[config.fields[2]] = expiryDate?.toISOString();
-    if (docType === 'invoice') docPayload[config.fields[3]] = downPaymentAmount;
+    if (docType === 'invoice') docPayload[config.fields[3]] = Number(downPaymentAmount) || 0;
 
     let currentDocId = id;
 
@@ -274,7 +282,14 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       currentDocId = data.id;
     }
 
-    const itemsPayload = items.filter(item => item.description).map(item => ({ ...item, [config.foreignKey]: currentDocId }));
+    const itemsPayload = items.filter(item => item.description).map(item => ({
+      description: item.description,
+      quantity: Number(item.quantity) || 0,
+      unit: item.unit || '',
+      unit_price: Number(item.unit_price) || 0,
+      cost_price: Number(item.cost_price) || 0,
+      [config.foreignKey]: currentDocId,
+    }));
     if (itemsPayload.length > 0) {
       const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
       if (error) { 
@@ -320,8 +335,19 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <div className="space-y-4"><h3 className="font-semibold">Untuk:</h3><Select onValueChange={handleClientSelect} value={selectedClientId || undefined}><SelectTrigger><SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" /></SelectTrigger><SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent></Select><Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} /><Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} /><Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} /></div>
           </div>
           <Separator />
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2"><Label>Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2">
+                <Label>Gaya Template</Label>
+                <Select value={templateStyle} onValueChange={(val: any) => setTemplateStyle(val)}>
+                    <SelectTrigger><SelectValue placeholder="Pilih gaya" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="modern">Modern</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="minimalist">Minimalis</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
             <div className="space-y-2"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
           </div>
           <div className="grid md:grid-cols-3 gap-4">

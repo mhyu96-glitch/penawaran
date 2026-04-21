@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
 import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay } from 'date-fns';
@@ -148,21 +148,43 @@ const Dashboard = () => {
   }, [payments, expenses, date]);
 
   const topClients = useMemo(() => {
-    const clientProfit: Record<string, { name: string; totalProfit: number }> = {};
+    const clientProfit: Record<string, { name: string; totalProfit: number; totalRevenue: number }> = {};
     const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
 
     acceptedQuotes.forEach(quote => {
         const clientId = quote.client_id;
         const clientName = quote.clients?.name || quote.to_client;
         if (!clientProfit[clientId]) {
-            clientProfit[clientId] = { name: clientName, totalProfit: 0 };
+            clientProfit[clientId] = { name: clientName, totalProfit: 0, totalRevenue: 0 };
         }
+        const quoteRevenue = quote.quote_items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
         const quoteProfit = quote.quote_items.reduce((sum, item) => sum + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
+        clientProfit[clientId].totalRevenue += quoteRevenue;
         clientProfit[clientId].totalProfit += quoteProfit;
     });
 
     return Object.values(clientProfit).sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
   }, [quotes]);
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+  const monthlyData = useMemo(() => {
+    const months: Record<string, { name: string; revenue: number; expense: number }> = {};
+    
+    payments.forEach(p => {
+        const month = format(new Date(p.payment_date), 'MMM yyyy');
+        if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
+        months[month].revenue += p.amount;
+    });
+
+    expenses.forEach(e => {
+        const month = format(new Date(e.expense_date), 'MMM yyyy');
+        if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
+        months[month].expense += e.amount;
+    });
+
+    return Object.values(months).slice(-6); // Last 6 months
+  }, [payments, expenses]);
 
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
   const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
@@ -194,22 +216,52 @@ const Dashboard = () => {
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
-          <CardHeader><CardTitle>Tren Keuangan</CardTitle><CardDescription>Pendapatan vs. Pengeluaran dalam rentang waktu yang dipilih.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Tren Keuangan Harian</CardTitle><CardDescription>Pendapatan vs. Pengeluaran dalam rentang waktu yang dipilih.</CardDescription></CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>
               <LineChart data={financialChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
                 <Tooltip formatter={(value) => formatCurrency(value as number)} />
                 <Legend />
-                <Line type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} activeDot={{ r: 8 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Klien Paling Menguntungkan</CardTitle><CardDescription>Berdasarkan penawaran diterima.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2">Porsi Pendapatan Client</CardTitle><CardDescription>Berdasarkan total nilai proyek.</CardDescription></CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                        <Pie data={topClients} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="totalRevenue">
+                            {topClients.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                    </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                    {topClients.map((client, index) => (
+                        <div key={client.name} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                <span className="truncate max-w-[120px] font-medium">{client.name}</span>
+                            </div>
+                            <span className="text-muted-foreground">{formatCurrency(client.totalRevenue)}</span>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+         <Card className="md:col-span-1">
+            <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Klien Paling Menguntungkan</CardTitle><CardDescription>Berdasarkan laba bersih proyek.</CardDescription></CardHeader>
             <CardContent>
                 {topClients.length > 0 ? (
                     <Table>
@@ -221,6 +273,22 @@ const Dashboard = () => {
                         </TableBody>
                     </Table>
                 ) : <p className="text-sm text-muted-foreground text-center py-4">Belum ada data keuntungan.</p>}
+            </CardContent>
+        </Card>
+        <Card className="md:col-span-2">
+            <CardHeader><CardTitle>Performa Bulanan</CardTitle><CardDescription>Perbandingan bulanan pendapatan vs pengeluaran.</CardDescription></CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
+                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                        <Legend />
+                        <Bar dataKey="revenue" name="Pendapatan" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expense" name="Pengeluaran" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
             </CardContent>
         </Card>
       </div>

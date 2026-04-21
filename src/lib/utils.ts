@@ -13,3 +13,22 @@ export const formatCurrency = (amount: number) => {
     maximumFractionDigits: 0,
   });
 };
+
+export const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case 'Diterima':
+    case 'Lunas':
+    case 'Completed':
+      return 'default';
+    case 'Terkirim':
+    case 'Ongoing':
+    case 'Pending':
+      return 'secondary';
+    case 'Ditolak':
+    case 'Jatuh Tempo':
+      return 'destructive';
+    case 'Draf':
+    default:
+      return 'outline';
+  }
+};

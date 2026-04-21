@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useMidtransSnap from '@/hooks/useMidtransSnap';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { cn, getStatusVariant } from '@/lib/utils';
 
 declare global {
     interface Window {
@@ -119,26 +120,12 @@ const PublicInvoiceView = () => {
     html2canvas(input, { scale: 1.5, useCORS: true })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / pdfWidth;
-        const imgHeight = canvasHeight / ratio;
-        let heightLeft = imgHeight;
-        let position = 0;
+        const pdfWidth = 210; // A4 width in mm
+        const ratio = canvas.width / pdfWidth;
+        const pdfHeight = canvas.height / ratio;
 
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-          position -= pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-        
+        const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`Faktur-${invoice.invoice_number || invoice.id}.pdf`);
       })
       .finally(() => {
