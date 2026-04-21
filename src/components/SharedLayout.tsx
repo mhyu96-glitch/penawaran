@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CircleUser, FileText, LayoutDashboard, Package, Users, Settings, Receipt, User, Wallet, AreaChart, TrendingUp, Menu, FolderKanban, Wand2, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import NotificationBell from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 import { GlobalSearch } from './GlobalSearch';
@@ -11,6 +12,7 @@ import MobileFAB from './MobileFAB';
 
 const SharedLayout = () => {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -34,7 +36,7 @@ const SharedLayout = () => {
       <header className="bg-background border-b sticky top-0 z-30 print:hidden">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-8 gap-4">
           <div className="flex items-center gap-4">
-            <Sheet>
+            <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shrink-0 md:hidden">
                   <Menu className="h-5 w-5" />
@@ -42,28 +44,41 @@ const SharedLayout = () => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left">
+                <SheetHeader className="text-left mb-6">
+                  <SheetTitle>Navigation Menu</SheetTitle>
+                  <SheetDescription>Access all sections of the application.</SheetDescription>
+                </SheetHeader>
                 <nav className="grid gap-6 text-lg font-medium">
-                  <Link to="/dashboard" className="flex items-center gap-2 text-lg font-semibold mb-4">
+                  <Link 
+                    to="/dashboard" 
+                    className="flex items-center gap-2 text-lg font-semibold mb-4"
+                    onClick={() => setOpen(false)}
+                  >
                     <FileText className="h-6 w-6 text-primary" />
                     <span>QuoteApp</span>
                   </Link>
                   {navLinks.map(link => (
-                    <Link key={link.to} to={link.to} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary">
+                    <Link 
+                      key={link.to} 
+                      to={link.to} 
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
+                      onClick={() => setOpen(false)}
+                    >
                       <link.icon className="h-4 w-4" />
                       {link.label}
                     </Link>
                   ))}
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="justify-start px-3 py-2 -ml-3 text-muted-foreground font-medium text-lg">
+                        <Button variant="ghost" className="justify-start px-3 py-2 -ml-3 text-muted-foreground font-medium text-lg w-full">
                             <AreaChart className="mr-3 h-4 w-4"/>Laporan
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        <DropdownMenuItem asChild><Link to="/reports"><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
-                        <DropdownMenuItem asChild><Link to="/reports/profitability"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
-                        <DropdownMenuItem asChild><Link to="/reports/profit-loss"><TrendingUp className="mr-2 h-4 w-4"/>Laporan Laba Rugi</Link></DropdownMenuItem>
-                        <DropdownMenuItem asChild><Link to="/reports/expenses"><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports" onClick={() => setOpen(false)}><AreaChart className="mr-2 h-4 w-4"/>Laporan Keuangan</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profitability" onClick={() => setOpen(false)}><TrendingUp className="mr-2 h-4 w-4"/>Laporan Profitabilitas</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/profit-loss" onClick={() => setOpen(false)}><TrendingUp className="mr-2 h-4 w-4"/>Laporan Laba Rugi</Link></DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to="/reports/expenses" onClick={() => setOpen(false)}><Wallet className="mr-2 h-4 w-4"/>Laporan Pengeluaran</Link></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 </nav>
