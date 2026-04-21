@@ -29,6 +29,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // DnD Imports
 import {
@@ -75,12 +76,14 @@ const SortableItemRow = ({
   item, 
   index, 
   handleItemChange, 
-  removeItem 
+  removeItem,
+  isMobile
 }: { 
   item: Item; 
   index: number; 
   handleItemChange: (index: number, field: keyof Item, value: any) => void; 
   removeItem: (index: number) => void;
+  isMobile: boolean;
 }) => {
   const {
     attributes,
@@ -98,8 +101,79 @@ const SortableItemRow = ({
     position: isDragging ? 'relative' as const : undefined,
   };
 
-  // Pastikan konversi ke number untuk pengecekan yang akurat
   const isSectionHeader = Number(item.quantity) === 0;
+
+  if (isMobile) {
+    return (
+      <div 
+        ref={setNodeRef} 
+        style={style} 
+        className={cn(
+          "relative mb-4 p-4 rounded-lg border bg-card shadow-sm",
+          isDragging && "opacity-50 z-50",
+          isSectionHeader ? "border-l-4 border-l-blue-500 bg-blue-50/30" : "bg-background"
+        )}
+      >
+        <div className="flex items-center justify-between mb-3 border-b pb-2 gap-2">
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </Button>
+                {isSectionHeader && <Heading className="h-4 w-4 text-blue-500" />}
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {isSectionHeader ? 'Kategori' : `Item #${index + 1}`}
+                </span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(index)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+        </div>
+
+        <div className="space-y-4">
+            <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Deskripsi</Label>
+                <Input 
+                  placeholder={isSectionHeader ? "Nama Kategori (misal: Kamera, Jasa, dll)" : "Deskripsi Item"} 
+                  value={item.description} 
+                  onChange={e => handleItemChange(index, 'description', e.target.value)} 
+                  className={cn("w-full", isSectionHeader && "font-bold border-blue-200 focus-visible:ring-blue-500 text-base")}
+                />
+            </div>
+
+            {!isSectionHeader && (
+                <>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground text-center block">Jumlah</Label>
+                            <Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center text-base" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground block">Satuan</Label>
+                            <Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} className="w-full text-base" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground text-right block">Harga Modal</Label>
+                            <Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right text-base" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground text-right block">Harga Jual</Label>
+                            <Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right font-medium border-primary/20 focus-visible:ring-primary text-base" />
+                        </div>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t flex justify-between items-center bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase">Total Item</span>
+                        <span className="font-bold text-primary">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</span>
+                    </div>
+                </>
+            )}
+        </div>
+      </div>
+    );
+  }
 
   if (isSectionHeader) {
     return (
@@ -157,6 +231,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Sensors for DnD
   const sensors = useSensors(
@@ -505,15 +580,35 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           <Separator />
           <div className="space-y-4">
             <h3 className="font-semibold">Barang & Jasa</h3>
-            <div className="rounded-md border overflow-x-auto">
+            <div className={cn("rounded-md", !isMobile && "border overflow-x-auto")}>
               <DndContext 
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
               >
-                <Table>
-                  <TableHeader><TableRow><TableHead className="w-[50px] text-center"></TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
-                  <TableBody>
+                {!isMobile ? (
+                  <Table>
+                    <TableHeader><TableRow><TableHead className="w-[50px] text-center"></TableHead><TableHead className="min-w-[200px]">Deskripsi</TableHead><TableHead className="w-[100px] text-center">Jumlah</TableHead><TableHead className="w-[100px]">Satuan</TableHead><TableHead className="w-[150px] text-right">Harga Modal</TableHead><TableHead className="w-[150px] text-right">Harga Jual</TableHead><TableHead className="w-[150px] text-right">Total</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      <SortableContext 
+                        items={items.map(i => i.uid)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {items.map((item, index) => (
+                          <SortableItemRow 
+                            key={item.uid}
+                            item={item}
+                            index={index}
+                            handleItemChange={handleItemChange}
+                            removeItem={removeItem}
+                            isMobile={false}
+                          />
+                        ))}
+                      </SortableContext>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="space-y-4">
                     <SortableContext 
                       items={items.map(i => i.uid)}
                       strategy={verticalListSortingStrategy}
@@ -525,11 +620,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                           index={index}
                           handleItemChange={handleItemChange}
                           removeItem={removeItem}
+                          isMobile={true}
                         />
                       ))}
                     </SortableContext>
-                  </TableBody>
-                </Table>
+                  </div>
+                )}
               </DndContext>
             </div>
             <div className="flex flex-wrap gap-2">
