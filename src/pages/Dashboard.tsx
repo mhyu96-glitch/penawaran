@@ -196,10 +196,9 @@ const Dashboard = () => {
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
   const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
 
-  // Show mobile dashboard for mobile devices OR force mobile for testing
-  if (isMobile || window.innerWidth < 1200) {
-    return <MobileDashboard />;
-  }
+  // TEMPORARY: Force mobile dashboard for all users to test
+  console.log('Forcing mobile dashboard for testing');
+  return <MobileDashboard />;
 
   if (loading) {
     return (
