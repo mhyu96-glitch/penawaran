@@ -51,6 +51,10 @@ type Payment = {
 const Dashboard = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  
+  // Debug mobile detection
+  console.log('Dashboard - isMobile:', isMobile, 'window.innerWidth:', typeof window !== 'undefined' ? window.innerWidth : 'undefined');
+  
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -192,21 +196,18 @@ const Dashboard = () => {
   const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
   const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
 
+  // Show mobile dashboard for mobile devices OR force mobile for testing
+  if (isMobile || window.innerWidth < 1200) {
+    return <MobileDashboard />;
+  }
+
   if (loading) {
-    if (isMobile) {
-      return <MobileDashboard />;
-    }
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
         <div className="grid gap-4 md:grid-cols-3"><Skeleton className="h-80 md:col-span-2" /><Skeleton className="h-80" /></div>
       </div>
     );
-  }
-
-  // Show mobile dashboard for mobile devices
-  if (isMobile) {
-    return <MobileDashboard />;
   }
 
   return (
