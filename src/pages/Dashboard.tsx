@@ -201,6 +201,8 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
+        {/* Force cache bust with timestamp */}
+        <div className="hidden">{Date.now()}</div>
         <DashboardDebug />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4"><LayoutDashboard className="h-8 w-8 text-muted-foreground" /><h1 className="text-3xl font-bold">Dashboard</h1></div>
