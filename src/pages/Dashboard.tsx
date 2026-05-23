@@ -15,7 +15,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import DashboardDebug from '@/components/DashboardDebug';
+import MobileDashboard from '@/components/MobileDashboard';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type Quote = {
   id: string;
@@ -49,6 +50,7 @@ type Payment = {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -191,6 +193,9 @@ const Dashboard = () => {
   const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
 
   if (loading) {
+    if (isMobile) {
+      return <MobileDashboard />;
+    }
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
@@ -199,11 +204,15 @@ const Dashboard = () => {
     );
   }
 
+  // Show mobile dashboard for mobile devices
+  if (isMobile) {
+    return <MobileDashboard />;
+  }
+
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
         {/* Force cache bust with timestamp */}
         <div className="hidden">{Date.now()}</div>
-        <DashboardDebug />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4"><LayoutDashboard className="h-8 w-8 text-muted-foreground" /><h1 className="text-3xl font-bold">Dashboard</h1></div>
             <Popover>
