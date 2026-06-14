@@ -1,17 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/SessionContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { Copy, Eye, FileText, MoreVertical, Pencil, PlusCircle, Search, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,18 +13,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { showError, showSuccess } from '@/utils/toast';
-import { Badge } from '@/components/ui/badge';
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '@/contexts/SessionContext';
+import { supabase } from '@/integrations/supabase/client';
 import { getStatusVariant } from '@/lib/utils';
+import { showError, showSuccess } from '@/utils/toast';
 
 type Quote = {
   id: string;
@@ -41,8 +40,10 @@ type Quote = {
   to_client: string;
   created_at: string;
   status: string;
-  project_id?: string;
+  project_id?: string | null;
 };
+
+const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
 
 const QuoteList = () => {
   const { user } = useAuth();
@@ -50,26 +51,28 @@ const QuoteList = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProject, setSelectedProject] = useState('all');
 
   const fetchQuotes = async () => {
     if (!user) return;
     setLoading(true);
+
     const { data, error } = await supabase
       .from('quotes')
-      .select('id, quote_number, to_client, created_at, status')
+      .select('id, quote_number, to_client, created_at, status, project_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching quotes:', error);
+      showError('Gagal memuat daftar penawaran.');
     } else {
       setQuotes(data as Quote[]);
     }
 
-    const { data: projData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
-    if (projData) setProjects(projData);
+    const { data: projectData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
+    if (projectData) setProjects(projectData);
 
     setLoading(false);
   };
@@ -78,17 +81,34 @@ const QuoteList = () => {
     fetchQuotes();
   }, [user]);
 
+  const stats = useMemo(
+    () => ({
+      total: quotes.length,
+      sent: quotes.filter((quote) => quote.status === 'Terkirim').length,
+      accepted: quotes.filter((quote) => quote.status === 'Diterima').length,
+      draft: quotes.filter((quote) => !quote.status || quote.status === 'Draf').length,
+    }),
+    [quotes]
+  );
+
+  const filteredQuotes = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return quotes.filter((quote) => {
+      const matchesSearch =
+        (quote.quote_number || '').toLowerCase().includes(term) || (quote.to_client || '').toLowerCase().includes(term);
+      const matchesProject = selectedProject === 'all' || quote.project_id === selectedProject;
+      return matchesSearch && matchesProject;
+    });
+  }, [quotes, searchTerm, selectedProject]);
+
   const handleStatusChange = async (quoteId: string, status: string) => {
-    const { error } = await supabase
-      .from('quotes')
-      .update({ status })
-      .eq('id', quoteId);
+    const { error } = await supabase.from('quotes').update({ status }).eq('id', quoteId);
 
     if (error) {
       showError('Gagal memperbarui status.');
     } else {
       showSuccess('Status berhasil diperbarui.');
-      setQuotes(quotes.map(q => q.id === quoteId ? { ...q, status } : q));
+      setQuotes((current) => current.map((quote) => (quote.id === quoteId ? { ...quote, status } : quote)));
     }
   };
 
@@ -99,16 +119,12 @@ const QuoteList = () => {
       showError('Gagal menghapus penawaran.');
     } else {
       showSuccess('Penawaran berhasil dihapus.');
-      setQuotes(quotes.filter(q => q.id !== quoteId));
+      setQuotes((current) => current.filter((quote) => quote.id !== quoteId));
     }
   };
 
   const handleDuplicateQuote = async (quoteId: string) => {
-    const { data: originalQuote, error } = await supabase
-      .from('quotes')
-      .select('*, quote_items(*)')
-      .eq('id', quoteId)
-      .single();
+    const { data: originalQuote, error } = await supabase.from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
 
     if (error || !originalQuote) {
       showError('Gagal memuat data untuk duplikasi.');
@@ -118,17 +134,15 @@ const QuoteList = () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, created_at, quote_number, ...newQuoteData } = originalQuote;
 
-    const payload = {
-      ...newQuoteData,
-      status: 'Draf',
-      quote_date: new Date().toISOString(),
-      valid_until: null,
-      quote_number: null, // Will be auto-generated on the edit page
-    };
-
     const { data: newQuote, error: insertError } = await supabase
       .from('quotes')
-      .insert(payload)
+      .insert({
+        ...newQuoteData,
+        status: 'Draf',
+        quote_date: new Date().toISOString(),
+        valid_until: null,
+        quote_number: null,
+      })
       .select()
       .single();
 
@@ -137,7 +151,7 @@ const QuoteList = () => {
       return;
     }
 
-    if (originalQuote.quote_items && originalQuote.quote_items.length > 0) {
+    if (originalQuote.quote_items?.length > 0) {
       const newItems = originalQuote.quote_items.map(({ id: itemId, quote_id, ...item }) => ({
         ...item,
         quote_id: newQuote.id,
@@ -153,38 +167,19 @@ const QuoteList = () => {
     navigate(`/quote/edit/${newQuote.id}`);
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Diterima': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Ditolak': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
-    }
-  };
-
-  const quoteStatuses = ['Draf', 'Terkirim', 'Diterima', 'Ditolak'];
-
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter(q => {
-        const matchesSearch = (q.quote_number || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             (q.to_client || "").toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesProject = selectedProject === "all" || q.project_id === selectedProject;
-        return matchesSearch && matchesProject;
-    });
-  }, [quotes, searchTerm, selectedProject]);
-
   const renderStatusDropdown = (quote: Quote) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="p-0 h-auto">
-          <Badge variant={getStatusVariant(quote.status)} className="cursor-pointer">{quote.status || 'Draf'}</Badge>
+        <Button variant="ghost" className="h-auto p-0">
+          <Badge variant={getStatusVariant(quote.status)} className="cursor-pointer">
+            {quote.status || 'Draf'}
+          </Badge>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {quoteStatuses.map(status => (
+        {quoteStatuses.map((status) => (
           <DropdownMenuItem key={status} onClick={() => handleStatusChange(quote.id, status)}>
             {status}
           </DropdownMenuItem>
@@ -193,129 +188,178 @@ const QuoteList = () => {
     </DropdownMenu>
   );
 
-  const renderActions = (quote: Quote) => (
-    <>
-      <DropdownMenuItem asChild><Link to={`/quote/${quote.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
-      <DropdownMenuItem asChild><Link to={`/quote/edit/${quote.id}`}><Pencil className="mr-2 h-4 w-4" />Edit</Link></DropdownMenuItem>
-      <DropdownMenuItem onClick={() => handleDuplicateQuote(quote.id)}><Copy className="mr-2 h-4 w-4" />Duplikat</DropdownMenuItem>
-      <AlertDialogTrigger asChild>
-        <DropdownMenuItem className="text-red-600"><Trash2 className="mr-2 h-4 w-4" />Hapus</DropdownMenuItem>
-      </AlertDialogTrigger>
-    </>
+  const renderActionMenu = (quote: Quote) => (
+    <AlertDialog>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-4 w-4" />
+            <span className="sr-only">Buka aksi</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link to={`/quote/${quote.id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              Lihat
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to={`/quote/edit/${quote.id}`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDuplicateQuote(quote.id)}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplikat
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem className="text-red-600">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Hapus
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Hapus penawaran?</AlertDialogTitle>
+          <AlertDialogDescription>Tindakan ini akan menghapus penawaran secara permanen dari database.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={() => handleDeleteQuote(quote.id)}>Hapus</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <FileText className="h-7 w-7" />
-              <CardTitle className="text-3xl">Penawaran Saya</CardTitle>
-            </div>
-            <CardDescription>Lihat dan kelola semua penawaran Anda di sini.</CardDescription>
+    <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-6 lg:p-8">
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            <FileText className="h-4 w-4" />
+            Dokumen penawaran
           </div>
-          <Button asChild>
-            <Link to="/quote/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Buat Penawaran Baru
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari nomor penawaran atau klien..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Penawaran</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Kelola draft, penawaran terkirim, dan status persetujuan klien.</p>
+        </div>
+        <Button asChild>
+          <Link to="/quote/new">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Buat Penawaran
+          </Link>
+        </Button>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Total', stats.total],
+          ['Terkirim', stats.sent],
+          ['Diterima', stats.accepted],
+          ['Draf', stats.draft],
+        ].map(([label, value]) => (
+          <Card key={label} className="border-0 shadow-sm ring-1 ring-border/70">
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">{label}</div>
+              <div className="mt-1 text-2xl font-semibold">{value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <Card className="border-0 shadow-sm ring-1 ring-border/70">
+        <CardHeader className="gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Daftar penawaran</CardTitle>
+            <CardDescription>{filteredQuotes.length} dari {quotes.length} dokumen tampil.</CardDescription>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative min-w-0 sm:w-80">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Cari nomor atau klien..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
             </div>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Semua Proyek" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Semua Proyek</SelectItem>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
+              <SelectTrigger className="sm:w-56">
+                <SelectValue placeholder="Semua Proyek" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Proyek</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
+        </CardHeader>
+        <CardContent>
           {loading ? (
             <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full" />
+              ))}
             </div>
           ) : quotes.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Anda belum membuat penawaran apa pun.</p>
+            <div className="rounded-lg border border-dashed p-10 text-center">
+              <p className="text-sm text-muted-foreground">Belum ada penawaran.</p>
               <Button asChild variant="link">
-                <Link to="/quote/new">Mulai buat penawaran pertama Anda</Link>
+                <Link to="/quote/new">Buat penawaran pertama</Link>
               </Button>
             </div>
           ) : (
             <>
-              {/* Desktop View */}
-              <div className="hidden md:block">
+              <div className="hidden overflow-hidden rounded-lg border md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nomor Penawaran</TableHead>
+                      <TableHead>Nomor</TableHead>
                       <TableHead>Klien</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Tanggal Dibuat</TableHead>
-                      <TableHead className="text-right">Aksi</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead className="w-[140px] text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredQuotes.map((quote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quote_number || 'N/A'}</TableCell>
-                        <TableCell>{quote.to_client}</TableCell>
+                        <TableCell>{quote.to_client || '-'}</TableCell>
                         <TableCell>{renderStatusDropdown(quote)}</TableCell>
-                        <TableCell>{format(new Date(quote.created_at), 'PPP', { locale: localeId })}</TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button asChild variant="outline" size="icon"><Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link></Button>
-                          <Button asChild variant="outline" size="icon"><Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link></Button>
-                          <Button variant="outline" size="icon" onClick={() => handleDuplicateQuote(quote.id)}><Copy className="h-4 w-4" /></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuote(quote.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
+                        <TableCell>{format(new Date(quote.created_at), 'dd MMM yyyy', { locale: localeId })}</TableCell>
+                        <TableCell className="text-right">{renderActionMenu(quote)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-              {/* Mobile View */}
-              <div className="md:hidden space-y-4">
-                {filteredQuotes.map(quote => (
-                  <Card key={quote.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle>{quote.quote_number || 'N/A'}</CardTitle>
-                          <CardDescription>{quote.to_client}</CardDescription>
-                        </div>
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">{renderActions(quote)}</DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteQuote(quote.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+
+              <div className="grid gap-3 md:hidden">
+                {filteredQuotes.map((quote) => (
+                  <div key={quote.id} className="rounded-lg border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link to={`/quote/${quote.id}`} className="truncate font-semibold hover:underline">
+                          {quote.quote_number || 'N/A'}
+                        </Link>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">{quote.to_client || '-'}</p>
                       </div>
-                    </CardHeader>
-                    <CardFooter className="flex justify-between text-sm">
+                      {renderActionMenu(quote)}
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3">
                       {renderStatusDropdown(quote)}
-                      <span className="text-muted-foreground">{format(new Date(quote.created_at), 'dd MMM yyyy')}</span>
-                    </CardFooter>
-                  </Card>
+                      <span className="text-xs text-muted-foreground">{format(new Date(quote.created_at), 'dd MMM yyyy')}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </>

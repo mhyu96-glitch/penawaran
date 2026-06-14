@@ -33,6 +33,7 @@ import ProjectList from "./pages/ProjectList";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProfitLossReport from "./pages/ProfitLossReport";
 import Automation from "./pages/Automation";
+import PWAStatus from "./components/PWAStatus";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <PWAStatus />
         <BrowserRouter>
           <AuthProvider>
             <Routes>

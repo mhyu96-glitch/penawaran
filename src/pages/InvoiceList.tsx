@@ -1,17 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/SessionContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Search, Landmark } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { AlertTriangle, Eye, MoreVertical, Pencil, PlusCircle, Receipt, Search, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,18 +13,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { showError, showSuccess } from '@/utils/toast';
-import { Badge } from '@/components/ui/badge';
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '@/contexts/SessionContext';
+import { supabase } from '@/integrations/supabase/client';
 import { getStatusVariant } from '@/lib/utils';
+import { showError, showSuccess } from '@/utils/toast';
 
 type Invoice = {
   id: string;
@@ -42,23 +41,26 @@ type Invoice = {
   created_at: string;
   status: string;
   due_date: string;
-  project_id?: string;
+  project_id?: string | null;
 };
+
+const invoiceStatuses = ['Draf', 'Terkirim', 'Lunas', 'Jatuh Tempo'];
 
 const InvoiceList = () => {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProject, setSelectedProject] = useState('all');
 
   const fetchInvoices = async () => {
     if (!user) return;
     setLoading(true);
+
     const { data, error } = await supabase
       .from('invoices')
-      .select('id, invoice_number, to_client, created_at, status, due_date')
+      .select('id, invoice_number, to_client, created_at, status, due_date, project_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -69,8 +71,8 @@ const InvoiceList = () => {
       setInvoices(data as Invoice[]);
     }
 
-    const { data: projData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
-    if (projData) setProjects(projData);
+    const { data: projectData } = await supabase.from('projects').select('id, name').eq('user_id', user.id);
+    if (projectData) setProjects(projectData);
 
     setLoading(false);
   };
@@ -79,17 +81,34 @@ const InvoiceList = () => {
     fetchInvoices();
   }, [user]);
 
+  const stats = useMemo(
+    () => ({
+      total: invoices.length,
+      sent: invoices.filter((invoice) => invoice.status === 'Terkirim').length,
+      paid: invoices.filter((invoice) => invoice.status === 'Lunas').length,
+      overdue: invoices.filter((invoice) => invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date))).length,
+    }),
+    [invoices]
+  );
+
+  const filteredInvoices = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return invoices.filter((invoice) => {
+      const matchesSearch =
+        (invoice.invoice_number || '').toLowerCase().includes(term) || (invoice.to_client || '').toLowerCase().includes(term);
+      const matchesProject = selectedProject === 'all' || invoice.project_id === selectedProject;
+      return matchesSearch && matchesProject;
+    });
+  }, [invoices, searchTerm, selectedProject]);
+
   const handleStatusChange = async (invoiceId: string, status: string) => {
-    const { error } = await supabase
-      .from('invoices')
-      .update({ status })
-      .eq('id', invoiceId);
+    const { error } = await supabase.from('invoices').update({ status }).eq('id', invoiceId);
 
     if (error) {
       showError('Gagal memperbarui status faktur.');
     } else {
       showSuccess('Status faktur berhasil diperbarui.');
-      setInvoices(invoices.map(i => i.id === invoiceId ? { ...i, status } : i));
+      setInvoices((current) => current.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status } : invoice)));
     }
   };
 
@@ -100,168 +119,207 @@ const InvoiceList = () => {
       showError('Gagal menghapus faktur.');
     } else {
       showSuccess('Faktur berhasil dihapus.');
-      setInvoices(invoices.filter(i => i.id !== invoiceId));
-    }
-  };
-  
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Lunas': return 'default';
-      case 'Terkirim': return 'secondary';
-      case 'Jatuh Tempo': return 'destructive';
-      case 'Draf': return 'outline';
-      default: return 'outline';
+      setInvoices((current) => current.filter((invoice) => invoice.id !== invoiceId));
     }
   };
 
-  const invoiceStatuses = ['Draf', 'Terkirim', 'Lunas', 'Jatuh Tempo'];
+  const renderStatusDropdown = (invoice: Invoice) => {
+    const isOverdue = invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date));
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-auto p-0">
+            <Badge variant={isOverdue ? 'destructive' : getStatusVariant(invoice.status)} className="cursor-pointer">
+              {isOverdue ? 'Jatuh Tempo' : invoice.status || 'Draf'}
+            </Badge>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {invoiceStatuses.map((status) => (
+            <DropdownMenuItem key={status} onClick={() => handleStatusChange(invoice.id, status)}>
+              {status}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter(i => {
-        const matchesSearch = (i.invoice_number || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             (i.to_client || "").toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesProject = selectedProject === "all" || i.project_id === selectedProject;
-        return matchesSearch && matchesProject;
-    });
-  }, [invoices, searchTerm, selectedProject]);
-
-  const renderStatusDropdown = (invoice: Invoice) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="p-0 h-auto">
-          <Badge variant={getStatusVariant(invoice.status)} className="cursor-pointer">{invoice.status || 'Draf'}</Badge>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {invoiceStatuses.map(status => (
-          <DropdownMenuItem key={status} onClick={() => handleStatusChange(invoice.id, status)}>
-            {status}
+  const renderActionMenu = (invoice: Invoice) => (
+    <AlertDialog>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-4 w-4" />
+            <span className="sr-only">Buka aksi</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link to={`/invoice/${invoice.id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              Lihat
+            </Link>
           </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
-  const renderActions = (invoice: Invoice) => (
-    <>
-      <DropdownMenuItem asChild><Link to={`/invoice/${invoice.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
-      <DropdownMenuItem asChild><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="mr-2 h-4 w-4" />Edit</Link></DropdownMenuItem>
-      <AlertDialogTrigger asChild>
-        <DropdownMenuItem className="text-red-600"><Trash2 className="mr-2 h-4 w-4" />Hapus</DropdownMenuItem>
-      </AlertDialogTrigger>
-    </>
+          <DropdownMenuItem asChild>
+            <Link to={`/invoice/edit/${invoice.id}`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem className="text-red-600">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Hapus
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Hapus faktur?</AlertDialogTitle>
+          <AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen dari database.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)}>Hapus</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <Receipt className="h-7 w-7" />
-              <CardTitle className="text-3xl">Faktur Saya</CardTitle>
-            </div>
-            <CardDescription>Kelola semua faktur Anda di sini.</CardDescription>
+    <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-6 lg:p-8">
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+            <Receipt className="h-4 w-4" />
+            Dokumen penagihan
           </div>
-          <Button asChild>
-            <Link to="/invoice/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Buat Faktur Baru
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari nomor faktur atau klien..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Faktur</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Pantau faktur, status pembayaran, dan tanggal jatuh tempo.</p>
+        </div>
+        <Button asChild>
+          <Link to="/invoice/new">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Buat Faktur
+          </Link>
+        </Button>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Total', stats.total],
+          ['Terkirim', stats.sent],
+          ['Lunas', stats.paid],
+          ['Jatuh Tempo', stats.overdue],
+        ].map(([label, value]) => (
+          <Card key={label} className="border-0 shadow-sm ring-1 ring-border/70">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">{label}</div>
+                {label === 'Jatuh Tempo' && <AlertTriangle className="h-4 w-4 text-red-500" />}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <Card className="border-0 shadow-sm ring-1 ring-border/70">
+        <CardHeader className="gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Daftar faktur</CardTitle>
+            <CardDescription>{filteredInvoices.length} dari {invoices.length} dokumen tampil.</CardDescription>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative min-w-0 sm:w-80">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Cari nomor atau klien..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
             </div>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Semua Proyek" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Semua Proyek</SelectItem>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
+              <SelectTrigger className="sm:w-56">
+                <SelectValue placeholder="Semua Proyek" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Proyek</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
+        </CardHeader>
+        <CardContent>
           {loading ? (
             <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full" />
+              ))}
             </div>
           ) : invoices.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Anda belum membuat faktur apa pun.</p>
+            <div className="rounded-lg border border-dashed p-10 text-center">
+              <p className="text-sm text-muted-foreground">Belum ada faktur.</p>
+              <Button asChild variant="link">
+                <Link to="/invoice/new">Buat faktur pertama</Link>
+              </Button>
             </div>
           ) : (
             <>
-              {/* Desktop View */}
-              <div className="hidden md:block">
+              <div className="hidden overflow-hidden rounded-lg border md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nomor Faktur</TableHead>
+                      <TableHead>Nomor</TableHead>
                       <TableHead>Klien</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Jatuh Tempo</TableHead>
-                      <TableHead className="text-right">Aksi</TableHead>
+                      <TableHead className="w-[120px] text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">{invoice.invoice_number || 'N/A'}</TableCell>
-                        <TableCell>{invoice.to_client}</TableCell>
+                        <TableCell>{invoice.to_client || '-'}</TableCell>
                         <TableCell>{renderStatusDropdown(invoice)}</TableCell>
-                        <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'PPP', { locale: localeId }) : 'N/A'}</TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
-                          <Button asChild variant="outline" size="icon"><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="h-4 w-4" /></Link></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen.</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
+                        <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy', { locale: localeId }) : '-'}</TableCell>
+                        <TableCell className="text-right">{renderActionMenu(invoice)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-              {/* Mobile View */}
-              <div className="md:hidden space-y-4">
-                {filteredInvoices.map(invoice => (
-                  <Card key={invoice.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle>{invoice.invoice_number || 'N/A'}</CardTitle>
-                          <CardDescription>{invoice.to_client}</CardDescription>
-                        </div>
-                        <AlertDialog>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">{renderActions(invoice)}</DropdownMenuContent>
-                          </DropdownMenu>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus faktur secara permanen.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+
+              <div className="grid gap-3 md:hidden">
+                {filteredInvoices.map((invoice) => (
+                  <div key={invoice.id} className="rounded-lg border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link to={`/invoice/${invoice.id}`} className="truncate font-semibold hover:underline">
+                          {invoice.invoice_number || 'N/A'}
+                        </Link>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">{invoice.to_client || '-'}</p>
                       </div>
-                    </CardHeader>
-                    <CardFooter className="flex justify-between text-sm">
+                      {renderActionMenu(invoice)}
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3">
                       {renderStatusDropdown(invoice)}
-                      <span className="text-muted-foreground">Jatuh Tempo: {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : 'N/A'}</span>
-                    </CardFooter>
-                  </Card>
+                      <span className="text-xs text-muted-foreground">
+                        {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : '-'}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </>

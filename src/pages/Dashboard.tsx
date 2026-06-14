@@ -1,27 +1,51 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/SessionContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, LayoutDashboard, Wallet, TrendingUp, Users } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, CartesianGrid } from 'recharts';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay } from 'date-fns';
+import { addDays, differenceInDays, eachDayOfInterval, format, isPast, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Calendar as CalendarIcon,
+  Clock,
+  FilePlus2,
+  FileText,
+  LayoutDashboard,
+  PlusCircle,
+  Receipt,
+  TrendingUp,
+  Users,
+  Wallet,
+} from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '@/contexts/SessionContext';
+import { supabase } from '@/integrations/supabase/client';
 import { cn, formatCurrency } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import MobileDashboard from '@/components/MobileDashboard';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 type Quote = {
   id: string;
   status: string;
-  quote_items: { quantity: number; unit_price: number; cost_price: number; }[];
+  quote_items: { quantity: number; unit_price: number; cost_price: number }[];
   to_client: string;
   created_at: string;
   clients: { name: string } | null;
@@ -29,32 +53,71 @@ type Quote = {
 };
 
 type Invoice = {
-    id: string;
-    status: string;
-    due_date: string;
-    to_client: string;
-    discount_amount: number;
-    tax_amount: number;
-    invoice_items: { quantity: number; unit_price: number; }[];
+  id: string;
+  status: string;
+  due_date: string;
+  to_client: string;
+  discount_amount: number;
+  tax_amount: number;
+  invoice_items: { quantity: number; unit_price: number }[];
 };
 
 type Expense = {
-    amount: number;
-    expense_date: string;
+  amount: number;
+  expense_date: string;
 };
 
 type Payment = {
-    amount: number;
-    payment_date: string;
+  amount: number;
+  payment_date: string;
+};
+
+const chartColors = ['#059669', '#2563eb', '#f59e0b', '#ef4444', '#7c3aed'];
+
+const compactNumber = (value: number) =>
+  new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value);
+
+const MetricCard = ({
+  title,
+  value,
+  description,
+  icon: Icon,
+  tone,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  icon: typeof TrendingUp;
+  tone: 'emerald' | 'blue' | 'amber' | 'red' | 'violet';
+}) => {
+  const tones = {
+    emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+    blue: 'bg-blue-50 text-blue-700 ring-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900',
+    amber: 'bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
+    red: 'bg-red-50 text-red-700 ring-red-100 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900',
+    violet: 'bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:ring-violet-900',
+  };
+
+  return (
+    <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-border/70">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="mt-2 truncate text-2xl font-semibold tracking-tight">{value}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          </div>
+          <div className={cn('rounded-lg p-2 ring-1', tones[tone])}>
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const isMobile = useIsMobile();
-  
-  // Debug mobile detection
-  console.log('Dashboard - isMobile:', isMobile, 'window.innerWidth:', typeof window !== 'undefined' ? window.innerWidth : 'undefined');
-  
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -73,8 +136,15 @@ const Dashboard = () => {
       const fromDate = date?.from ? date.from.toISOString() : undefined;
       const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
 
-      const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
-      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
+      const quoteQuery = supabase
+        .from('quotes')
+        .select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      const invoiceQuery = supabase
+        .from('invoices')
+        .select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)')
+        .eq('user_id', user.id);
       const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
 
@@ -87,13 +157,22 @@ const Dashboard = () => {
         paymentQuery.lt('payment_date', toDate);
       }
 
-      const [quoteRes, invoiceRes, expenseRes, paymentRes] = await Promise.all([quoteQuery, invoiceQuery, expenseQuery, paymentQuery]);
+      const [quoteRes, invoiceRes, expenseRes, paymentRes] = await Promise.all([
+        quoteQuery,
+        invoiceQuery,
+        expenseQuery,
+        paymentQuery,
+      ]);
 
-      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
-      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
-      if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
-      if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(paymentRes.data as Payment[]);
-      
+      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error);
+      else setQuotes(quoteRes.data as Quote[]);
+      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error);
+      else setInvoices(invoiceRes.data as Invoice[]);
+      if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error);
+      else setExpenses(expenseRes.data as Expense[]);
+      if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error);
+      else setPayments(paymentRes.data as Payment[]);
+
       setLoading(false);
     };
 
@@ -101,234 +180,390 @@ const Dashboard = () => {
   }, [user, date]);
 
   const { totalProfit, acceptedQuotesCount } = useMemo(() => {
-    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
+    const acceptedQuotes = quotes.filter((quote) => quote.status === 'Diterima');
     const profit = acceptedQuotes.reduce((acc, quote) => {
-      const quoteProfit = quote.quote_items.reduce((qAcc, item) => qAcc + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
+      const quoteProfit = quote.quote_items.reduce(
+        (qAcc, item) => qAcc + item.quantity * (item.unit_price - (item.cost_price || 0)),
+        0
+      );
       return acc + quoteProfit;
     }, 0);
     return { totalProfit: profit, acceptedQuotesCount: acceptedQuotes.length };
   }, [quotes]);
 
-  const totalExpenses = useMemo(() => expenses.reduce((acc, exp) => acc + exp.amount, 0), [expenses]);
+  const totalExpenses = useMemo(() => expenses.reduce((acc, expense) => acc + expense.amount, 0), [expenses]);
+  const totalPayments = useMemo(() => payments.reduce((acc, payment) => acc + payment.amount, 0), [payments]);
   const netProfit = totalProfit - totalExpenses;
 
   const invoiceStats = useMemo(() => {
     let unpaidAmount = 0;
     let overdueAmount = 0;
-    invoices.forEach(invoice => {
-        if (invoice.status !== 'Lunas') {
-            const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-            const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
-            unpaidAmount += total;
-            if (invoice.due_date && isPast(new Date(invoice.due_date))) {
-                overdueAmount += total;
-            }
+    let overdueCount = 0;
+
+    invoices.forEach((invoice) => {
+      if (invoice.status !== 'Lunas') {
+        const subtotal = invoice.invoice_items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
+        const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
+        unpaidAmount += total;
+
+        if (invoice.due_date && isPast(new Date(invoice.due_date))) {
+          overdueAmount += total;
+          overdueCount += 1;
         }
+      }
     });
-    return { unpaidAmount, overdueAmount };
+
+    return { unpaidAmount, overdueAmount, overdueCount };
   }, [invoices]);
 
   const quoteConversionRate = useMemo(() => {
-    const sentOrAcceptedQuotes = quotes.filter(q => q.status === 'Terkirim' || q.status === 'Diterima' || q.status === 'Ditolak');
-    if (sentOrAcceptedQuotes.length === 0) return 0;
-    const acceptedCount = quotes.filter(q => q.status === 'Diterima').length;
-    return (acceptedCount / sentOrAcceptedQuotes.length) * 100;
+    const finishedQuotes = quotes.filter((quote) => ['Terkirim', 'Diterima', 'Ditolak'].includes(quote.status));
+    if (finishedQuotes.length === 0) return 0;
+    return (quotes.filter((quote) => quote.status === 'Diterima').length / finishedQuotes.length) * 100;
   }, [quotes]);
 
   const financialChartData = useMemo(() => {
     if (!date?.from || !date?.to) return [];
     const days = eachDayOfInterval({ start: date.from, end: date.to });
-    return days.map(day => {
-        const formattedDate = format(day, 'dd MMM');
-        const dayStart = startOfDay(day);
 
-        const dailyRevenue = payments
-            .filter(p => startOfDay(new Date(p.payment_date)).getTime() === dayStart.getTime())
-            .reduce((sum, p) => sum + p.amount, 0);
+    return days.map((day) => {
+      const dayStart = startOfDay(day);
+      const Pendapatan = payments
+        .filter((payment) => startOfDay(new Date(payment.payment_date)).getTime() === dayStart.getTime())
+        .reduce((sum, payment) => sum + payment.amount, 0);
+      const Pengeluaran = expenses
+        .filter((expense) => startOfDay(new Date(expense.expense_date)).getTime() === dayStart.getTime())
+        .reduce((sum, expense) => sum + expense.amount, 0);
 
-        const dailyExpenses = expenses
-            .filter(e => startOfDay(new Date(e.expense_date)).getTime() === dayStart.getTime())
-            .reduce((sum, e) => sum + e.amount, 0);
-
-        return { name: formattedDate, Pendapatan: dailyRevenue, Pengeluaran: dailyExpenses };
+      return { name: format(day, 'dd MMM'), Pendapatan, Pengeluaran };
     });
   }, [payments, expenses, date]);
 
   const topClients = useMemo(() => {
     const clientProfit: Record<string, { name: string; totalProfit: number; totalRevenue: number }> = {};
-    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
 
-    acceptedQuotes.forEach(quote => {
-        const clientId = quote.client_id;
+    quotes
+      .filter((quote) => quote.status === 'Diterima')
+      .forEach((quote) => {
+        const clientId = quote.client_id || quote.to_client;
         const clientName = quote.clients?.name || quote.to_client;
         if (!clientProfit[clientId]) {
-            clientProfit[clientId] = { name: clientName, totalProfit: 0, totalRevenue: 0 };
+          clientProfit[clientId] = { name: clientName, totalProfit: 0, totalRevenue: 0 };
         }
-        const quoteRevenue = quote.quote_items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-        const quoteProfit = quote.quote_items.reduce((sum, item) => sum + (item.quantity * (item.unit_price - (item.cost_price || 0))), 0);
-        clientProfit[clientId].totalRevenue += quoteRevenue;
-        clientProfit[clientId].totalProfit += quoteProfit;
-    });
 
-    return Object.values(clientProfit).sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
+        clientProfit[clientId].totalRevenue += quote.quote_items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+        clientProfit[clientId].totalProfit += quote.quote_items.reduce(
+          (sum, item) => sum + item.quantity * (item.unit_price - (item.cost_price || 0)),
+          0
+        );
+      });
+
+    return Object.values(clientProfit)
+      .sort((a, b) => b.totalProfit - a.totalProfit)
+      .slice(0, 5);
   }, [quotes]);
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   const monthlyData = useMemo(() => {
     const months: Record<string, { name: string; revenue: number; expense: number }> = {};
-    
-    payments.forEach(p => {
-        const month = format(new Date(p.payment_date), 'MMM yyyy');
-        if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
-        months[month].revenue += p.amount;
+
+    payments.forEach((payment) => {
+      const month = format(new Date(payment.payment_date), 'MMM yyyy');
+      if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
+      months[month].revenue += payment.amount;
     });
 
-    expenses.forEach(e => {
-        const month = format(new Date(e.expense_date), 'MMM yyyy');
-        if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
-        months[month].expense += e.amount;
+    expenses.forEach((expense) => {
+      const month = format(new Date(expense.expense_date), 'MMM yyyy');
+      if (!months[month]) months[month] = { name: month, revenue: 0, expense: 0 };
+      months[month].expense += expense.amount;
     });
 
-    return Object.values(months).slice(-6); // Last 6 months
+    return Object.values(months).slice(-6);
   }, [payments, expenses]);
 
-  const pendingQuotes = useMemo(() => quotes.filter(q => q.status === 'Terkirim').slice(0, 5), [quotes]);
-  const overdueInvoices = useMemo(() => invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isPast(new Date(inv.due_date))).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5), [invoices]);
-
-  // TEMPORARY: Force mobile dashboard for all users to test
-  console.log('Forcing mobile dashboard for testing');
-  return <MobileDashboard />;
+  const pendingQuotes = useMemo(() => quotes.filter((quote) => quote.status === 'Terkirim').slice(0, 5), [quotes]);
+  const overdueInvoices = useMemo(
+    () =>
+      invoices
+        .filter((invoice) => invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date)))
+        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+        .slice(0, 5),
+    [invoices]
+  );
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 md:p-8 space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
-        <div className="grid gap-4 md:grid-cols-3"><Skeleton className="h-80 md:col-span-2" /><Skeleton className="h-80" /></div>
+      <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-6 lg:p-8">
+        <Skeleton className="h-40 rounded-xl" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-32 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          <Skeleton className="h-96 rounded-xl xl:col-span-2" />
+          <Skeleton className="h-96 rounded-xl" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 space-y-6">
-        {/* Force cache bust with timestamp */}
-        <div className="hidden">{Date.now()}</div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center gap-4"><LayoutDashboard className="h-8 w-8 text-muted-foreground" /><h1 className="text-3xl font-bold">Dashboard</h1></div>
+    <div className="mx-auto max-w-[1500px] space-y-6 p-4 sm:p-6 lg:p-8">
+      <section className="overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-slate-950">
+        <div className="grid gap-6 p-5 lg:grid-cols-[1fr_360px] lg:p-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              <LayoutDashboard className="h-4 w-4" />
+              Pusat kendali bisnis
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard operasional</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Pantau penawaran, faktur, pembayaran, dan pengeluaran dari satu layar yang siap dipakai di komputer maupun PWA.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button asChild>
+                <Link to="/quote/new">
+                  <FilePlus2 className="mr-2 h-4 w-4" />
+                  Buat Penawaran
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/invoice/new">
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Buat Faktur
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/clients">
+                  <Users className="mr-2 h-4 w-4" />
+                  Kelola Klien
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-slate-50 p-4 dark:bg-slate-900/50">
+            <div className="text-sm font-medium">Rentang laporan</div>
             <Popover>
-                <PopoverTrigger asChild><Button id="date" variant={"outline"} className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>Pilih rentang tanggal</span>)}</Button></PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end"><Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/></PopoverContent>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date"
+                  variant="outline"
+                  className={cn('mt-3 w-full justify-start text-left font-normal', !date && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, 'dd MMM yyyy', { locale: localeId })} - {format(date.to, 'dd MMM yyyy', { locale: localeId })}
+                      </>
+                    ) : (
+                      format(date.from, 'dd MMM yyyy', { locale: localeId })
+                    )
+                  ) : (
+                    <span>Pilih tanggal</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
+              </PopoverContent>
             </Popover>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg bg-white p-3 ring-1 ring-border dark:bg-slate-950">
+                <div className="text-muted-foreground">Diterima</div>
+                <div className="mt-1 text-xl font-semibold">{acceptedQuotesCount}</div>
+              </div>
+              <div className="rounded-lg bg-white p-3 ring-1 ring-border dark:bg-slate-950">
+                <div className="text-muted-foreground">Overdue</div>
+                <div className="mt-1 text-xl font-semibold text-red-600">{invoiceStats.overdueCount}</div>
+              </div>
+            </div>
+          </div>
         </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Keuntungan Bersih</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(netProfit)}</div><p className="text-xs text-muted-foreground">Dari {acceptedQuotesCount} penawaran</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div><p className="text-xs text-muted-foreground">Dalam rentang waktu</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Belum Dibayar</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.unpaidAmount)}</div><p className="text-xs text-muted-foreground">Dari semua faktur aktif</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tagihan Jatuh Tempo</CardTitle><AlertCircle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(invoiceStats.overdueAmount)}</div><p className="text-xs text-muted-foreground">Total faktur terlambat</p></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tingkat Konversi</CardTitle><TrendingUp className="h-4 w-4 text-purple-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{quoteConversionRate.toFixed(1)}%</div><p className="text-xs text-muted-foreground">Penawaran diterima</p></CardContent></Card>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader><CardTitle>Tren Keuangan Harian</CardTitle><CardDescription>Pendapatan vs. Pengeluaran dalam rentang waktu yang dipilih.</CardDescription></CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard title="Profit Bersih" value={formatCurrency(netProfit)} description={`${acceptedQuotesCount} penawaran diterima`} icon={TrendingUp} tone="emerald" />
+        <MetricCard title="Pembayaran Masuk" value={formatCurrency(totalPayments)} description="Dalam rentang tanggal" icon={Receipt} tone="blue" />
+        <MetricCard title="Pengeluaran" value={formatCurrency(totalExpenses)} description="Biaya tercatat" icon={Wallet} tone="amber" />
+        <MetricCard title="Belum Dibayar" value={formatCurrency(invoiceStats.unpaidAmount)} description="Semua faktur aktif" icon={Clock} tone="violet" />
+        <MetricCard title="Jatuh Tempo" value={formatCurrency(invoiceStats.overdueAmount)} description={`${invoiceStats.overdueCount} faktur terlambat`} icon={AlertCircle} tone="red" />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        <Card className="border-0 shadow-sm ring-1 ring-border/70 xl:col-span-2">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>Arus kas harian</CardTitle>
+              <CardDescription>Pendapatan dan pengeluaran dalam rentang terpilih.</CardDescription>
+            </div>
+            <Badge variant="outline">{quoteConversionRate.toFixed(1)}% konversi</Badge>
+          </CardHeader>
+          <CardContent className="pl-0 sm:pl-2">
+            <ResponsiveContainer width="100%" height={340}>
               <LineChart data={financialChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => compactNumber(value as number)} />
                 <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                <Legend />
-                <Line type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 8 }} />
-                <Line type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="Pendapatan" stroke="#059669" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="Pengeluaran" stroke="#f59e0b" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2">Porsi Pendapatan Client</CardTitle><CardDescription>Berdasarkan total nilai proyek.</CardDescription></CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                        <Pie data={topClients} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="totalRevenue">
-                            {topClients.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                    </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-4 space-y-2">
-                    {topClients.map((client, index) => (
-                        <div key={client.name} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                <span className="truncate max-w-[120px] font-medium">{client.name}</span>
-                            </div>
-                            <span className="text-muted-foreground">{formatCurrency(client.totalRevenue)}</span>
-                        </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-         <Card className="md:col-span-1">
-            <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Klien Paling Menguntungkan</CardTitle><CardDescription>Berdasarkan laba bersih proyek.</CardDescription></CardHeader>
-            <CardContent>
-                {topClients.length > 0 ? (
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Laba</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {topClients.map(client => (
-                                <TableRow key={client.name}><TableCell className="font-medium">{client.name}</TableCell><TableCell className="text-right">{formatCurrency(client.totalProfit)}</TableCell></TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                ) : <p className="text-sm text-muted-foreground text-center py-4">Belum ada data keuntungan.</p>}
-            </CardContent>
-        </Card>
-        <Card className="md:col-span-2">
-            <CardHeader><CardTitle>Performa Bulanan</CardTitle><CardDescription>Perbandingan bulanan pendapatan vs pengeluaran.</CardDescription></CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value as number)} />
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                        <Legend />
-                        <Bar dataKey="revenue" name="Pendapatan" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="expense" name="Pengeluaran" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+        <Card className="border-0 shadow-sm ring-1 ring-border/70">
+          <CardHeader>
+            <CardTitle>Klien terbaik</CardTitle>
+            <CardDescription>Berdasarkan revenue penawaran diterima.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topClients.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={210}>
+                  <PieChart>
+                    <Pie data={topClients} cx="50%" cy="50%" innerRadius={56} outerRadius={82} paddingAngle={4} dataKey="totalRevenue">
+                      {topClients.map((client, index) => (
+                        <Cell key={client.name} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  </PieChart>
                 </ResponsiveContainer>
-            </CardContent>
+                <div className="space-y-2">
+                  {topClients.map((client, index) => (
+                    <div key={client.name} className="flex items-center justify-between gap-3 text-sm">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index % chartColors.length] }} />
+                        <span className="truncate font-medium">{client.name}</span>
+                      </div>
+                      <span className="shrink-0 text-muted-foreground">{formatCurrency(client.totalRevenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada penawaran diterima.</div>
+            )}
+          </CardContent>
         </Card>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-            <CardHeader><CardTitle>Faktur Jatuh Tempo</CardTitle><CardDescription>Faktur yang telah melewati tanggal jatuh tempo.</CardDescription></CardHeader>
-            <CardContent>
-                {overdueInvoices.length > 0 ? (
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Terlambat</TableHead></TableRow></TableHeader>
-                        <TableBody>{overdueInvoices.map(inv => (<TableRow key={inv.id}><TableCell><Link to={`/invoice/${inv.id}`} className="font-medium hover:underline">{inv.to_client}</Link></TableCell><TableCell className="text-right"><Badge variant="destructive">{differenceInDays(new Date(), new Date(inv.due_date))} hari</Badge></TableCell></TableRow>))}</TableBody>
-                    </Table>
-                ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada faktur jatuh tempo.</p>}
-            </CardContent>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        <Card className="border-0 shadow-sm ring-1 ring-border/70 xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Performa bulanan</CardTitle>
+            <CardDescription>Ringkasan pendapatan dan pengeluaran 6 bulan terakhir.</CardDescription>
+          </CardHeader>
+          <CardContent className="pl-0 sm:pl-2">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => compactNumber(value as number)} />
+                <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                <Bar dataKey="revenue" name="Pendapatan" fill="#059669" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="expense" name="Pengeluaran" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
-        <Card>
-            <CardHeader><CardTitle>Penawaran Tertunda</CardTitle><CardDescription>Penawaran yang menunggu respons klien.</CardDescription></CardHeader>
-            <CardContent>
-                {pendingQuotes.length > 0 ? (
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Klien</TableHead><TableHead className="text-right">Dikirim</TableHead></TableRow></TableHeader>
-                        <TableBody>{pendingQuotes.map(q => (<TableRow key={q.id}><TableCell><Link to={`/quote/${q.id}`} className="font-medium hover:underline">{q.to_client}</Link></TableCell><TableCell className="text-right">{format(new Date(q.created_at), 'PPP', { locale: localeId })}</TableCell></TableRow>))}</TableBody>
-                    </Table>
-                ) : <p className="text-sm text-muted-foreground text-center py-4">Tidak ada penawaran yang tertunda.</p>}
-            </CardContent>
+
+        <Card className="border-0 shadow-sm ring-1 ring-border/70">
+          <CardHeader>
+            <CardTitle>Aksi cepat</CardTitle>
+            <CardDescription>Jalur cepat untuk pekerjaan harian.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {[
+              { to: '/quote/new', icon: PlusCircle, label: 'Buat penawaran baru' },
+              { to: '/invoice/new', icon: Receipt, label: 'Buat faktur baru' },
+              { to: '/expenses', icon: Wallet, label: 'Input pengeluaran' },
+              { to: '/reports', icon: ArrowUpRight, label: 'Buka laporan' },
+            ].map((action) => (
+              <Button key={action.to} asChild variant="outline" className="h-12 justify-start">
+                <Link to={action.to}>
+                  <action.icon className="mr-2 h-4 w-4" />
+                  {action.label}
+                </Link>
+              </Button>
+            ))}
+          </CardContent>
         </Card>
-      </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card className="border-0 shadow-sm ring-1 ring-border/70">
+          <CardHeader>
+            <CardTitle>Faktur jatuh tempo</CardTitle>
+            <CardDescription>Prioritas penagihan yang perlu ditindaklanjuti.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {overdueInvoices.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Klien</TableHead>
+                    <TableHead className="text-right">Terlambat</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {overdueInvoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell>
+                        <Link to={`/invoice/${invoice.id}`} className="font-medium hover:underline">
+                          {invoice.to_client}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="destructive">{differenceInDays(new Date(), new Date(invoice.due_date))} hari</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Tidak ada faktur jatuh tempo.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm ring-1 ring-border/70">
+          <CardHeader>
+            <CardTitle>Penawaran menunggu respons</CardTitle>
+            <CardDescription>Dokumen terkirim yang belum mendapat keputusan.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pendingQuotes.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Klien</TableHead>
+                    <TableHead className="text-right">Dikirim</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingQuotes.map((quote) => (
+                    <TableRow key={quote.id}>
+                      <TableCell>
+                        <Link to={`/quote/${quote.id}`} className="font-medium hover:underline">
+                          {quote.to_client}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right">{format(new Date(quote.created_at), 'dd MMM yyyy', { locale: localeId })}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Tidak ada penawaran tertunda.</div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 };
