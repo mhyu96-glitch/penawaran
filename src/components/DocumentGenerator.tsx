@@ -496,6 +496,10 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     if (docType === 'invoice') docPayload[config.fields[3]] = downPaymentAmount;
 
     let currentDocId = id;
+    let createdNewDocument = false;
+    const previousItemIds = isEditMode
+      ? items.map(item => item.id).filter((itemId): itemId is string => Boolean(itemId))
+      : [];
 
     if (isEditMode) {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
@@ -504,7 +508,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         setIsSubmitting(false); 
         return; 
       }
-      await supabase.from(config.itemTable).delete().match({ [config.foreignKey]: id });
     } else {
       const { data, error } = await supabase.from(config.table).insert(docPayload).select().single();
       if (error || !data) { 
@@ -513,6 +516,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         return; 
       }
       currentDocId = data.id;
+      createdNewDocument = true;
     }
 
     const itemsPayload = items
@@ -522,12 +526,36 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             [config.foreignKey]: currentDocId
         }));
     
+    let insertedItemIds: string[] = [];
     if (itemsPayload.length > 0) {
-      const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
-      if (error) { 
+      const { data: insertedItems, error } = await supabase
+        .from(config.itemTable)
+        .insert(itemsPayload)
+        .select('id');
+      if (error) {
+        if (createdNewDocument && currentDocId) {
+          await supabase.from(config.table).delete().eq('id', currentDocId);
+        }
         showError(`Gagal menyimpan item: ${error.message}`); 
         setIsSubmitting(false); 
         return; 
+      }
+      insertedItemIds = (insertedItems || []).map((item: { id: string }) => item.id);
+    }
+
+    if (isEditMode && previousItemIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from(config.itemTable)
+        .delete()
+        .in('id', previousItemIds);
+
+      if (deleteError) {
+        if (insertedItemIds.length > 0) {
+          await supabase.from(config.itemTable).delete().in('id', insertedItemIds);
+        }
+        showError(`Gagal mengganti item lama: ${deleteError.message}`);
+        setIsSubmitting(false);
+        return;
       }
     }
 

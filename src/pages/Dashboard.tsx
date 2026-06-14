@@ -7,12 +7,12 @@ import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, Lay
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
-import { format, addDays, isPast, differenceInDays, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth, isValid } from 'date-fns';
+import { format, addDays, differenceInDays, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth, isValid } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency, safeFormat, safeFormatDistance, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { cn, formatCurrency, safeFormat, safeFormatDistance, calculateSubtotal, calculateTotal, calculateItemTotal, isDateBeforeToday } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -87,8 +87,8 @@ const Dashboard = () => {
       if (!user) return;
       setLoading(true);
 
-      const fromDate = date?.from ? date.from.toISOString() : undefined;
-      const toDate = date?.to ? addDays(date.to, 1).toISOString() : undefined;
+      const fromDate = date?.from ? startOfDay(date.from).toISOString() : undefined;
+      const toDate = date?.to ? startOfDay(addDays(date.to, 1)).toISOString() : undefined;
 
       const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
       const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
@@ -100,10 +100,14 @@ const Dashboard = () => {
       const stockQuery = supabase.from('items').select('id, description, stock, min_stock_alert, unit').eq('user_id', user.id).eq('track_stock', true);
 
       if (fromDate) {
+        quoteQuery.gte('quote_date', fromDate);
+        invoiceQuery.gte('invoice_date', fromDate);
         expenseQuery.gte('expense_date', fromDate);
         paymentQuery.gte('payment_date', fromDate);
       }
       if (toDate) {
+        quoteQuery.lt('quote_date', toDate);
+        invoiceQuery.lt('invoice_date', toDate);
         expenseQuery.lt('expense_date', toDate);
         paymentQuery.lt('payment_date', toDate);
       }
@@ -169,11 +173,8 @@ const Dashboard = () => {
             unpaidAmount += total;
             
             // Safe date check
-            if (invoice.due_date) {
-                const dueDate = new Date(invoice.due_date);
-                if (isValid(dueDate) && isPast(dueDate)) {
-                    overdueAmount += total;
-                }
+            if (isDateBeforeToday(invoice.due_date)) {
+                overdueAmount += total;
             }
         }
     });
@@ -223,8 +224,7 @@ const Dashboard = () => {
       return invoices
         .filter(inv => {
             if (inv.status === 'Lunas' || !inv.due_date) return false;
-            const d = new Date(inv.due_date);
-            return isValid(d) && isPast(d);
+            return isDateBeforeToday(inv.due_date);
         })
         .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
         .slice(0, 5);

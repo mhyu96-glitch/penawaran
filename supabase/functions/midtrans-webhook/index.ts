@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
     );
 
     // 1. Ambil invoice untuk mendapatkan user_id
-    const { data: invoice } = await supabaseAdmin.from('invoices').select('user_id, invoice_number, to_client').eq('id', invoiceId).single();
+    const { data: invoice } = await supabaseAdmin
+      .from('invoices')
+      .select('user_id, invoice_number, to_client, discount_amount, tax_amount, down_payment_amount, invoice_items(quantity, unit_price), payments(amount, status, notes)')
+      .eq('id', invoiceId)
+      .single();
     
     if (!invoice) {
         console.error(`Invoice with id ${invoiceId} not found.`);
@@ -52,18 +56,10 @@ Deno.serve(async (req) => {
     
     if (!midtransServerKey) throw new Error('Midtrans server key is not configured for this user');
 
-    // 3. Verify signature key using Web Crypto API
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(midtransServerKey),
-      { name: "HMAC", hash: "SHA-512" },
-      false,
-      ["sign"],
-    );
-    const signatureBuffer = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(order_id + status_code + gross_amount),
+    // Midtrans memakai SHA-512(order_id + status_code + gross_amount + server_key).
+    const signatureBuffer = await crypto.subtle.digest(
+      "SHA-512",
+      new TextEncoder().encode(order_id + status_code + gross_amount + midtransServerKey),
     );
     const hash = encodeToString(new Uint8Array(signatureBuffer));
 
@@ -71,31 +67,55 @@ Deno.serve(async (req) => {
       throw new Error('Invalid signature');
     }
 
-    let newStatus = null;
-    if (transaction_status == 'capture' || transaction_status == 'settlement') {
-      if (fraud_status == 'accept') {
-        newStatus = 'Lunas';
+    const isSuccessful =
+      transaction_status === 'settlement' ||
+      (transaction_status === 'capture' && fraud_status === 'accept');
+
+    if (isSuccessful) {
+      const duplicatePayment = (invoice.payments || []).some(
+        (payment: any) => payment.notes?.includes(`Order ID: ${order_id}`)
+      );
+
+      if (duplicatePayment) {
+        return new Response(JSON.stringify({ received: true, duplicate: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-    } else if (transaction_status == 'cancel' || transaction_status == 'deny' || transaction_status == 'expire') {
-      // Handle failed transactions if needed
-    }
 
-    if (newStatus === 'Lunas') {
-      // Update invoice status
-      await supabaseAdmin.from('invoices').update({ status: 'Lunas' }).eq('id', invoiceId);
+      const paymentAmount = Number.parseFloat(gross_amount);
+      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+        throw new Error('Invalid payment amount');
+      }
 
-      // Create payment record
-      await supabaseAdmin.from('payments').insert({
+      const { error: paymentError } = await supabaseAdmin.from('payments').insert({
         invoice_id: invoiceId,
         user_id: invoice.user_id,
-        amount: parseFloat(gross_amount),
+        amount: paymentAmount,
         payment_date: new Date().toISOString(),
-        notes: `Pembayaran online via Midtrans. Tipe: ${notification.payment_type}.`,
+        notes: `Pembayaran online via Midtrans. Order ID: ${order_id}. Tipe: ${notification.payment_type}.`,
         status: 'Lunas',
       });
+      if (paymentError) throw paymentError;
 
-      // Create notification
-      const message = `Pembayaran sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(parseFloat(gross_amount))} untuk faktur #${invoice.invoice_number} dari klien "${invoice.to_client}" telah berhasil.`;
+      const subtotal = (invoice.invoice_items || []).reduce(
+        (sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.unit_price || 0),
+        0,
+      );
+      const invoiceTotal = subtotal - Number(invoice.discount_amount || 0) + Number(invoice.tax_amount || 0);
+      const previousPayments = (invoice.payments || [])
+        .filter((payment: any) => payment.status === 'Lunas')
+        .reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
+      const cumulativePaid = previousPayments + Number(invoice.down_payment_amount || 0) + paymentAmount;
+
+      if (cumulativePaid >= invoiceTotal) {
+        const { error: statusError } = await supabaseAdmin
+          .from('invoices')
+          .update({ status: 'Lunas' })
+          .eq('id', invoiceId);
+        if (statusError) throw statusError;
+      }
+
+      const message = `Pembayaran sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(paymentAmount)} untuk faktur #${invoice.invoice_number} dari klien "${invoice.to_client}" telah berhasil.`;
       await supabaseAdmin.from('notifications').insert({
           user_id: invoice.user_id,
           message,

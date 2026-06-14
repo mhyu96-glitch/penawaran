@@ -4,32 +4,37 @@ const useMidtransSnap = (clientKey: string | null, isProduction: boolean) => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!clientKey) return;
-
-    // Cek jika script sudah ada
-    const scriptId = 'midtrans-script';
-    const existingScript = document.getElementById(scriptId);
-
-    if (existingScript) {
-      // Jika script sudah ada, cek apakah window.snap sudah siap
-      if (window.snap) {
-        setIsReady(true);
-      } else {
-        // Jika belum, tunggu load
-        existingScript.addEventListener('load', () => setIsReady(true));
-      }
+    if (!clientKey) {
+      setIsReady(false);
       return;
     }
 
-    // Tentukan URL script berdasarkan environment
+    const scriptId = 'midtrans-script';
     const scriptUrl = isProduction 
       ? 'https://app.midtrans.com/snap/snap.js'
       : 'https://app.sandbox.midtrans.com/snap/snap.js';
+    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    if (existingScript) {
+      const keyMatches = existingScript.dataset.clientKey === clientKey;
+      const environmentMatches = existingScript.src === scriptUrl;
+      if (keyMatches && environmentMatches) {
+        if (window.snap) {
+          setIsReady(true);
+        } else {
+          existingScript.addEventListener('load', () => setIsReady(true), { once: true });
+        }
+        return;
+      }
+      existingScript.remove();
+      setIsReady(false);
+    }
 
     const script = document.createElement('script');
     script.id = scriptId;
     script.src = scriptUrl;
     script.setAttribute('data-client-key', clientKey);
+    script.dataset.clientKey = clientKey;
     script.async = true;
     
     script.onload = () => {
@@ -39,8 +44,7 @@ const useMidtransSnap = (clientKey: string | null, isProduction: boolean) => {
     document.body.appendChild(script);
 
     return () => {
-      // Optional: Cleanup script if needed, but usually we keep it
-      // document.body.removeChild(script);
+      script.onload = null;
     };
   }, [clientKey, isProduction]);
 

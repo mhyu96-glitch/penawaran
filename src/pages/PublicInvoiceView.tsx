@@ -128,12 +128,13 @@ const PublicInvoiceView = () => {
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   
-  const totalPaid = useMemo(() => {
-    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
-    return paymentsAmount + (invoice?.down_payment_amount || 0);
-  }, [invoice]);
+  const settledPayments = useMemo(
+    () => invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0,
+    [invoice]
+  );
+  const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice]);
 
-  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+  const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
   const handleWhatsAppClick = () => {
     if (!invoice) return;
@@ -146,7 +147,7 @@ const PublicInvoiceView = () => {
     const phoneNumber = invoice.company_phone.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
 
-    let messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
+    const messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
     
     const message = messageTemplate
       .replace(/{client_name}/g, invoice.to_client)
@@ -385,7 +386,7 @@ const PublicInvoiceView = () => {
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
               {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
-              <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Pembayaran Tercatat</span><span>- {formatCurrency(settledPayments)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
             </div>
