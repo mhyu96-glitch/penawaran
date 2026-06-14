@@ -1,8 +1,21 @@
-const CACHE_NAME = 'quoteapp-shell-v1';
+const CACHE_NAME = 'quoteapp-shell-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(APP_SHELL);
+
+      const response = await fetch('/index.html');
+      if (!response.ok) return;
+
+      const html = await response.clone().text();
+      await cache.put('/index.html', response);
+      const assetPaths = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((match) => match[1]);
+      await Promise.all([...new Set(assetPaths)].map((assetPath) => cache.add(assetPath)));
+    })()
+  );
 });
 
 self.addEventListener('activate', (event) => {

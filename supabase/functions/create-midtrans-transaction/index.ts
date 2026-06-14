@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { data: invoice, error } = await supabaseAdmin
       .from('invoices')
-      .select('*, invoice_items(*), clients(email)')
+      .select('*, invoice_items(*), payments(amount, status), clients(email)')
       .eq('id', invoiceId)
       .single()
 
@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
 
     const subtotal = invoice.invoice_items.reduce((acc: number, item: any) => acc + item.quantity * item.unit_price, 0);
     const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
+    const paidAmount = (invoice.payments || [])
+      .filter((payment: { status: string }) => payment.status === 'Lunas')
+      .reduce((sum: number, payment: { amount: number }) => sum + Number(payment.amount || 0), 0);
+    const balanceDue = Math.max(0, total - (invoice.down_payment_amount || 0) - paidAmount);
+
+    if (balanceDue <= 0) throw new Error('Invoice is already fully paid');
 
     const midtransApiUrl = Deno.env.get('MIDTRANS_API_URL') ?? 'https://api.sandbox.midtrans.com/snap/v1/transactions';
     const midtransServerKey = Deno.env.get('MIDTRANS_SERVER_KEY');
@@ -40,19 +46,19 @@ Deno.serve(async (req) => {
     const transactionPayload = {
       transaction_details: {
         order_id: `${invoice.id}-${Date.now()}`, // Unique order ID for each attempt
-        gross_amount: Math.round(total),
+        gross_amount: Math.round(balanceDue),
       },
       customer_details: {
         first_name: invoice.to_client,
         email: invoice.clients?.email, // Get email from related client table
         phone: invoice.to_phone,
       },
-      item_details: invoice.invoice_items.map((item: any) => ({
-        id: item.id,
-        price: Math.round(item.unit_price),
-        quantity: item.quantity,
-        name: item.description.substring(0, 50),
-      })),
+      item_details: [{
+        id: invoice.id,
+        price: Math.round(balanceDue),
+        quantity: 1,
+        name: `Pembayaran ${invoice.invoice_number}`.substring(0, 50),
+      }],
       custom_field1: invoice.id, // Pass original invoice ID for webhook
     };
 

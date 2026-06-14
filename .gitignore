@@ -25,6 +25,7 @@ dist-ssr
 
 # Environment variables
 .env*
+!.env.example
 
 # Build output directories
 penawaran/

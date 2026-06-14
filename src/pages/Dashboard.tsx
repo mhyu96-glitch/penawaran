@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { addDays, differenceInDays, eachDayOfInterval, format, isPast, startOfDay } from 'date-fns';
+import { addDays, differenceInCalendarDays, eachDayOfInterval, format, parseISO, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import {
@@ -40,7 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, isDateBeforeToday } from '@/lib/utils';
 
 type Quote = {
   id: string;
@@ -149,10 +149,14 @@ const Dashboard = () => {
       const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
 
       if (fromDate) {
+        quoteQuery.gte('created_at', fromDate);
+        invoiceQuery.gte('created_at', fromDate);
         expenseQuery.gte('expense_date', fromDate);
         paymentQuery.gte('payment_date', fromDate);
       }
       if (toDate) {
+        quoteQuery.lt('created_at', toDate);
+        invoiceQuery.lt('created_at', toDate);
         expenseQuery.lt('expense_date', toDate);
         paymentQuery.lt('payment_date', toDate);
       }
@@ -206,7 +210,7 @@ const Dashboard = () => {
         const total = subtotal - (invoice.discount_amount || 0) + (invoice.tax_amount || 0);
         unpaidAmount += total;
 
-        if (invoice.due_date && isPast(new Date(invoice.due_date))) {
+        if (isDateBeforeToday(invoice.due_date)) {
           overdueAmount += total;
           overdueCount += 1;
         }
@@ -285,8 +289,8 @@ const Dashboard = () => {
   const overdueInvoices = useMemo(
     () =>
       invoices
-        .filter((invoice) => invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date)))
-        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+        .filter((invoice) => invoice.status !== 'Lunas' && isDateBeforeToday(invoice.due_date))
+        .sort((a, b) => parseISO(a.due_date).getTime() - parseISO(b.due_date).getTime())
         .slice(0, 5),
     [invoices]
   );
@@ -388,7 +392,7 @@ const Dashboard = () => {
         <MetricCard title="Profit Bersih" value={formatCurrency(netProfit)} description={`${acceptedQuotesCount} penawaran diterima`} icon={TrendingUp} tone="emerald" />
         <MetricCard title="Pembayaran Masuk" value={formatCurrency(totalPayments)} description="Dalam rentang tanggal" icon={Receipt} tone="blue" />
         <MetricCard title="Pengeluaran" value={formatCurrency(totalExpenses)} description="Biaya tercatat" icon={Wallet} tone="amber" />
-        <MetricCard title="Belum Dibayar" value={formatCurrency(invoiceStats.unpaidAmount)} description="Semua faktur aktif" icon={Clock} tone="violet" />
+        <MetricCard title="Belum Dibayar" value={formatCurrency(invoiceStats.unpaidAmount)} description="Dalam rentang tanggal" icon={Clock} tone="violet" />
         <MetricCard title="Jatuh Tempo" value={formatCurrency(invoiceStats.overdueAmount)} description={`${invoiceStats.overdueCount} faktur terlambat`} icon={AlertCircle} tone="red" />
       </section>
 
@@ -519,7 +523,7 @@ const Dashboard = () => {
                         </Link>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="destructive">{differenceInDays(new Date(), new Date(invoice.due_date))} hari</Badge>
+                        <Badge variant="destructive">{differenceInCalendarDays(startOfDay(new Date()), startOfDay(parseISO(invoice.due_date)))} hari</Badge>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -131,8 +131,7 @@ const QuoteList = () => {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, created_at, quote_number, ...newQuoteData } = originalQuote;
+    const { id, created_at, quote_number, quote_items, ...newQuoteData } = originalQuote;
 
     const { data: newQuote, error: insertError } = await supabase
       .from('quotes')
@@ -151,13 +150,14 @@ const QuoteList = () => {
       return;
     }
 
-    if (originalQuote.quote_items?.length > 0) {
-      const newItems = originalQuote.quote_items.map(({ id: itemId, quote_id, ...item }) => ({
+    if (quote_items?.length > 0) {
+      const newItems = quote_items.map(({ id: itemId, quote_id, ...item }) => ({
         ...item,
         quote_id: newQuote.id,
       }));
       const { error: itemsError } = await supabase.from('quote_items').insert(newItems);
       if (itemsError) {
+        await supabase.from('quotes').delete().eq('id', newQuote.id);
         showError('Gagal menduplikasi item penawaran.');
         return;
       }

@@ -24,6 +24,7 @@ import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager"; // Import the new component
 
 type Item = {
+  id?: string;
   description: string;
   quantity: number;
   unit: string;
@@ -262,6 +263,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
     let currentDocId = id;
 
+    const previousItemIds = isEditMode ? items.map(item => item.id).filter((itemId): itemId is string => Boolean(itemId)) : [];
+
     if (isEditMode) {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
       if (error) { 
@@ -270,7 +273,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         setIsSubmitting(false); 
         return; 
       }
-      await supabase.from(config.itemTable).delete().match({ [config.foreignKey]: id });
     } else {
       const { data, error } = await supabase.from(config.table).insert(docPayload).select().single();
       if (error || !data) { 
@@ -290,13 +292,31 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       cost_price: Number(item.cost_price) || 0,
       [config.foreignKey]: currentDocId,
     }));
+    let insertedItemIds: string[] = [];
     if (itemsPayload.length > 0) {
-      const { error } = await supabase.from(config.itemTable).insert(itemsPayload);
+      const { data: insertedItems, error } = await supabase.from(config.itemTable).insert(itemsPayload).select('id');
       if (error) { 
         showError(`Gagal menyimpan item.`); 
         console.error(`Error saving ${docType} items:`, error); // Specific error log for items
+        if (!isEditMode && currentDocId) {
+          await supabase.from(config.table).delete().eq('id', currentDocId);
+        }
         setIsSubmitting(false); 
         return; 
+      }
+      insertedItemIds = (insertedItems || []).map(item => item.id);
+    }
+
+    if (isEditMode && previousItemIds.length > 0) {
+      const { error: deleteError } = await supabase.from(config.itemTable).delete().in('id', previousItemIds);
+      if (deleteError) {
+        if (insertedItemIds.length > 0) {
+          await supabase.from(config.itemTable).delete().in('id', insertedItemIds);
+        }
+        showError(`Item lama gagal diperbarui dan tetap dipertahankan.`);
+        console.error(`Error removing old ${docType} items:`, deleteError);
+        setIsSubmitting(false);
+        return;
       }
     }
 

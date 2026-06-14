@@ -239,8 +239,12 @@ const InvoiceView = () => {
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => subtotal - discountAmount + taxAmount, [subtotal, discountAmount, taxAmount]);
   const profit = useMemo(() => total - totalCost - taxAmount, [total, totalCost, taxAmount]);
-  const totalPaid = useMemo(() => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0), [payments]);
-  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+  const settledPayments = useMemo(
+    () => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0),
+    [payments]
+  );
+  const totalPaid = settledPayments + (invoice?.down_payment_amount || 0);
+  const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
   useEffect(() => {
     if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas') {
@@ -367,7 +371,7 @@ const InvoiceView = () => {
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
               {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
-              <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
+               <div className="flex justify-between"><span className="text-muted-foreground">Pembayaran Lain</span><span>- {formatCurrency(settledPayments)}</span></div>
               <Separator />
               <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
               <div className="no-pdf">

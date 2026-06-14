@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, isPast } from 'date-fns';
+import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { AlertTriangle, Eye, MoreVertical, Pencil, PlusCircle, Receipt, Search, Trash2 } from 'lucide-react';
 import {
@@ -31,7 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { getStatusVariant } from '@/lib/utils';
+import { getStatusVariant, isDateBeforeToday } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 
 type Invoice = {
@@ -86,7 +86,7 @@ const InvoiceList = () => {
       total: invoices.length,
       sent: invoices.filter((invoice) => invoice.status === 'Terkirim').length,
       paid: invoices.filter((invoice) => invoice.status === 'Lunas').length,
-      overdue: invoices.filter((invoice) => invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date))).length,
+      overdue: invoices.filter((invoice) => invoice.status !== 'Lunas' && isDateBeforeToday(invoice.due_date)).length,
     }),
     [invoices]
   );
@@ -124,7 +124,7 @@ const InvoiceList = () => {
   };
 
   const renderStatusDropdown = (invoice: Invoice) => {
-    const isOverdue = invoice.status !== 'Lunas' && invoice.due_date && isPast(new Date(invoice.due_date));
+    const isOverdue = invoice.status !== 'Lunas' && isDateBeforeToday(invoice.due_date);
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

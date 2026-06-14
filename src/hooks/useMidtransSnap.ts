@@ -4,23 +4,31 @@ const useMidtransSnap = () => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Check if snap is already available
     if (window.snap) {
       setIsReady(true);
       return;
     }
 
-    // Poll for the snap script to be loaded, as it's now in index.html
-    const intervalId = setInterval(() => {
-      if (window.snap) {
-        setIsReady(true);
-        clearInterval(intervalId);
-      }
-    }, 500); // Check every 500ms
+    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+    if (!clientKey) {
+      console.error('VITE_MIDTRANS_CLIENT_KEY is not configured.');
+      return;
+    }
 
-    // Cleanup on component unmount
+    const production = import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true';
+    const script = document.createElement('script');
+    script.src = production
+      ? 'https://app.midtrans.com/snap/snap.js'
+      : 'https://app.sandbox.midtrans.com/snap/snap.js';
+    script.dataset.clientKey = clientKey;
+    script.async = true;
+    script.onload = () => setIsReady(Boolean(window.snap));
+    script.onerror = () => console.error('Midtrans Snap script failed to load.');
+    document.head.appendChild(script);
+
     return () => {
-      clearInterval(intervalId);
+      script.onload = null;
+      script.onerror = null;
     };
   }, []);
 

@@ -180,7 +180,7 @@ const PublicInvoiceView = () => {
   }, [invoice]);
 
   // Hitung sisa tagihan
-  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+  const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
