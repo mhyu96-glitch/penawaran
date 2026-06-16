@@ -103,6 +103,7 @@ const InvoiceView = () => {
     const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
     const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+    const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
     const invoiceRef = useRef<HTMLDivElement>(null);
 
     const fetchInvoiceData = async () => {
@@ -222,6 +223,26 @@ const InvoiceView = () => {
                 publicLink={`${window.location.origin}/invoice/public/${invoice.id}`}
                 onSend={fetchInvoiceData}
             />
+
+            <AlertDialog open={!!paymentToDelete} onOpenChange={(open) => !open && setPaymentToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Pembayaran?</AlertDialogTitle>
+                        <AlertDialogDescription>Data tidak bisa dikembalikan.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (paymentToDelete) handleDeletePayment(paymentToDelete.id);
+                                setPaymentToDelete(null);
+                            }}
+                        >
+                            Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Header Actions */}
             <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-2 print:hidden md:hidden">
@@ -409,34 +430,26 @@ const InvoiceView = () => {
                                                 </TableCell>
                                                 <TableCell className="text-right font-medium">{formatCurrency(p.amount)}</TableCell>
                                                 <TableCell>
-                                                    <AlertDialog>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                                {p.status === 'Pending' ? (
-                                                                    <>
-                                                                        <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</DropdownMenuItem>
-                                                                        <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')} className="text-red-600"><X className="mr-2 h-4 w-4" /> Tolak</DropdownMenuItem>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <DropdownMenuItem onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                                                                        {p.proof_url && <DropdownMenuItem asChild><a href={p.proof_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Bukti</a></DropdownMenuItem>}
-                                                                        <AlertDialogTrigger asChild>
-                                                                            <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
-                                                                        </AlertDialogTrigger>
-                                                                    </>
-                                                                )}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader><AlertDialogTitle>Hapus Pembayaran?</AlertDialogTitle><AlertDialogDescription>Data tidak bisa dikembalikan.</AlertDialogDescription></AlertDialogHeader>
-                                                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                            {p.status === 'Pending' ? (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')} className="text-red-600"><X className="mr-2 h-4 w-4" /> Tolak</DropdownMenuItem>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                                                                    {p.proof_url && <DropdownMenuItem asChild><a href={p.proof_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Bukti</a></DropdownMenuItem>}
+                                                                    <DropdownMenuItem className="text-red-600" onClick={() => setPaymentToDelete(p)}><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
