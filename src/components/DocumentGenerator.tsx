@@ -109,14 +109,14 @@ const SortableItemRow = ({
         ref={setNodeRef} 
         style={style} 
         className={cn(
-          "relative mb-4 p-4 rounded-lg border bg-card shadow-sm",
+          "relative mb-4 rounded-lg border bg-card p-3",
           isDragging && "opacity-50 z-50",
-          isSectionHeader ? "border-l-4 border-l-blue-500 bg-blue-50/30" : "bg-background"
+          isSectionHeader ? "border-blue-200 bg-blue-50/50" : "bg-background"
         )}
       >
-        <div className="flex items-center justify-between mb-3 border-b pb-2 gap-2">
+        <div className="mb-3 flex items-center justify-between gap-2 border-b pb-2">
             <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+                <Button variant="ghost" size="icon" className="h-10 w-10 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>
                 {isSectionHeader && <Heading className="h-4 w-4 text-blue-500" />}
@@ -124,7 +124,7 @@ const SortableItemRow = ({
                     {isSectionHeader ? 'Kategori' : `Item #${index + 1}`}
                 </span>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(index)}>
+            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => removeItem(index)}>
                 <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
         </div>
@@ -136,7 +136,7 @@ const SortableItemRow = ({
                   placeholder={isSectionHeader ? "Nama Kategori (misal: Kamera, Jasa, dll)" : "Deskripsi Item"} 
                   value={item.description} 
                   onChange={e => handleItemChange(index, 'description', e.target.value)} 
-                  className={cn("w-full", isSectionHeader && "font-bold border-blue-200 focus-visible:ring-blue-500 text-base")}
+                  className={cn("h-11 w-full text-base", isSectionHeader && "font-bold border-blue-200 focus-visible:ring-blue-500")}
                 />
             </div>
 
@@ -145,26 +145,26 @@ const SortableItemRow = ({
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground text-center block">Jumlah</Label>
-                            <Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="w-full text-center text-base" />
+                            <Input type="number" placeholder="1" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} className="h-11 w-full text-center text-base" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground block">Satuan</Label>
-                            <Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} className="w-full text-base" />
+                            <Input placeholder="Pcs" value={item.unit} onChange={e => handleItemChange(index, 'unit', e.target.value)} className="h-11 w-full text-base" />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground text-right block">Harga Modal</Label>
-                            <Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="w-full text-right text-base" />
+                            <Input type="number" placeholder="0" value={item.cost_price} onChange={e => handleItemChange(index, 'cost_price', e.target.value)} className="h-11 w-full text-right text-base" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground text-right block">Harga Jual</Label>
-                            <Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="w-full text-right font-medium border-primary/20 focus-visible:ring-primary text-base" />
+                            <Input type="number" placeholder="0" value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} className="h-11 w-full border-primary/20 text-right text-base font-medium focus-visible:ring-primary" />
                         </div>
                     </div>
 
-                    <div className="pt-2 mt-2 border-t flex justify-between items-center bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                    <div className="-mx-3 -mb-3 mt-2 flex items-center justify-between rounded-b-lg border-t bg-muted/20 px-3 py-3">
                         <span className="text-xs font-semibold text-muted-foreground uppercase">Total Item</span>
                         <span className="font-bold text-primary">{formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}</span>
                     </div>
@@ -566,8 +566,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 md:p-8">
-        <Card className="w-full max-w-4xl mx-auto"><CardHeader><Skeleton className="h-8 w-64" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent></Card>
+      <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-6 lg:px-8">
+        <Card className="mx-auto w-full max-w-4xl rounded-lg">
+          <CardHeader><Skeleton className="h-8 w-64" /></CardHeader>
+          <CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent>
+        </Card>
       </div>
     );
   }
@@ -575,35 +578,62 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const Icon = isEditMode ? config.icon : (docType === 'quote' ? FilePlus2 : ReceiptText);
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
+    <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-6 lg:px-8 lg:py-6">
       <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
-      <Card className="w-full max-w-5xl mx-auto">
-        <CardHeader className="flex flex-col md:flex-row justify-between items-start">
-          <div>
-            <div className="flex items-center gap-3"><Icon className="h-7 w-7" /><CardTitle className="text-3xl">{isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}</CardTitle></div>
-            <CardDescription>{isEditMode ? "Perbarui detail di bawah ini." : `Isi detail di bawah untuk membuat ${config.title} baru.`}</CardDescription>
+      <Card className="mx-auto w-full overflow-hidden rounded-lg">
+        <CardHeader className="space-y-4 border-b bg-card px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
+                    {isEditMode ? `Edit ${config.title}` : `Buat ${config.title} Baru`}
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {isEditMode ? "Perbarui detail dokumen." : "Isi detail dokumen dan item pekerjaan."}
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+            <TemplateManager type={docType} currentData={{ docTitle, items, terms, taxAmount, discountAmount }} onApplyTemplate={handleApplyTemplate} />
           </div>
-          <TemplateManager type={docType} currentData={{ docTitle, items, terms, taxAmount, discountAmount }} onApplyTemplate={handleApplyTemplate} />
         </CardHeader>
-        <CardContent className="space-y-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4"><h3 className="font-semibold">Dari:</h3><Input placeholder="Nama Perusahaan Anda" value={fromCompany} onChange={e => setFromCompany(e.target.value)} /><Textarea placeholder="Alamat Perusahaan Anda" value={fromAddress} onChange={e => setFromAddress(e.target.value)} /><Input placeholder="Website Perusahaan Anda" value={fromWebsite} onChange={e => setFromWebsite(e.target.value)} /></div>
-            <div className="space-y-4"><h3 className="font-semibold">Untuk:</h3><Select onValueChange={handleClientSelect} value={selectedClientId || undefined}><SelectTrigger><SelectValue placeholder="Pilih Klien yang Ada atau Isi Manual" /></SelectTrigger><SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent></Select><Input placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} /><Textarea placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} /><Input placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} /></div>
+        <CardContent className="space-y-6 px-4 py-5 sm:px-6 lg:space-y-8">
+          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+            <section className="space-y-3 rounded-lg border bg-background p-3 sm:p-4">
+              <h3 className="font-semibold">Dari</h3>
+              <Input className="h-11 text-base" placeholder="Nama Perusahaan Anda" value={fromCompany} onChange={e => setFromCompany(e.target.value)} />
+              <Textarea className="min-h-24 text-base" placeholder="Alamat Perusahaan Anda" value={fromAddress} onChange={e => setFromAddress(e.target.value)} />
+              <Input className="h-11 text-base" placeholder="Website Perusahaan Anda" value={fromWebsite} onChange={e => setFromWebsite(e.target.value)} />
+            </section>
+            <section className="space-y-3 rounded-lg border bg-background p-3 sm:p-4">
+              <h3 className="font-semibold">Untuk</h3>
+              <Select onValueChange={handleClientSelect} value={selectedClientId || undefined}>
+                <SelectTrigger className="h-11 text-base"><SelectValue placeholder="Pilih klien atau isi manual" /></SelectTrigger>
+                <SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent>
+              </Select>
+              <Input className="h-11 text-base" placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} />
+              <Textarea className="min-h-24 text-base" placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} />
+              <Input className="h-11 text-base" placeholder="Nomor Telepon Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} />
+            </section>
           </div>
           <Separator />
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-2"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2"><Label>Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger className="h-11 text-base"><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="h-11 text-base"><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
           </div>
           <div className="space-y-2">
             <Label>Judul / Perihal</Label>
-            <Input placeholder={`Contoh: Paket CCTV 4 Channel...`} value={docTitle} onChange={e => setDocTitle(e.target.value)} />
+            <Input className="h-11 text-base" placeholder={`Contoh: Paket CCTV 4 Channel...`} value={docTitle} onChange={e => setDocTitle(e.target.value)} />
             <p className="text-xs text-muted-foreground">Judul ini bisa digunakan di pesan WhatsApp.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2"><Label>{config.numberLabel}</Label><Input value={docNumber} onChange={e => setDocNumber(e.target.value)} /></div>
-            <div className="space-y-2"><Label>{config.dateLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !docDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{docDate ? safeFormat(docDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={docDate} onSelect={setDocDate} initialFocus /></PopoverContent></Popover></div>
-            <div className="space-y-2"><Label>{config.expiryLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !expiryDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{expiryDate ? safeFormat(expiryDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent></Popover></div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2"><Label>{config.numberLabel}</Label><Input className="h-11 text-base" value={docNumber} onChange={e => setDocNumber(e.target.value)} /></div>
+            <div className="space-y-2"><Label>{config.dateLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("h-11 w-full justify-start text-left font-normal", !docDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{docDate ? safeFormat(docDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={docDate} onSelect={setDocDate} initialFocus /></PopoverContent></Popover></div>
+            <div className="space-y-2"><Label>{config.expiryLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("h-11 w-full justify-start text-left font-normal", !expiryDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{expiryDate ? safeFormat(expiryDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent></Popover></div>
           </div>
           <Separator />
           <div className="space-y-4">
@@ -656,10 +686,10 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                 )}
               </DndContext>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={addItem}><PlusCircle className="mr-2 h-4 w-4" /> Tambah Item</Button>
-              <Button variant="secondary" size="sm" onClick={addSectionHeader} className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"><Heading className="mr-2 h-4 w-4 text-blue-600" /> Tambah Kategori</Button>
-              <Button variant="outline" size="sm" onClick={() => setIsItemLibraryOpen(true)}><Library className="mr-2 h-4 w-4" /> Pilih dari Pustaka</Button>
+            <div className="grid gap-2 sm:flex sm:flex-wrap">
+              <Button variant="outline" size="sm" className="h-11 justify-start sm:h-9" onClick={addItem}><PlusCircle className="h-4 w-4 sm:mr-2" /> Tambah Item</Button>
+              <Button variant="secondary" size="sm" className="h-11 justify-start border border-input bg-background hover:bg-accent hover:text-accent-foreground sm:h-9" onClick={addSectionHeader}><Heading className="h-4 w-4 text-blue-600 sm:mr-2" /> Tambah Kategori</Button>
+              <Button variant="outline" size="sm" className="h-11 justify-start sm:h-9" onClick={() => setIsItemLibraryOpen(true)}><Library className="h-4 w-4 sm:mr-2" /> Pilih dari Pustaka</Button>
             </div>
           </div>
           <Separator />
@@ -672,20 +702,24 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </Accordion>
 
           <div className="flex justify-end">
-            <div className="w-full max-w-sm space-y-4">
+            <div className="w-full max-w-sm space-y-4 rounded-lg border bg-muted/25 p-4">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">Diskon (Rp)</span><Input type="number" className="w-32 text-right" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} /></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">Pajak (Rp)</span><Input type="number" className="w-32 text-right" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} /></div>
+              <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Diskon (Rp)</span><Input type="number" className="h-11 w-36 text-right text-base" value={discountAmount} onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)} /></div>
+              <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Pajak (Rp)</span><Input type="number" className="h-11 w-36 text-right text-base" value={taxAmount} onChange={e => setTaxAmount(parseFloat(e.target.value) || 0)} /></div>
               <Separator />
               <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{formatCurrency(total)}</span></div>
-              {docType === 'invoice' && (<div className="flex justify-between items-center"><span className="text-muted-foreground">Uang Muka (DP) (Rp)</span><Input type="number" className="w-32 text-right" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} /></div>)}
+              {docType === 'invoice' && (<div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Uang Muka (DP) (Rp)</span><Input type="number" className="h-11 w-36 text-right text-base" value={downPaymentAmount} onChange={e => setDownPaymentAmount(parseFloat(e.target.value) || 0)} /></div>)}
             </div>
           </div>
           <Separator />
-          <div className="space-y-2"><Label>Syarat & Ketentuan</Label><Textarea placeholder="Contoh: Pembayaran..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
+          <div className="space-y-2"><Label>Syarat & Ketentuan</Label><Textarea className="min-h-28 text-base" placeholder="Contoh: Pembayaran..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
           {isEditMode && id && (<><Separator /><AttachmentManager docId={id} docType={docType} initialAttachments={attachments} onAttachmentsChange={setAttachments} /></>)}
         </CardContent>
-        <CardFooter><Button size="lg" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : (isEditMode ? `Simpan ${config.title}` : `Buat & Lihat ${config.title}`)}</Button></CardFooter>
+        <CardFooter className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t bg-card/95 px-4 py-3 backdrop-blur sm:static sm:px-6">
+          <Button size="lg" className="h-12 w-full sm:w-auto" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Menyimpan..." : (isEditMode ? `Simpan ${config.title}` : `Buat & Lihat ${config.title}`)}
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

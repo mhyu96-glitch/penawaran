@@ -75,12 +75,12 @@ export const GlobalSearch = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-sm text-muted-foreground flex items-center gap-2 border rounded-md px-3 py-2 hover:bg-accent w-full max-w-xs"
+        className="flex h-10 w-full max-w-xl items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
       >
         <Search className="h-4 w-4" />
-        Cari di mana saja...
-        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-          <span className="text-xs">⌘</span>K
+        <span className="truncate">Cari klien, dokumen, proyek...</span>
+        <kbd className="pointer-events-none ml-auto hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+          Ctrl K
         </kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen}>
