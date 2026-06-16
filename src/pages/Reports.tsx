@@ -10,13 +10,22 @@ import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency, safeFormat } from '@/lib/utils';
+import { calculateItemTotal, calculateSubtotal, calculateTotal, cn, formatCurrency, safeFormat } from '@/lib/utils';
 
 type Payment = {
   amount: number;
   payment_date: string;
   notes: string | null;
-  invoices: { invoice_number: string | null } | null;
+  invoices: {
+    invoice_number: string | null;
+    discount_amount: number | null;
+    tax_amount: number | null;
+    invoice_items: {
+      quantity: number;
+      unit_price: number;
+      cost_price: number | null;
+    }[];
+  } | null;
 };
 
 type Expense = {
@@ -45,8 +54,9 @@ const Reports = () => {
 
       const paymentQuery = supabase
         .from('payments')
-        .select('amount, payment_date, notes, invoices(invoice_number)')
+        .select('amount, payment_date, notes, invoices(invoice_number, discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price))')
         .eq('user_id', user.id)
+        .eq('status', 'Lunas')
         .gte('payment_date', fromDate)
         .lt('payment_date', toDate);
 
@@ -68,13 +78,30 @@ const Reports = () => {
     fetchData();
   }, [user, date]);
 
-  const { totalRevenue, totalExpenses, netProfit } = useMemo(() => {
+  const getAllocatedCost = (payment: Payment) => {
+    const invoice = payment.invoices;
+    if (!invoice?.invoice_items?.length) return 0;
+
+    const subtotal = calculateSubtotal(invoice.invoice_items);
+    const invoiceTotal = calculateTotal(subtotal, invoice.discount_amount || 0, invoice.tax_amount || 0);
+    const invoiceCost = invoice.invoice_items.reduce(
+      (sum, item) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
+      0
+    );
+
+    if (invoiceTotal <= 0) return invoiceCost;
+    return invoiceCost * Math.min(payment.amount / invoiceTotal, 1);
+  };
+
+  const { totalRevenue, totalExpenses, totalCostOfGoods, netProfit } = useMemo(() => {
     const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const costOfGoods = payments.reduce((sum, p) => sum + getAllocatedCost(p), 0);
     const expense = expenses.reduce((sum, e) => sum + e.amount, 0);
     return {
       totalRevenue: revenue,
-      totalExpenses: expense,
-      netProfit: revenue - expense,
+      totalExpenses: expense + costOfGoods,
+      totalCostOfGoods: costOfGoods,
+      netProfit: revenue - costOfGoods - expense,
     };
   }, [payments, expenses]);
 
@@ -125,10 +152,13 @@ const Reports = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Biaya</CardTitle>
             <Wallet className="h-4 w-4 text-red-500" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">HPP {formatCurrency(totalCostOfGoods)} + pengeluaran</p>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -155,15 +185,18 @@ const Reports = () => {
             </CardContent>
         </Card>
         <Card>
-            <CardHeader><CardTitle>Rincian Pengeluaran</CardTitle><CardDescription>Berdasarkan pengeluaran yang dicatat.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>Rincian Biaya</CardTitle><CardDescription>Harga modal dari pembayaran masuk dan pengeluaran yang dicatat.</CardDescription></CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader>
                     <TableBody>
+                        {totalCostOfGoods > 0 && (
+                            <TableRow><TableCell>-</TableCell><TableCell>Harga modal dari faktur terbayar</TableCell><TableCell className="text-right">{formatCurrency(totalCostOfGoods)}</TableCell></TableRow>
+                        )}
                         {expenses.map((e, i) => (
                             <TableRow key={`e-${i}`}><TableCell>{safeFormat(e.expense_date, 'PPP')}</TableCell><TableCell>{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>
                         ))}
-                        {expenses.length === 0 && <TableRow><TableCell colSpan={3} className="text-center">Tidak ada pengeluaran pada periode ini.</TableCell></TableRow>}
+                        {expenses.length === 0 && totalCostOfGoods === 0 && <TableRow><TableCell colSpan={3} className="text-center">Tidak ada biaya pada periode ini.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
             </CardContent>

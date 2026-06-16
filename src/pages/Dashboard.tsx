@@ -45,6 +45,15 @@ type Expense = {
 type Payment = {
     amount: number;
     payment_date: string;
+    invoices: {
+        discount_amount: number | null;
+        tax_amount: number | null;
+        invoice_items: {
+            quantity: number;
+            unit_price: number;
+            cost_price: number | null;
+        }[];
+    } | null;
 };
 
 type Notification = {
@@ -68,6 +77,21 @@ const compactNumber = new Intl.NumberFormat('id-ID', {
   notation: 'compact',
   compactDisplay: 'short',
 });
+
+const getAllocatedPaymentCost = (payment: Payment) => {
+  const invoice = payment.invoices;
+  if (!invoice?.invoice_items?.length) return 0;
+
+  const subtotal = calculateSubtotal(invoice.invoice_items);
+  const invoiceTotal = calculateTotal(subtotal, invoice.discount_amount || 0, invoice.tax_amount || 0);
+  const invoiceCost = invoice.invoice_items.reduce(
+    (sum, item) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
+    0
+  );
+
+  if (invoiceTotal <= 0) return invoiceCost;
+  return invoiceCost * Math.min(payment.amount / invoiceTotal, 1);
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -99,7 +123,11 @@ const Dashboard = () => {
       const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
       const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, invoice_items(quantity, unit_price)').eq('user_id', user.id);
       const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
-      const paymentQuery = supabase.from('payments').select('amount, payment_date').eq('user_id', user.id).eq('status', 'Lunas');
+      const paymentQuery = supabase
+        .from('payments')
+        .select('amount, payment_date, invoices(discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price))')
+        .eq('user_id', user.id)
+        .eq('status', 'Lunas');
       const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
       const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
       
@@ -153,21 +181,10 @@ const Dashboard = () => {
     }
   };
 
-  const { totalProfit, acceptedQuotesCount } = useMemo(() => {
-    const acceptedQuotes = quotes.filter(q => q.status === 'Diterima');
-    const profit = acceptedQuotes.reduce((acc, quote) => {
-      const quoteProfit = quote.quote_items.reduce((qAcc, item) => {
-          const revenue = calculateItemTotal(item.quantity, item.unit_price);
-          const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
-          return qAcc + (revenue - cost);
-      }, 0);
-      return acc + quoteProfit;
-    }, 0);
-    return { totalProfit: profit, acceptedQuotesCount: acceptedQuotes.length };
-  }, [quotes]);
-
+  const totalRevenue = useMemo(() => payments.reduce((acc, payment) => acc + payment.amount, 0), [payments]);
+  const totalCostOfGoods = useMemo(() => payments.reduce((acc, payment) => acc + getAllocatedPaymentCost(payment), 0), [payments]);
   const totalExpenses = useMemo(() => expenses.reduce((acc, exp) => acc + exp.amount, 0), [expenses]);
-  const netProfit = totalProfit - totalExpenses;
+  const netProfit = totalRevenue - totalCostOfGoods - totalExpenses;
 
   const invoiceStats = useMemo(() => {
     let unpaidAmount = 0;
@@ -216,7 +233,14 @@ const Dashboard = () => {
                 })
                 .reduce((sum, e) => sum + e.amount, 0);
 
-            return { name: formattedDate, Pendapatan: dailyRevenue, Pengeluaran: dailyExpenses };
+            const dailyCostOfGoods = payments
+                .filter(p => {
+                    const d = new Date(p.payment_date);
+                    return isValid(d) && startOfDay(d).getTime() === dayStart.getTime();
+                })
+                .reduce((sum, p) => sum + getAllocatedPaymentCost(p), 0);
+
+            return { name: formattedDate, Pendapatan: dailyRevenue, Biaya: dailyExpenses + dailyCostOfGoods };
         });
     } catch (e) {
         console.error("Error generating chart data", e);
@@ -258,7 +282,18 @@ const Dashboard = () => {
         .reduce((sum, e) => sum + e.amount, 0);
   }, [expenses]);
 
-  const monthlyCashflow = currentMonthRevenue - currentMonthExpenses;
+  const currentMonthCostOfGoods = useMemo(() => {
+    const start = startOfMonth(new Date());
+    const end = endOfMonth(new Date());
+    return payments
+        .filter(p => {
+            const d = new Date(p.payment_date);
+            return isValid(d) && d >= start && d <= end;
+        })
+        .reduce((sum, p) => sum + getAllocatedPaymentCost(p), 0);
+  }, [payments]);
+
+  const monthlyCashflow = currentMonthRevenue - currentMonthCostOfGoods - currentMonthExpenses;
   const goalProgress = revenueGoal > 0 ? Math.min((currentMonthRevenue / revenueGoal) * 100, 100) : 0;
   const overdueInvoicesCount = overdueInvoices.length;
   const activeInvoiceCount = invoices.filter(invoice => invoice.status !== 'Lunas').length;
@@ -327,7 +362,7 @@ const Dashboard = () => {
             <div className="rounded-lg bg-white/[0.07] p-4 ring-1 ring-white/10">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-slate-300">Cashflow bulan ini</p>
+                  <p className="text-sm text-slate-300">Laba bulan ini</p>
                   <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <p className="text-3xl font-semibold tracking-tight sm:text-4xl">{formatCurrency(monthlyCashflow)}</p>
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium", monthlyCashflow >= 0 ? "bg-emerald-400/15 text-emerald-100" : "bg-rose-400/15 text-rose-100")}>
@@ -346,8 +381,8 @@ const Dashboard = () => {
                   <p className="mt-1 font-semibold text-emerald-100">{formatCurrency(currentMonthRevenue)}</p>
                 </div>
                 <div className="rounded-md bg-white/[0.06] p-3">
-                  <p className="text-slate-300">Keluar</p>
-                  <p className="mt-1 font-semibold text-amber-100">{formatCurrency(currentMonthExpenses)}</p>
+                  <p className="text-slate-300">Biaya</p>
+                  <p className="mt-1 font-semibold text-amber-100">{formatCurrency(currentMonthCostOfGoods + currentMonthExpenses)}</p>
                 </div>
               </div>
             </div>
@@ -427,8 +462,8 @@ const Dashboard = () => {
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
-          { label: 'Profit bersih', value: formatCurrency(netProfit), helper: `${acceptedQuotesCount} penawaran`, icon: DollarSign, tone: 'text-emerald-700' },
-          { label: 'Pengeluaran', value: formatCurrency(totalExpenses), helper: 'Periode dipilih', icon: Wallet, tone: 'text-rose-700' },
+          { label: 'Laba bersih', value: formatCurrency(netProfit), helper: 'Pendapatan - HPP - biaya', icon: DollarSign, tone: 'text-emerald-700' },
+          { label: 'Total biaya', value: formatCurrency(totalCostOfGoods + totalExpenses), helper: 'HPP + pengeluaran', icon: Wallet, tone: 'text-rose-700' },
           { label: 'Belum dibayar', value: formatCurrency(invoiceStats.unpaidAmount), helper: `${activeInvoiceCount} faktur aktif`, icon: Clock, tone: 'text-sky-700' },
           { label: 'Overdue', value: formatCurrency(invoiceStats.overdueAmount), helper: `${overdueInvoicesCount} faktur`, icon: AlertCircle, tone: 'text-amber-700' },
           { label: 'Konversi', value: `${quoteConversionRate.toFixed(1)}%`, helper: 'Penawaran diterima', icon: TrendingUp, tone: 'text-teal-700' },
@@ -454,7 +489,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>Grafik cashflow</CardTitle>
-                <CardDescription>Pendapatan dan pengeluaran harian.</CardDescription>
+            <CardDescription>Pendapatan dan biaya harian.</CardDescription>
               </div>
               <Badge variant="secondary" className="hidden sm:inline-flex">{financialChartData.length} hari</Badge>
             </div>
@@ -477,7 +512,7 @@ const Dashboard = () => {
                 <YAxis tickLine={false} axisLine={false} width={42} fontSize={11} tickFormatter={(value) => compactNumber.format(value as number)} />
                 <Tooltip formatter={(value) => formatCurrency(value as number)} labelClassName="text-foreground" />
                 <Area type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#revenueGradient)" />
-                <Area type="monotone" dataKey="Pengeluaran" stroke="hsl(var(--destructive))" strokeWidth={2} fill="url(#expenseGradient)" />
+                <Area type="monotone" dataKey="Biaya" stroke="hsl(var(--destructive))" strokeWidth={2} fill="url(#expenseGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
