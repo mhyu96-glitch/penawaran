@@ -141,7 +141,7 @@ const InvoiceView = () => {
     const handleSaveAsPDF = async () => {
         if (!invoiceRef.current || !invoice) return;
         setIsGeneratingPDF(true);
-        await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`);
+        await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`, { format: 'letter' });
         setIsGeneratingPDF(false);
     };
 
@@ -179,8 +179,12 @@ const InvoiceView = () => {
     const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
     const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
     const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
-    const totalPaid = useMemo(() => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0), [payments]);
-    const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+    const settledPayments = useMemo(
+        () => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0),
+        [payments]
+    );
+    const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice?.down_payment_amount]);
+    const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
     useEffect(() => {
         if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas') {
@@ -188,11 +192,11 @@ const InvoiceView = () => {
         }
     }, [balanceDue, invoice]);
 
-    if (loading) return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
+    if (loading) return <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-8"><Skeleton className="h-96 w-full" /></div>;
     if (!invoice) return null;
 
     return (
-        <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+        <div className="min-h-screen bg-gray-100 px-2 py-3 sm:p-8">
             <PaymentForm
                 isOpen={isPaymentFormOpen}
                 setIsOpen={setIsPaymentFormOpen}
@@ -220,7 +224,36 @@ const InvoiceView = () => {
             />
 
             {/* Header Actions */}
-            <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
+            <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-2 print:hidden md:hidden">
+                <Button asChild variant="outline" size="sm" className="h-10">
+                    <Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
+                </Button>
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => setIsSendDialogOpen(true)} size="sm" className="h-10">
+                        <Send className="mr-2 h-4 w-4" /> Kirim
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-10 w-10">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Aksi lain</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            {invoice.status !== 'Lunas' && (
+                                <DropdownMenuItem onClick={() => { setSelectedPayment(null); setIsPaymentFormOpen(true); }}>
+                                    <Landmark className="mr-2 h-4 w-4" /> Catat Pembayaran
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem asChild><Link to={`/invoice/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleSaveAsPDF} disabled={isGeneratingPDF}><Download className="mr-2 h-4 w-4" /> {isGeneratingPDF ? 'Membuat...' : 'PDF'}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+
+            <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
                 <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
                 <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
                     <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
@@ -237,29 +270,29 @@ const InvoiceView = () => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+            <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3 lg:gap-8">
                 {/* Main Content: Invoice Preview */}
                 <div className="lg:col-span-2 space-y-8">
-                    <Card ref={invoiceRef} className="shadow-lg print:shadow-none print:border-none">
-                        <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{invoice.from_company}</h1>}
-                                    <p className="text-sm text-muted-foreground">{invoice.from_address}</p>
+                    <Card ref={invoiceRef} className="document-print-root overflow-hidden rounded-md shadow-sm print:shadow-none print:border-none sm:rounded-lg">
+                        <CardHeader className="rounded-t-md bg-gray-50 p-4 sm:rounded-t-lg sm:p-8">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-gray-950 sm:text-2xl">{invoice.from_company}</h1>}
+                                    <p className="mt-1 text-sm text-muted-foreground">{invoice.from_address}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
                                 </div>
-                                <div className="text-right">
-                                    <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
+                                <div className="shrink-0 text-left sm:text-right">
+                                    <h2 className="text-2xl font-bold uppercase tracking-wide text-gray-400 sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
                                     <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge></div>
-                                    <p className="text-sm text-muted-foreground mt-2">No: {invoice.invoice_number}</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">No: {invoice.invoice_number}</p>
                                     <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(invoice.invoice_date, 'PPP')}</p>
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-8 space-y-8">
-                            <div className="grid grid-cols-2 gap-8">
-                                <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
-                                <div className="text-right"><h3 className="font-semibold text-gray-500 mb-2 text-sm">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p></div>
+                        <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
+                            <div className="grid grid-cols-2 gap-4 sm:gap-8">
+                                <div><h3 className="mb-2 text-sm font-semibold text-gray-500">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
+                                <div className="text-right"><h3 className="mb-2 text-sm font-semibold text-gray-500">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p></div>
                             </div>
 
                             <DocumentItemsTable
@@ -272,38 +305,38 @@ const InvoiceView = () => {
                             />
 
                             <div className="flex justify-end">
-                                <div className="w-full max-w-xs space-y-2">
+                                <div className="w-full space-y-2 rounded-md bg-gray-50 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
                                     <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
                                     <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
                                     <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
                                     <Separator />
-                                    <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
+                                    <div className="flex justify-between text-base font-bold sm:text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
                                     {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Pembayaran Tercatat</span><span>- {formatCurrency(settledPayments)}</span></div>
                                     <Separator />
-                                    <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
+                                    <div className="flex justify-between text-base font-bold sm:text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
                                 </div>
                             </div>
-                            <div className="grid md:grid-cols-2 gap-4">
+                            <div className="print-avoid-break grid md:grid-cols-2 gap-4">
                                 {profile?.payment_instructions ? (
-                                    <Alert className="no-pdf h-full">
+                                    <Alert className="print-avoid-break h-full">
                                         <Landmark className="h-4 w-4" />
                                         <AlertTitle>Instruksi Pembayaran</AlertTitle>
                                         <AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription>
                                     </Alert>
                                 ) : (
-                                    <div className="print:hidden no-pdf"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>
+                                    <div className="print:hidden"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>
                                 )}
 
                                 {profile?.qris_url && (
-                                    <div className="border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
+                                    <div className="print-avoid-break border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
                                         <p className="font-semibold mb-2 text-sm">Scan QRIS Toko</p>
                                         <img src={profile.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
                                     </div>
                                 )}
                             </div>
 
-                            <div className="flex justify-end mt-8">
+                            <div className="print-signature print-avoid-break flex justify-end mt-8">
                                 <div className="text-center">
                                     <p className="text-sm font-medium mb-4">Hormat Kami,</p>
                                     {profile?.signature_url ? (
@@ -316,7 +349,7 @@ const InvoiceView = () => {
                             </div>
 
                             {invoice.attachments && invoice.attachments.length > 0 && (
-                                <div className="no-pdf">
+                                <div>
                                     <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
                                     <div className="space-y-2">
                                         {invoice.attachments.map((attachment, index) => (
@@ -330,7 +363,7 @@ const InvoiceView = () => {
                                     </div>
                                 </div>
                             )}
-                            {invoice.terms && (<Alert variant="default" className="bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
+                            {invoice.terms && (<Alert variant="default" className="print-terms print-avoid-break bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
                         </CardContent>
                         {profile?.custom_footer && (
                             <CardFooter className="p-8 pt-4 border-t">
@@ -414,7 +447,118 @@ const InvoiceView = () => {
                     </Card>
                 </div>
             </div>
-            <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
+            <style>{`
+                .pdf-exporting {
+                    box-shadow: none !important;
+                    border: 0 !important;
+                    border-radius: 0 !important;
+                }
+                .pdf-exporting .mobile-document-items {
+                    display: none !important;
+                }
+                .pdf-exporting .desktop-document-table {
+                    display: block !important;
+                    overflow: visible !important;
+                }
+                .pdf-exporting .print-avoid-break {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+                .pdf-exporting .print-signature {
+                    margin-top: 10px !important;
+                    padding-top: 0 !important;
+                }
+                .pdf-exporting .print-signature img {
+                    max-height: 64px !important;
+                }
+                .pdf-exporting .print-terms {
+                    margin-top: 10px !important;
+                }
+                @media print {
+                    @page {
+                        size: letter portrait;
+                        margin: 10mm;
+                    }
+                    html,
+                    body {
+                        width: 210mm;
+                        min-height: 297mm;
+                        background: white !important;
+                    }
+                    [data-radix-popper-content-wrapper],
+                    .print\\:hidden,
+                    .no-print,
+                    .no-pdf {
+                        display: none !important;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    .document-print-root,
+                    .document-print-root * {
+                        visibility: visible !important;
+                    }
+                    .document-print-root {
+                        position: static !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        max-width: none !important;
+                        border: 0 !important;
+                        box-shadow: none !important;
+                        border-radius: 0 !important;
+                    }
+                    .document-print-root .rounded-t-md,
+                    .document-print-root .rounded-t-lg,
+                    .document-print-root .rounded-md,
+                    .document-print-root .rounded-lg {
+                        border-radius: 0 !important;
+                    }
+                    .document-print-root [class*="p-8"] {
+                        padding: 6mm !important;
+                    }
+                    .document-print-root [class*="p-4"] {
+                        padding: 5mm !important;
+                    }
+                    .document-print-root [class*="space-y-8"] > :not([hidden]) ~ :not([hidden]) {
+                        margin-top: 5mm !important;
+                    }
+                    .document-print-root [class*="space-y-5"] > :not([hidden]) ~ :not([hidden]) {
+                        margin-top: 5mm !important;
+                    }
+                    .document-print-root .mobile-document-items {
+                        display: none !important;
+                    }
+                    .document-print-root .desktop-document-table {
+                        display: block !important;
+                        overflow: visible !important;
+                    }
+                    .document-print-root .desktop-document-table table {
+                        min-width: 0 !important;
+                        width: 100% !important;
+                    }
+                    .document-print-root tr,
+                    .document-print-root td,
+                    .document-print-root th {
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
+                    }
+                    .document-print-root .print-avoid-break {
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
+                    }
+                    .document-print-root .print-signature {
+                        margin-top: 6mm !important;
+                        padding-top: 0 !important;
+                    }
+                    .document-print-root .print-signature img {
+                        max-height: 22mm !important;
+                    }
+                    .document-print-root .print-terms {
+                        margin-top: 6mm !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 };

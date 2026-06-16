@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format, formatDistanceToNow, isValid } from "date-fns";
+import { format, formatDistanceToNow, isBefore, isValid, parseISO, startOfDay } from "date-fns";
 import { id as localeId } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
@@ -71,4 +71,10 @@ export const getStatusVariant = (status: string): "default" | "secondary" | "des
     default:
       return 'outline';
   }
+};
+
+export const isDateBeforeToday = (dateStr: string | null | undefined) => {
+  if (!dateStr) return false;
+  const date = dateStr.includes('T') ? new Date(dateStr) : parseISO(dateStr);
+  return isValid(date) && isBefore(startOfDay(date), startOfDay(new Date()));
 };

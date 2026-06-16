@@ -96,11 +96,12 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
       <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Save className="mr-2 h-4 w-4" /> Simpan sebagai Template
+          <Button variant="outline" size="sm" className="h-11 min-w-0 justify-center px-3 sm:h-9">
+            <Save className="h-4 w-4 sm:mr-2" />
+            <span className="truncate">Simpan Template</span>
           </Button>
         </DialogTrigger>
         <DialogContent>
@@ -125,8 +126,9 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
 
       <Dialog open={isLoadOpen} onOpenChange={setIsLoadOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <FileInput className="mr-2 h-4 w-4" /> Muat Template
+          <Button variant="outline" size="sm" className="h-11 min-w-0 justify-center px-3 sm:h-9">
+            <FileInput className="h-4 w-4 sm:mr-2" />
+            <span className="truncate">Muat Template</span>
           </Button>
         </DialogTrigger>
         <DialogContent>

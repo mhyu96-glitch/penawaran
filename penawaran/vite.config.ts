@@ -19,8 +19,8 @@ export default defineConfig(() => ({
         name: 'QuoteApp - Manajemen Penawaran',
         short_name: 'QuoteApp',
         description: 'Aplikasi manajemen penawaran dan faktur profesional.',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#0f766e',
+        background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
