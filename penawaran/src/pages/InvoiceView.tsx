@@ -409,32 +409,34 @@ const InvoiceView = () => {
                                                 </TableCell>
                                                 <TableCell className="text-right font-medium">{formatCurrency(p.amount)}</TableCell>
                                                 <TableCell>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                            {p.status === 'Pending' ? (
-                                                                <>
-                                                                    <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')} className="text-red-600"><X className="mr-2 h-4 w-4" /> Tolak</DropdownMenuItem>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <DropdownMenuItem onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                                                                    {p.proof_url && <DropdownMenuItem asChild><a href={p.proof_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Bukti</a></DropdownMenuItem>}
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
-                                                                    </AlertDialogTrigger>
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuContent>
+                                                    <AlertDialog>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                                {p.status === 'Pending' ? (
+                                                                    <>
+                                                                        <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Lunas')}><Check className="mr-2 h-4 w-4" /> Konfirmasi</DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handlePaymentStatusUpdate(p.id, 'Ditolak')} className="text-red-600"><X className="mr-2 h-4 w-4" /> Tolak</DropdownMenuItem>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <DropdownMenuItem onClick={() => { setSelectedPayment(p); setIsPaymentFormOpen(true); }}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                                                                        {p.proof_url && <DropdownMenuItem asChild><a href={p.proof_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Bukti</a></DropdownMenuItem>}
+                                                                        <AlertDialogTrigger asChild>
+                                                                            <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
+                                                                        </AlertDialogTrigger>
+                                                                    </>
+                                                                )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                         <AlertDialogContent>
                                                             <AlertDialogHeader><AlertDialogTitle>Hapus Pembayaran?</AlertDialogTitle><AlertDialogDescription>Data tidak bisa dikembalikan.</AlertDialogDescription></AlertDialogHeader>
                                                             <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeletePayment(p.id)}>Hapus</AlertDialogAction></AlertDialogFooter>
                                                         </AlertDialogContent>
-                                                    </DropdownMenu>
+                                                    </AlertDialog>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
