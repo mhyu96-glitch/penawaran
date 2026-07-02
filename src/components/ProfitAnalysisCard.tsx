@@ -1,16 +1,23 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, calculateItemTotal } from '@/lib/utils';
 import { TrendingUp, Package } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 
 interface Item {
   description: string;
   quantity: number;
+  unit?: string;
   unit_price: number;
   cost_price: number; // Harga Modal
 }
+
+type ItemAnalysis = Item & {
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  mergedCount: number;
+};
 
 interface ProfitAnalysisCardProps {
   items: Item[];
@@ -27,17 +34,48 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
     // Filter out items with 0 quantity (Category Headers)
     const activeItems = items.filter(item => item.quantity > 0);
 
-    const itemsAnalysis = activeItems.map(item => {
+    const groupedItems = activeItems.reduce<Map<string, ItemAnalysis>>((groups, item) => {
+      const description = item.description.trim();
+      const unit = item.unit || '';
+      const unitPrice = Number(item.unit_price) || 0;
+      const costPrice = Number(item.cost_price) || 0;
       const revenue = calculateItemTotal(item.quantity, item.unit_price);
       const cost = calculateItemTotal(item.quantity, item.cost_price || 0);
-      const profit = revenue - cost;
-      const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+      const key = [description.toLowerCase(), unit.toLowerCase(), unitPrice, costPrice].join('|');
       
       totalRevenue += revenue;
       totalCost += cost;
 
-      return { ...item, revenue, cost, profit, margin };
-    });
+      const existingItem = groups.get(key);
+      if (existingItem) {
+        existingItem.quantity += item.quantity;
+        existingItem.revenue += revenue;
+        existingItem.cost += cost;
+        existingItem.profit = existingItem.revenue - existingItem.cost;
+        existingItem.margin = existingItem.revenue > 0 ? (existingItem.profit / existingItem.revenue) * 100 : 0;
+        existingItem.mergedCount += 1;
+      } else {
+        const profit = revenue - cost;
+        const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+        groups.set(key, {
+          ...item,
+          description,
+          unit,
+          unit_price: unitPrice,
+          cost_price: costPrice,
+          revenue,
+          cost,
+          profit,
+          margin,
+          mergedCount: 1,
+        });
+      }
+
+      return groups;
+    }, new Map<string, ItemAnalysis>());
+
+    const itemsAnalysis = Array.from(groupedItems.values());
 
     // Kurangi diskon dari total pendapatan untuk mendapatkan pendapatan bersih
     const netRevenue = totalRevenue - discountAmount;
@@ -65,20 +103,20 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
         <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Penjualan Net</p>
-                <p className="text-lg font-bold text-slate-900 truncate" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
+                <p className="text-base font-bold text-slate-900" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
             </div>
             <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Total Modal</p>
-                <p className="text-lg font-bold text-slate-600 truncate" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
+                <p className="text-base font-bold text-slate-600" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
             </div>
             <div className="p-3 rounded-xl border bg-green-50/50 border-green-100 space-y-1">
                 <p className="text-[10px] uppercase tracking-wider text-green-600 font-semibold">Laba Kotor</p>
-                <p className="text-lg font-bold text-green-700 truncate" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
+                <p className="text-base font-bold text-green-700" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
             </div>
             <div className="p-3 rounded-xl border bg-blue-50/50 border-blue-100 space-y-1">
                 <p className="text-[10px] uppercase tracking-wider text-blue-600 font-semibold">Margin</p>
                 <div className="flex items-center gap-1">
-                    <p className={`text-lg font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-blue-700'}`}>
+                    <p className={`text-base font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-blue-700'}`}>
                         {analysis.netMargin.toFixed(1)}%
                     </p>
                 </div>
@@ -92,45 +130,43 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
                 <span>Rincian per Item</span>
             </div>
             
-            <div className="rounded-lg border overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-slate-50">
-                        <TableRow>
-                            <TableHead className="w-[50%] text-xs font-semibold text-slate-600 h-9 pl-3">Item</TableHead>
-                            <TableHead className="text-right text-xs font-semibold text-slate-600 h-9 px-2">Modal</TableHead>
-                            <TableHead className="text-right text-xs font-semibold text-slate-600 h-9 pr-3">Laba</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {analysis.itemsAnalysis.length > 0 ? (
-                            analysis.itemsAnalysis.map((item, idx) => (
-                                <TableRow key={idx} className="hover:bg-slate-50/50">
-                                    <TableCell className="py-2.5 pl-3 text-xs font-medium align-top">
-                                        <div className="line-clamp-2 leading-snug text-slate-800" title={item.description}>{item.description}</div>
-                                        <div className="text-[10px] text-slate-500 mt-0.5 font-normal">
-                                            {item.quantity} x {formatCurrency(item.unit_price)}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right py-2.5 px-2 text-xs text-slate-500 align-top">
-                                        {formatCurrency(item.cost_price || 0)}
-                                    </TableCell>
-                                    <TableCell className="text-right py-2.5 pr-3 text-xs font-bold text-green-600 align-top">
-                                        {formatCurrency(item.profit)}
-                                        <div className={`text-[9px] font-normal mt-0.5 ${item.margin < 15 ? 'text-orange-500' : 'text-slate-400'}`}>
+            <div className="overflow-hidden rounded-lg border">
+                {analysis.itemsAnalysis.length > 0 ? (
+                    <div className="divide-y">
+                        {analysis.itemsAnalysis.map((item, idx) => (
+                            <div key={idx} className="space-y-3 p-3 hover:bg-slate-50/60">
+                                <div>
+                                    <div className="line-clamp-2 text-xs font-semibold leading-snug text-slate-800" title={item.description}>
+                                        {item.description}
+                                    </div>
+                                    <div className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                                        {item.quantity} x {formatCurrency(item.unit_price)}
+                                        {item.mergedCount > 1 && (
+                                            <span className="ml-1 text-blue-600">({item.mergedCount} baris digabung)</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-md bg-slate-50 px-2.5 py-2">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Modal</p>
+                                        <p className="mt-0.5 text-xs font-semibold text-slate-700">{formatCurrency(item.cost)}</p>
+                                    </div>
+                                    <div className="rounded-md bg-green-50 px-2.5 py-2 text-right">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700">Laba</p>
+                                        <p className="mt-0.5 text-xs font-bold text-green-700">{formatCurrency(item.profit)}</p>
+                                        <p className={`text-[10px] ${item.margin < 15 ? 'text-orange-600' : 'text-slate-500'}`}>
                                             {item.margin.toFixed(0)}%
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={3} className="text-center text-xs text-muted-foreground py-8">
-                                    Belum ada item.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+                        Belum ada item.
+                    </div>
+                )}
             </div>
         </div>
       </CardContent>
