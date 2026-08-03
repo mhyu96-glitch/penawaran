@@ -106,6 +106,25 @@
 }
 
 @layer utilities {
+  .sidebar-scrollbar {
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-border));
+    border: 2px solid hsl(var(--sidebar-background));
+    border-radius: 999px;
+  }
+
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }

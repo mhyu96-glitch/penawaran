@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, Share2, FileText, Smartphone, Send, FolderKanban } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -20,7 +20,7 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
@@ -36,6 +36,7 @@ interface Attachment {
 type QuoteDetails = {
   id: string;
   user_id: string;
+  project_id?: string | null;
   from_company: string;
   from_address: string;
   from_website: string;
@@ -53,6 +54,7 @@ type QuoteDetails = {
   status: string;
   attachments: Attachment[];
   quote_items: {
+    item_id?: string | null;
     description: string;
     quantity: number;
     unit: string;
@@ -72,6 +74,9 @@ type ProfileInfo = {
     whatsapp_quote_template: string | null;
 };
 
+const isMissingColumnError = (error: { message?: string } | null | undefined) =>
+  Boolean(error?.message?.toLowerCase().includes('schema cache') && error.message.toLowerCase().includes('column'));
+
 const QuoteView = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -80,6 +85,7 @@ const QuoteView = () => {
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const quoteRef = useRef<HTMLDivElement>(null);
 
@@ -113,52 +119,103 @@ const QuoteView = () => {
 
   const handleCreateInvoice = async () => {
     if (!quote || !user) return;
+    setIsCreatingInvoice(true);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: quoteId, created_at, quote_number, quote_date, valid_until, status, quote_items, attachments, ...invoiceData } = quote;
+    try {
+      const year = new Date().getFullYear();
+      const { data: latestInvoices, error: numberError } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('user_id', user.id)
+        .like('invoice_number', `INV-${year}-%`)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-    const newInvoicePayload = {
-      ...invoiceData,
-      quote_id: quote.id,
-      status: 'Draf',
-      invoice_date: new Date().toISOString(),
-      attachments: attachments,
-    };
+      let nextNumber = 1;
+      if (!numberError && latestInvoices && latestInvoices.length > 0 && latestInvoices[0].invoice_number) {
+        const lastNumber = latestInvoices[0].invoice_number.split('-').pop();
+        if (lastNumber && !Number.isNaN(Number.parseInt(lastNumber, 10))) {
+          nextNumber = Number.parseInt(lastNumber, 10) + 1;
+        }
+      }
 
-    const { data: newInvoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert(newInvoicePayload)
-      .select('id')
-      .single();
+      const newInvoicePayload = {
+        user_id: user.id,
+        quote_id: quote.id,
+        client_id: quote.client_id,
+        project_id: quote.project_id || null,
+        from_company: quote.from_company,
+        from_address: quote.from_address,
+        from_website: quote.from_website,
+        to_client: quote.to_client,
+        to_address: quote.to_address,
+        to_phone: quote.to_phone,
+        title: quote.title,
+        discount_amount: quote.discount_amount,
+        tax_amount: quote.tax_amount,
+        terms: quote.terms,
+        status: 'Draf',
+        invoice_number: `INV-${year}-${String(nextNumber).padStart(3, '0')}`,
+        invoice_date: new Date().toISOString(),
+        due_date: quote.valid_until || null,
+        down_payment_amount: 0,
+        attachments: quote.attachments || [],
+      };
 
-    if (invoiceError || !newInvoice) {
-      showError('Gagal membuat faktur dari penawaran.');
-      console.error(invoiceError);
-      return;
-    }
+      let invoiceResult = await supabase
+        .from('invoices')
+        .insert(newInvoicePayload)
+        .select('id')
+        .single();
 
-    if (quote.quote_items && quote.quote_items.length > 0) {
-      const newInvoiceItemsPayload = quote.quote_items.map(item => ({
-        invoice_id: newInvoice.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unit_price: item.unit_price,
-        cost_price: item.cost_price,
-      }));
+      if (isMissingColumnError(invoiceResult.error)) {
+        const { project_id, down_payment_amount, ...compatiblePayload } = newInvoicePayload;
+        invoiceResult = await supabase
+          .from('invoices')
+          .insert(compatiblePayload)
+          .select('id')
+          .single();
+      }
 
-      const { error: itemsError } = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
-
-      if (itemsError) {
-        showError('Gagal menyalin item ke faktur.');
-        await supabase.from('invoices').delete().match({ id: newInvoice.id });
-        console.error(itemsError);
+      if (invoiceResult.error || !invoiceResult.data) {
+        showError(`Gagal membuat faktur dari penawaran: ${invoiceResult.error?.message || 'data faktur kosong'}`);
+        console.error(invoiceResult.error);
         return;
       }
-    }
 
-    showSuccess('Faktur berhasil dibuat. Silakan periksa detailnya.');
-    navigate(`/invoice/edit/${newInvoice.id}`);
+      const newInvoice = invoiceResult.data;
+
+      if (quote.quote_items && quote.quote_items.length > 0) {
+        const newInvoiceItemsPayload = quote.quote_items.map(({ description, quantity, unit, unit_price, cost_price, item_id }) => ({
+          invoice_id: newInvoice.id,
+          item_id,
+          description,
+          quantity,
+          unit,
+          unit_price,
+          cost_price,
+        }));
+
+        let itemsResult = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
+
+        if (isMissingColumnError(itemsResult.error)) {
+          const compatibleItemsPayload = newInvoiceItemsPayload.map(({ item_id, ...item }) => item);
+          itemsResult = await supabase.from('invoice_items').insert(compatibleItemsPayload);
+        }
+
+        if (itemsResult.error) {
+          showError(`Gagal menyalin item ke faktur: ${itemsResult.error.message}`);
+          await supabase.from('invoices').delete().match({ id: newInvoice.id });
+          console.error(itemsResult.error);
+          return;
+        }
+      }
+
+      showSuccess('Faktur berhasil dibuat. Silakan periksa detailnya.');
+      navigate(`/invoice/edit/${newInvoice.id}`);
+    } finally {
+      setIsCreatingInvoice(false);
+    }
   };
 
   const handleCreateProject = async () => {
@@ -250,7 +307,9 @@ const QuoteView = () => {
                 </Button>
                 {quote.status === 'Diterima' && (
                     <>
-                        <Button onClick={handleCreateInvoice} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50"><Receipt className="mr-2 h-4 w-4" /> Buat Faktur</Button>
+                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
+                        </Button>
                         <Button onClick={handleCreateProject} variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
                     </>
                 )}
