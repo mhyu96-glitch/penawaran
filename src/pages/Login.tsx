@@ -4,16 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useTheme } from 'next-themes';
 
 const Login = () => {
   const { session } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const authTheme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
   if (session) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Selamat Datang di QuoteApp</CardTitle>
@@ -24,7 +27,7 @@ const Login = () => {
             supabaseClient={supabase}
             appearance={{ theme: ThemeSupa }}
             providers={[]}
-            theme="light"
+            theme={authTheme}
             localization={{
               variables: {
                 sign_in: {

@@ -5,6 +5,7 @@ import { showError } from '@/utils/toast';
 type GeneratePdfOptions = {
   fitToOnePage?: boolean;
   format?: 'a4' | 'letter';
+  continuous?: boolean;
 };
 
 export const generatePdf = async (element: HTMLElement, fileName: string, options: GeneratePdfOptions = {}) => {
@@ -37,12 +38,30 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     });
 
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', options.format || 'letter');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const basePdf = new jsPDF('p', 'mm', options.format || 'a4');
+    const pdfWidth = basePdf.internal.pageSize.getWidth();
+    const pdfHeight = basePdf.internal.pageSize.getHeight();
     const margin = options.fitToOnePage ? 6 : 10;
     const contentWidth = pdfWidth - margin * 2;
     const contentHeight = pdfHeight - margin * 2;
+
+    if (options.continuous !== false && !options.fitToOnePage) {
+      const renderedHeight = (canvas.height * contentWidth) / canvas.width;
+      const continuousHeight = Math.max(renderedHeight + margin * 2, pdfHeight);
+      const pdf = new jsPDF('p', 'mm', [pdfWidth, continuousHeight]);
+
+      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, renderedHeight);
+      pdf.save(fileName);
+
+      elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+      element.classList.remove('pdf-exporting');
+      element.style.width = originalWidth;
+      element.style.height = originalHeight;
+      element.style.overflow = originalOverflow;
+      element.style.backgroundColor = originalBackground;
+
+      return true;
+    }
 
     const pageCanvas = document.createElement('canvas');
     const pageContext = pageCanvas.getContext('2d');
@@ -52,6 +71,7 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     }
 
     if (options.fitToOnePage) {
+      const pdf = basePdf;
       const fullHeight = (canvas.height * contentWidth) / canvas.width;
       const fittedHeight = Math.min(fullHeight, contentHeight);
       const fittedWidth = fullHeight > contentHeight ? (canvas.width * fittedHeight) / canvas.height : contentWidth;
@@ -73,6 +93,7 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     const pageCanvasHeight = Math.floor((contentHeight * canvas.width) / contentWidth);
     pageCanvas.width = canvas.width;
     pageCanvas.height = pageCanvasHeight;
+    const pdf = basePdf;
 
     let renderedHeight = 0;
     let pageIndex = 0;

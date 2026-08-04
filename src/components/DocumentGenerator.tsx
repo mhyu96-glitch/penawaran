@@ -111,7 +111,7 @@ const SortableItemRow = ({
         className={cn(
           "relative mb-4 rounded-lg border bg-card p-3",
           isDragging && "opacity-50 z-50",
-          isSectionHeader ? "border-blue-200 bg-blue-50/50" : "bg-background"
+          isSectionHeader ? "border-primary/25 bg-accent/45" : "bg-background"
         )}
       >
         <div className="mb-3 flex items-center justify-between gap-2 border-b pb-2">
@@ -119,7 +119,7 @@ const SortableItemRow = ({
                 <Button variant="ghost" size="icon" className="h-10 w-10 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                {isSectionHeader && <Heading className="h-4 w-4 text-blue-500" />}
+                {isSectionHeader && <Heading className="h-4 w-4 text-primary" />}
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {isSectionHeader ? 'Kategori' : `Item #${index + 1}`}
                 </span>
@@ -136,7 +136,7 @@ const SortableItemRow = ({
                   placeholder={isSectionHeader ? "Nama Kategori (misal: Kamera, Jasa, dll)" : "Deskripsi Item"} 
                   value={item.description} 
                   onChange={e => handleItemChange(index, 'description', e.target.value)} 
-                  className={cn("h-11 w-full text-base", isSectionHeader && "font-bold border-blue-200 focus-visible:ring-blue-500")}
+                  className={cn("h-11 w-full text-base", isSectionHeader && "border-primary/30 font-bold focus-visible:ring-primary")}
                 />
             </div>
 
@@ -185,7 +185,7 @@ const SortableItemRow = ({
         </TableCell>
         <TableCell colSpan={5}>
           <div className="flex items-center gap-2">
-            <Heading className="h-4 w-4 text-blue-500 shrink-0" />
+            <Heading className="h-4 w-4 shrink-0 text-primary" />
             <Input 
               placeholder="Nama Kategori (misal: Kamera, Jasa, dll)" 
               value={item.description} 
@@ -688,7 +688,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             </div>
             <div className="grid gap-2 sm:flex sm:flex-wrap">
               <Button variant="outline" size="sm" className="h-11 justify-start sm:h-9" onClick={addItem}><PlusCircle className="h-4 w-4 sm:mr-2" /> Tambah Item</Button>
-              <Button variant="secondary" size="sm" className="h-11 justify-start border border-input bg-background hover:bg-accent hover:text-accent-foreground sm:h-9" onClick={addSectionHeader}><Heading className="h-4 w-4 text-blue-600 sm:mr-2" /> Tambah Kategori</Button>
+              <Button variant="secondary" size="sm" className="h-11 justify-start border border-input bg-background hover:bg-accent hover:text-accent-foreground sm:h-9" onClick={addSectionHeader}><Heading className="h-4 w-4 text-primary sm:mr-2" /> Tambah Kategori</Button>
               <Button variant="outline" size="sm" className="h-11 justify-start sm:h-9" onClick={() => setIsItemLibraryOpen(true)}><Library className="h-4 w-4 sm:mr-2" /> Pilih dari Pustaka</Button>
             </div>
           </div>
@@ -696,7 +696,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="profit-analysis">
-                <AccordionTrigger className="text-blue-600 font-medium"><div className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Estimasi Profit (Live)</div></AccordionTrigger>
+                <AccordionTrigger className="font-medium text-primary"><div className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Estimasi Profit (Live)</div></AccordionTrigger>
                 <AccordionContent><ProfitAnalysisCard items={items} discountAmount={discountAmount} taxAmount={taxAmount} type={docType === 'quote' ? 'Penawaran' : 'Faktur'}/></AccordionContent>
             </AccordionItem>
           </Accordion>

@@ -88,17 +88,17 @@ const AttachmentManager = ({ docId, docType, initialAttachments, onAttachmentsCh
     <div className="space-y-4">
       <Label htmlFor="attachment-upload">Lampiran Dokumen</Label>
       <div className="flex items-center justify-center w-full">
-        <label htmlFor={`dropzone-file-${docId}`} className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+        <label htmlFor={`dropzone-file-${docId}`} className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed bg-muted/35 transition-colors hover:bg-muted/55">
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
             {isUploading ? (
-              <Loader2 className="w-8 h-8 mb-2 text-gray-500 animate-spin" />
+              <Loader2 className="mb-2 h-8 w-8 animate-spin text-muted-foreground" />
             ) : (
-              <UploadCloud className="w-8 h-8 mb-2 text-gray-500" />
+              <UploadCloud className="mb-2 h-8 w-8 text-muted-foreground" />
             )}
-            <p className="mb-2 text-sm text-gray-500">
+            <p className="mb-2 text-sm text-muted-foreground">
               <span className="font-semibold">Klik untuk unggah</span> atau seret file
             </p>
-            <p className="text-xs text-gray-500">Ukuran maks 5MB</p>
+            <p className="text-xs text-muted-foreground">Ukuran maks 5MB</p>
           </div>
           <Input
             id={`dropzone-file-${docId}`}
@@ -113,7 +113,7 @@ const AttachmentManager = ({ docId, docType, initialAttachments, onAttachmentsCh
         <div className="space-y-2">
           {attachments.map((attachment, index) => (
             <div key={index} className="flex items-center justify-between p-2 border rounded-md">
-              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
                 <FileText className="h-4 w-4" />
                 {attachment.name}
               </a>

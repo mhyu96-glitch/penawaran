@@ -62,11 +62,11 @@ const ClientPortal = () => {
   }
 
   if (error) {
-    return <div className="container mx-auto p-8 text-center text-red-600">{error}</div>;
+    return <div className="container mx-auto p-8 text-center text-destructive">{error}</div>;
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-background text-foreground">
         <div className="container mx-auto p-4 md:p-8">
         <Card className="w-full max-w-4xl mx-auto">
             <CardHeader>
