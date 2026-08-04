@@ -86,14 +86,14 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
   }, [items, discountAmount]);
 
   return (
-    <Card className="border-l-4 border-l-blue-500 shadow-sm bg-white overflow-hidden print:hidden mt-6">
-      <CardHeader className="bg-slate-50/50 pb-4 border-b">
+    <Card className="mt-6 overflow-hidden bg-card shadow-sm print:hidden">
+      <CardHeader className="border-b bg-muted/35 pb-4">
         <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-600 rounded-lg shadow-sm">
-                <TrendingUp className="h-5 w-5 text-white" />
+            <div className="rounded-lg bg-primary p-2.5 shadow-sm">
+                <TrendingUp className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-                <CardTitle className="text-base font-bold text-slate-800">Analisis Keuntungan</CardTitle>
+                <CardTitle className="text-base font-bold text-foreground">Analisis Keuntungan</CardTitle>
                 <CardDescription className="text-xs">Statistik internal untuk {type} ini.</CardDescription>
             </div>
         </div>
@@ -101,22 +101,22 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
       <CardContent className="p-4 space-y-6">
         {/* KPI Grid - Fixed 2 columns for better sidebar fit */}
         <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Penjualan Net</p>
-                <p className="text-base font-bold text-slate-900" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
+            <div className="space-y-1 rounded-xl border bg-muted/35 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Penjualan Net</p>
+                <p className="text-base font-bold text-foreground" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
             </div>
-            <div className="p-3 rounded-xl border bg-slate-50/50 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Total Modal</p>
-                <p className="text-base font-bold text-slate-600" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
+            <div className="space-y-1 rounded-xl border bg-muted/35 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total Modal</p>
+                <p className="text-base font-bold text-foreground" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
             </div>
-            <div className="p-3 rounded-xl border bg-green-50/50 border-green-100 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-green-600 font-semibold">Laba Kotor</p>
-                <p className="text-base font-bold text-green-700" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
+            <div className="space-y-1 rounded-xl border border-emerald-600/25 bg-emerald-600/10 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Laba Kotor</p>
+                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
             </div>
-            <div className="p-3 rounded-xl border bg-blue-50/50 border-blue-100 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-blue-600 font-semibold">Margin</p>
+            <div className="space-y-1 rounded-xl border border-primary/25 bg-primary/10 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Margin</p>
                 <div className="flex items-center gap-1">
-                    <p className={`text-base font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-blue-700'}`}>
+                    <p className={`text-base font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-primary'}`}>
                         {analysis.netMargin.toFixed(1)}%
                     </p>
                 </div>
@@ -125,7 +125,7 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
 
         {/* Detailed Table */}
         <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Package className="h-4 w-4" />
                 <span>Rincian per Item</span>
             </div>
@@ -134,27 +134,27 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
                 {analysis.itemsAnalysis.length > 0 ? (
                     <div className="divide-y">
                         {analysis.itemsAnalysis.map((item, idx) => (
-                            <div key={idx} className="space-y-3 p-3 hover:bg-slate-50/60">
+                            <div key={idx} className="space-y-3 p-3 hover:bg-muted/35">
                                 <div>
-                                    <div className="line-clamp-2 text-xs font-semibold leading-snug text-slate-800" title={item.description}>
+                                    <div className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={item.description}>
                                         {item.description}
                                     </div>
-                                    <div className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                                    <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
                                         {item.quantity} x {formatCurrency(item.unit_price)}
                                         {item.mergedCount > 1 && (
-                                            <span className="ml-1 text-blue-600">({item.mergedCount} baris digabung)</span>
+                                            <span className="ml-1 text-primary">({item.mergedCount} baris digabung)</span>
                                         )}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <div className="rounded-md bg-slate-50 px-2.5 py-2">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Modal</p>
-                                        <p className="mt-0.5 text-xs font-semibold text-slate-700">{formatCurrency(item.cost)}</p>
+                                    <div className="rounded-md bg-muted/45 px-2.5 py-2">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total Modal</p>
+                                        <p className="mt-0.5 text-xs font-semibold text-foreground">{formatCurrency(item.cost)}</p>
                                     </div>
-                                    <div className="rounded-md bg-green-50 px-2.5 py-2 text-right">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700">Laba</p>
-                                        <p className="mt-0.5 text-xs font-bold text-green-700">{formatCurrency(item.profit)}</p>
-                                        <p className={`text-[10px] ${item.margin < 15 ? 'text-orange-600' : 'text-slate-500'}`}>
+                                    <div className="rounded-md bg-emerald-600/10 px-2.5 py-2 text-right">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Laba</p>
+                                        <p className="mt-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(item.profit)}</p>
+                                        <p className={`text-[10px] ${item.margin < 15 ? 'text-orange-600' : 'text-muted-foreground'}`}>
                                             {item.margin.toFixed(0)}%
                                         </p>
                                     </div>

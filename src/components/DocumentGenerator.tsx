@@ -566,8 +566,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-6 lg:px-8">
-        <Card className="mx-auto w-full max-w-4xl rounded-lg">
+      <div className="mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 lg:px-8">
+        <Card className="mx-auto w-full rounded-lg">
           <CardHeader><Skeleton className="h-8 w-64" /></CardHeader>
           <CardContent className="space-y-4"><Skeleton className="h-96 w-full" /></CardContent>
         </Card>
@@ -578,7 +578,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const Icon = isEditMode ? config.icon : (docType === 'quote' ? FilePlus2 : ReceiptText);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 lg:px-8 lg:py-6">
       <ItemLibraryDialog isOpen={isItemLibraryOpen} setIsOpen={setIsItemLibraryOpen} onAddItems={handleAddItemsFromLibrary} />
       <Card className="mx-auto w-full overflow-hidden rounded-lg">
         <CardHeader className="space-y-4 border-b bg-card px-4 py-4 sm:px-6">

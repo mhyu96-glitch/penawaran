@@ -37,18 +37,18 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
           if (isHeader) {
             return (
-              <div key={index} className="rounded-md border bg-gray-50 px-3 py-2">
-                <p className="text-sm font-semibold text-gray-900">{item.description}</p>
+              <div key={index} className="rounded-md border bg-muted/50 px-3 py-2">
+                <p className="text-sm font-semibold text-foreground">{item.description}</p>
               </div>
             );
           }
 
           return (
-            <div key={index} className="rounded-md border bg-white p-3">
+            <div key={index} className="rounded-md border bg-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">Item {index + 1}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-snug text-gray-950">{item.description}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-snug text-foreground">{item.description}</p>
                 </div>
                 <p className="shrink-0 text-right text-sm font-bold text-primary">
                   {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
@@ -56,21 +56,21 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 {showQuantity && (
-                  <div className="rounded bg-gray-50 px-2 py-2">
+                  <div className="rounded bg-muted/45 px-2 py-2">
                     <p className="text-muted-foreground">Jumlah</p>
-                    <p className="mt-1 font-semibold text-gray-900">{item.quantity}</p>
+                    <p className="mt-1 font-semibold text-foreground">{item.quantity}</p>
                   </div>
                 )}
                 {showUnit && (
-                  <div className="rounded bg-gray-50 px-2 py-2">
+                  <div className="rounded bg-muted/45 px-2 py-2">
                     <p className="text-muted-foreground">Satuan</p>
-                    <p className="mt-1 font-semibold text-gray-900">{item.unit || '-'}</p>
+                    <p className="mt-1 font-semibold text-foreground">{item.unit || '-'}</p>
                   </div>
                 )}
                 {showUnitPrice && (
-                  <div className="rounded bg-gray-50 px-2 py-2">
+                  <div className="rounded bg-muted/45 px-2 py-2">
                     <p className="text-muted-foreground">Harga</p>
-                    <p className="mt-1 font-semibold text-gray-900">{formatCurrency(item.unit_price)}</p>
+                    <p className="mt-1 font-semibold text-foreground">{formatCurrency(item.unit_price)}</p>
                   </div>
                 )}
               </div>
@@ -81,14 +81,14 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
       <div className="desktop-document-table hidden overflow-x-auto rounded-md border md:block">
         <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-gray-100">
+          <thead className="bg-muted/65">
             <tr className="border-b">
-              <th className="w-10 p-3 text-center font-medium text-gray-700">No.</th>
-              <th className="p-3 text-left font-medium text-gray-700">Deskripsi</th>
-              {showQuantity && <th className="w-20 p-3 text-center font-medium text-gray-700">Jumlah</th>}
-              {showUnit && <th className="w-20 p-3 text-center font-medium text-gray-700">Satuan</th>}
-              {showUnitPrice && <th className="w-36 p-3 text-right font-medium text-gray-700">Harga Satuan</th>}
-              <th className="w-36 p-3 text-right font-medium text-gray-700">Total</th>
+              <th className="w-10 p-3 text-center font-medium text-muted-foreground">No.</th>
+              <th className="p-3 text-left font-medium text-muted-foreground">Deskripsi</th>
+              {showQuantity && <th className="w-20 p-3 text-center font-medium text-muted-foreground">Jumlah</th>}
+              {showUnit && <th className="w-20 p-3 text-center font-medium text-muted-foreground">Satuan</th>}
+              {showUnitPrice && <th className="w-36 p-3 text-right font-medium text-muted-foreground">Harga Satuan</th>}
+              <th className="w-36 p-3 text-right font-medium text-muted-foreground">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -97,9 +97,9 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
               if (isHeader) {
                   return (
-                      <tr key={index} className="border-b bg-gray-50/80 last:border-none">
-                          <td className="select-none p-3 text-center align-top font-medium text-gray-400">#</td>
-                          <td className="p-3 align-top font-bold text-gray-800" colSpan={colSpanCount + 1}>
+                      <tr key={index} className="border-b bg-muted/50 last:border-none">
+                          <td className="select-none p-3 text-center align-top font-medium text-muted-foreground/70">#</td>
+                          <td className="p-3 align-top font-bold text-foreground" colSpan={colSpanCount + 1}>
                               {item.description}
                           </td>
                       </tr>

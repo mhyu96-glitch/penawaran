@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban, MoreVertical } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -26,6 +26,12 @@ import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 import DocumentTimeline from '@/components/DocumentTimeline';
 import SendDocumentDialog from '@/components/SendDocumentDialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Attachment {
   name: string;
@@ -284,7 +290,7 @@ const QuoteView = () => {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+    <div className="min-h-screen bg-background px-2 py-3 text-foreground sm:p-8">
         <SendDocumentDialog
             isOpen={isSendDialogOpen}
             setIsOpen={setIsSendDialogOpen}
@@ -299,19 +305,49 @@ const QuoteView = () => {
         />
 
         {/* Header Actions */}
-        <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
-            <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
-            <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
-                <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
+        <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-2 print:hidden md:hidden">
+            <Button asChild variant="outline" size="sm" className="h-10">
+                <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
+            </Button>
+            <div className="flex items-center gap-2">
+                <Button onClick={() => setIsSendDialogOpen(true)} size="sm" className="h-10">
                     <Send className="mr-2 h-4 w-4" /> Kirim
                 </Button>
-                {quote.status === 'Diterima' && (
-                    <>
-                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-10 w-10">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Aksi lain</span>
                         </Button>
-                        <Button onClick={handleCreateProject} variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
-                    </>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={handleCreateInvoice} disabled={isCreatingInvoice}>
+                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
+                        </DropdownMenuItem>
+                        {quote.status === 'Diterima' && (
+                            <DropdownMenuItem onClick={handleCreateProject}>
+                                <FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek
+                            </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem asChild><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleSaveAsPDF} disabled={isGeneratingPDF}><Download className="mr-2 h-4 w-4" /> {isGeneratingPDF ? 'Membuat...' : 'PDF'}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </div>
+
+        <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
+            <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
+                <Button onClick={() => setIsSendDialogOpen(true)} variant="default">
+                    <Send className="mr-2 h-4 w-4" /> Kirim
+                </Button>
+                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} variant="outline" className="border-primary/30 text-primary hover:bg-accent">
+                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
+                </Button>
+                {quote.status === 'Diterima' && (
+                    <Button onClick={handleCreateProject} variant="outline" className="border-primary/30 text-primary hover:bg-accent"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
                 )}
                 <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
@@ -323,32 +359,32 @@ const QuoteView = () => {
             </div>
         </div>
 
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3 lg:gap-8">
             {/* Main Content: Quote Preview */}
-            <div className="lg:col-span-2 space-y-8">
-                <Card ref={quoteRef} className="shadow-lg print:shadow-none print:border-none">
-                    <CardHeader className="bg-gray-50 p-8 rounded-t-lg">
-                    <div className="flex justify-between items-start">
-                        <div>
-                        {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="max-h-20 mb-4" /> : <h1 className="text-2xl font-bold text-gray-800">{quote.from_company}</h1>}
+            <div className="space-y-8 lg:col-span-2">
+                <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-md shadow-sm print:shadow-none print:border-none sm:rounded-lg">
+                    <CardHeader className="rounded-t-md bg-muted/35 p-4 sm:rounded-t-lg sm:p-8">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                        {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{quote.from_company}</h1>}
                         <p className="text-sm text-muted-foreground">{quote.from_address}</p>
                         <p className="text-sm text-muted-foreground">{quote.from_website}</p>
                         </div>
-                        <div className="text-right">
-                        <h2 className="text-3xl font-bold uppercase text-gray-400 tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
+                        <div className="shrink-0 text-left sm:text-right">
+                        <h2 className="text-2xl font-bold uppercase tracking-wide text-muted-foreground sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
                         <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
                         <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
                         <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
                         </div>
                     </div>
                     </CardHeader>
-                    <CardContent className="p-8 space-y-8">
-                    <div className="grid grid-cols-2 gap-8">
-                        <div><h3 className="font-semibold text-gray-500 mb-2 text-sm">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
-                        <div className="text-right">
-                            <h3 className="font-semibold text-gray-500 mb-2 text-sm">Perihal:</h3>
+                    <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-8">
+                        <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
+                        <div className="sm:text-right">
+                            <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Perihal:</h3>
                             <p className="font-bold text-lg">{quote.title || '-'}</p>
-                            <h3 className="font-semibold text-gray-500 mb-2 text-sm mt-4">Berlaku Hingga:</h3>
+                            <h3 className="mb-2 mt-4 text-sm font-semibold text-muted-foreground">Berlaku Hingga:</h3>
                             <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
                         </div>
                     </div>
@@ -363,7 +399,7 @@ const QuoteView = () => {
                     />
 
                     <div className="flex justify-end">
-                        <div className="w-full max-w-xs space-y-2">
+                        <div className="w-full space-y-2 rounded-md bg-muted/35 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
                         <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
@@ -371,14 +407,14 @@ const QuoteView = () => {
                         <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
                         </div>
                     </div>
-                    {quote.terms && (<div><h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3><p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.terms}</p></div>)}
+                    {quote.terms && (<div><h3 className="mb-2 font-semibold text-muted-foreground">Syarat & Ketentuan:</h3><p className="whitespace-pre-wrap text-sm text-muted-foreground">{quote.terms}</p></div>)}
                     {quote.attachments && quote.attachments.length > 0 && (
                         <div className="no-pdf">
-                        <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+                        <h3 className="mb-2 font-semibold text-muted-foreground">Lampiran:</h3>
                         <div className="space-y-2">
                             {quote.attachments.map((attachment, index) => (
                             <div key={index} className="flex items-center p-2 border rounded-md">
-                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
                                 <FileText className="h-4 w-4" />
                                 {attachment.name}
                                 </a>

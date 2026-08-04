@@ -197,7 +197,7 @@ const InvoiceView = () => {
     if (!invoice) return null;
 
     return (
-        <div className="min-h-screen bg-gray-100 px-2 py-3 sm:p-8">
+        <div className="min-h-screen bg-background px-2 py-3 text-foreground sm:p-8">
             <PaymentForm
                 isOpen={isPaymentFormOpen}
                 setIsOpen={setIsPaymentFormOpen}
@@ -277,7 +277,7 @@ const InvoiceView = () => {
             <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
                 <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/invoices"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
                 <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
-                    <Button onClick={() => setIsSendDialogOpen(true)} variant="default" className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsSendDialogOpen(true)} variant="default">
                         <Send className="mr-2 h-4 w-4" /> Kirim
                     </Button>
                     {invoice.status !== 'Lunas' && <Button variant="outline" onClick={() => { setSelectedPayment(null); setIsPaymentFormOpen(true); }}><Landmark className="mr-2 h-4 w-4" /> Catat Pembayaran</Button>}
@@ -295,15 +295,15 @@ const InvoiceView = () => {
                 {/* Main Content: Invoice Preview */}
                 <div className="lg:col-span-2 space-y-8">
                     <Card ref={invoiceRef} className="document-print-root overflow-hidden rounded-md shadow-sm print:shadow-none print:border-none sm:rounded-lg">
-                        <CardHeader className="rounded-t-md bg-gray-50 p-4 sm:rounded-t-lg sm:p-8">
+                        <CardHeader className="rounded-t-md bg-muted/35 p-4 sm:rounded-t-lg sm:p-8">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
-                                    {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-gray-950 sm:text-2xl">{invoice.from_company}</h1>}
+                                    {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{invoice.from_company}</h1>}
                                     <p className="mt-1 text-sm text-muted-foreground">{invoice.from_address}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
                                 </div>
                                 <div className="shrink-0 text-left sm:text-right">
-                                    <h2 className="text-2xl font-bold uppercase tracking-wide text-gray-400 sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
+                                    <h2 className="text-2xl font-bold uppercase tracking-wide text-muted-foreground sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
                                     <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)} className="text-xs">{invoice.status || 'Draf'}</Badge></div>
                                     <p className="mt-2 text-sm text-muted-foreground">No: {invoice.invoice_number}</p>
                                     <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(invoice.invoice_date, 'PPP')}</p>
@@ -312,8 +312,8 @@ const InvoiceView = () => {
                         </CardHeader>
                         <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
                             <div className="grid grid-cols-2 gap-4 sm:gap-8">
-                                <div><h3 className="mb-2 text-sm font-semibold text-gray-500">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
-                                <div className="text-right"><h3 className="mb-2 text-sm font-semibold text-gray-500">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p></div>
+                                <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
+                                <div className="text-right"><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p></div>
                             </div>
 
                             <DocumentItemsTable
@@ -326,7 +326,7 @@ const InvoiceView = () => {
                             />
 
                             <div className="flex justify-end">
-                                <div className="w-full space-y-2 rounded-md bg-gray-50 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
+                                <div className="w-full space-y-2 rounded-md bg-muted/35 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
                                     <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
                                     <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
                                     <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
@@ -371,11 +371,11 @@ const InvoiceView = () => {
 
                             {invoice.attachments && invoice.attachments.length > 0 && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>
+                                    <h3 className="mb-2 font-semibold text-muted-foreground">Lampiran:</h3>
                                     <div className="space-y-2">
                                         {invoice.attachments.map((attachment, index) => (
                                             <div key={index} className="flex items-center p-2 border rounded-md">
-                                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
                                                     <FileText className="h-4 w-4" />
                                                     {attachment.name}
                                                 </a>
@@ -384,7 +384,7 @@ const InvoiceView = () => {
                                     </div>
                                 </div>
                             )}
-                            {invoice.terms && (<Alert variant="default" className="print-terms print-avoid-break bg-gray-50"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
+                            {invoice.terms && (<Alert variant="default" className="print-terms print-avoid-break bg-muted/35"><Info className="h-4 w-4" /><AlertTitle>Syarat & Ketentuan</AlertTitle><AlertDescription className="whitespace-pre-wrap">{invoice.terms}</AlertDescription></Alert>)}
                         </CardContent>
                         {profile?.custom_footer && (
                             <CardFooter className="p-8 pt-4 border-t">
