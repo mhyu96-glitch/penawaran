@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search, Filter } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Copy, FileText, MoreVertical, Search, Filter, Receipt } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +96,123 @@ const QuoteList = () => {
     } else {
       showSuccess('Penawaran berhasil dihapus.');
       setQuotes(quotes.filter(q => q.id !== quoteId));
+    }
+  };
+
+  const handleCreateInvoice = async (quote: Quote) => {
+    if (!user) return;
+
+    try {
+      // Get quote details
+      const { data: quoteData, error: quoteError } = await supabase
+        .from('quotes')
+        .select('*, quote_items(*)')
+        .eq('id', quote.id)
+        .single();
+
+      if (quoteError || !quoteData) {
+        showError('Gagal memuat data penawaran.');
+        return;
+      }
+
+      const year = new Date().getFullYear();
+      const { data: latestInvoices, error: numberError } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('user_id', user.id)
+        .like('invoice_number', `INV-${year}-%`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let nextNumber = 1;
+      if (!numberError && latestInvoices && latestInvoices.length > 0 && latestInvoices[0].invoice_number) {
+        const lastNumber = latestInvoices[0].invoice_number.split('-').pop();
+        if (lastNumber && !Number.isNaN(Number.parseInt(lastNumber, 10))) {
+          nextNumber = Number.parseInt(lastNumber, 10) + 1;
+        }
+      }
+
+      const newInvoicePayload = {
+        user_id: user.id,
+        quote_id: quoteData.id,
+        client_id: quoteData.client_id,
+        project_id: quoteData.project_id || null,
+        from_company: quoteData.from_company,
+        from_address: quoteData.from_address,
+        from_website: quoteData.from_website,
+        to_client: quoteData.to_client,
+        to_address: quoteData.to_address,
+        to_phone: quoteData.to_phone,
+        title: quoteData.title,
+        discount_amount: quoteData.discount_amount,
+        tax_amount: quoteData.tax_amount,
+        terms: quoteData.terms,
+        status: 'Draf',
+        invoice_number: `INV-${year}-${String(nextNumber).padStart(3, '0')}`,
+        invoice_date: new Date().toISOString(),
+        due_date: quoteData.valid_until || null,
+        down_payment_amount: 0,
+        attachments: quoteData.attachments || [],
+      };
+
+      let invoiceResult = await supabase
+        .from('invoices')
+        .insert(newInvoicePayload)
+        .select('id')
+        .single();
+
+      // Handle missing column error for compatibility
+      if (invoiceResult.error?.message?.toLowerCase().includes('schema cache') && 
+          invoiceResult.error.message.toLowerCase().includes('column')) {
+        const { project_id, down_payment_amount, ...compatiblePayload } = newInvoicePayload;
+        invoiceResult = await supabase
+          .from('invoices')
+          .insert(compatiblePayload)
+          .select('id')
+          .single();
+      }
+
+      if (invoiceResult.error || !invoiceResult.data) {
+        showError(`Gagal membuat faktur dari penawaran: ${invoiceResult.error?.message || 'data faktur kosong'}`);
+        console.error(invoiceResult.error);
+        return;
+      }
+
+      const newInvoice = invoiceResult.data;
+
+      if (quoteData.quote_items && quoteData.quote_items.length > 0) {
+        const newInvoiceItemsPayload = quoteData.quote_items.map(({ description, quantity, unit, unit_price, cost_price, item_id }) => ({
+          invoice_id: newInvoice.id,
+          item_id,
+          description,
+          quantity,
+          unit,
+          unit_price,
+          cost_price,
+        }));
+
+        let itemsResult = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
+
+        // Handle missing column error for compatibility  
+        if (itemsResult.error?.message?.toLowerCase().includes('schema cache') && 
+            itemsResult.error.message.toLowerCase().includes('column')) {
+          const compatibleItemsPayload = newInvoiceItemsPayload.map(({ item_id, ...item }) => item);
+          itemsResult = await supabase.from('invoice_items').insert(compatibleItemsPayload);
+        }
+
+        if (itemsResult.error) {
+          showError(`Gagal menyalin item ke faktur: ${itemsResult.error.message}`);
+          await supabase.from('invoices').delete().match({ id: newInvoice.id });
+          console.error(itemsResult.error);
+          return;
+        }
+      }
+
+      showSuccess('Faktur berhasil dibuat. Mengarahkan ke halaman edit...');
+      navigate(`/invoice/edit/${newInvoice.id}`);
+    } catch (error) {
+      showError('Terjadi kesalahan saat membuat faktur.');
+      console.error('Create invoice error:', error);
     }
   };
 
@@ -201,6 +318,9 @@ const QuoteList = () => {
   const renderActions = (quote: Quote) => (
     <>
       <DropdownMenuItem asChild><Link to={`/quote/${quote.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
+      <DropdownMenuItem onClick={() => handleCreateInvoice(quote)} className="text-green-600">
+        <Receipt className="mr-2 h-4 w-4" />Buat Faktur
+      </DropdownMenuItem>
       <DropdownMenuItem asChild><Link to={`/quote/edit/${quote.id}`}><Pencil className="mr-2 h-4 w-4" />Edit</Link></DropdownMenuItem>
       <DropdownMenuItem onClick={() => handleDuplicateQuote(quote.id)}><Copy className="mr-2 h-4 w-4" />Duplikat</DropdownMenuItem>
       <AlertDialogTrigger asChild>
@@ -331,6 +451,9 @@ const QuoteList = () => {
                         <TableCell>{safeFormat(quote.created_at, 'PPP')}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link></Button>
+                          <Button variant="outline" size="icon" onClick={() => handleCreateInvoice(quote)} className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100">
+                            <Receipt className="h-4 w-4" />
+                          </Button>
                           <Button asChild variant="outline" size="icon"><Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link></Button>
                           <Button variant="outline" size="icon" onClick={() => handleDuplicateQuote(quote.id)}><Copy className="h-4 w-4" /></Button>
                           <AlertDialog>
