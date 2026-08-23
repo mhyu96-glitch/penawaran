@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { safeFormat, safeFormatDistance, getStatusVariant } from '@/lib/utils';
+import DebugPanel from '@/components/DebugPanel';
 
 type Quote = {
   id: string;
@@ -545,6 +546,9 @@ const QuoteList = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Debug Panel - akan dihapus setelah masalah teratasi */}
+      <DebugPanel />
     </div>
   );
 };

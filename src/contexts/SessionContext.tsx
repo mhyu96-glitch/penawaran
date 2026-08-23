@@ -17,19 +17,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const getSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔐 SessionContext: Getting initial session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log('🔐 SessionContext result:', { 
+          hasSession: !!session, 
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          error 
+        });
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
         if (!session) {
-          console.warn('SessionContext: No active session found after initial load. User might not be logged in or session is invalid.');
+          console.warn('⚠️ SessionContext: No active session found after initial load. User might not be logged in or session is invalid.');
+        } else {
+          console.log('✅ SessionContext: User authenticated successfully');
         }
     };
     
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 SessionContext: Auth state changed:', event, { 
+        hasSession: !!session, 
+        userId: session?.user?.id 
+      });
       setSession(session);
       setUser(session?.user ?? null);
     });
