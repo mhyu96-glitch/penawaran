@@ -1,6 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+
+// Constants for direct HTTP fallback
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xukpisovkcflcwuhrzkx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1a3Bpc292a2NmbGN3dWhyemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4OTk0NTMsImV4cCI6MjA3NDQ3NTQ1M30.HZHCy_T5SVV3QZRpIb6sU8zOm27SKIyyVikELzbQ5u0';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -54,57 +58,117 @@ const QuoteList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
-  const fetchQuotes = async () => {
+  // Alternative fetch method using direct HTTP if Supabase client has issues
+  const fetchQuotesDirectly = async () => {
+    if (!user) return;
+    
+    console.log('🔄 Trying direct HTTP fetch...');
+    
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/quotes?user_id=eq.${user.id}&select=id,quote_number,to_client,created_at,status&order=created_at.desc`, {
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${user.session?.access_token || SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Direct fetch successful:', { count: data?.length || 0 });
+        
+        const quotesData = data.map((quote: any) => ({
+          ...quote,
+          view_count: 0,
+          last_viewed_at: null
+        }));
+        
+        setQuotes(quotesData);
+        return true;
+      }
+    } catch (err) {
+      console.log('❌ Direct fetch failed:', err);
+    }
+    
+    return false;
+  };
     if (!user) {
-      console.log('No user found, skipping fetch');
+      console.log('❌ No user found, skipping fetch');
       return;
     }
     setLoading(true);
     
-    console.log('Fetching quotes for user:', user.id);
+    console.log('📡 Fetching quotes for user:', user.id);
+    const fetchQuotes = async () => {
+    if (!user) {
+      console.log('❌ No user found, skipping fetch');
+      return;
+    }
+    setLoading(true);
+    
+    console.log('📡 Fetching quotes for user:', user.id);
     
     try {
-      // First try with all columns
+      // Try with minimal columns first to avoid header issues
       let { data, error } = await supabase
         .from('quotes')
-        .select('id, quote_number, to_client, created_at, status, view_count, last_viewed_at')
+        .select('id, quote_number, to_client, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // If there's a column error, try with basic columns only
-      if (error && error.message?.includes('column')) {
-        console.log('Column error detected, trying with basic columns:', error.message);
-        const result = await supabase
-          .from('quotes')
-          .select('id, quote_number, to_client, created_at, status')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        data = result.data;
-        error = result.error;
-        
-        // Add default values for missing columns
-        if (data) {
-          data = data.map(quote => ({
-            ...quote,
-            view_count: 0,
-            last_viewed_at: null
-          }));
+      console.log('📊 Minimal fetch result:', { data, error, count: data?.length || 0 });
+
+      // If header error, try direct HTTP method
+      if (error && error.message?.includes('Headers')) {
+        console.log('🔄 Header error detected, trying direct fetch...');
+        const directSuccess = await fetchQuotesDirectly();
+        if (directSuccess) {
+          setLoading(false);
+          return;
         }
       }
 
-      console.log('Supabase response:', { data, error, count: data?.length || 0 });
+      // If successful, try to get additional columns
+      if (!error && data) {
+        try {
+          const { data: fullData, error: fullError } = await supabase
+            .from('quotes')
+            .select('id, quote_number, to_client, created_at, status, view_count, last_viewed_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          if (!fullError) {
+            data = fullData;
+            console.log('📊 Full fetch successful:', { count: data?.length || 0 });
+          }
+        } catch (fullErr) {
+          console.log('⚠️ Full fetch failed, using minimal data:', fullErr);
+        }
+        
+        // Add default values for missing columns if needed
+        data = data.map(quote => ({
+          ...quote,
+          view_count: quote.view_count || 0,
+          last_viewed_at: quote.last_viewed_at || null
+        }));
+      }
 
       if (error) {
-        console.error('Error fetching quotes:', error);
+        console.error('❌ Error fetching quotes:', error);
         showError(`Gagal memuat penawaran: ${error.message}`);
       } else {
-        console.log(`Found ${data?.length || 0} quotes`);
+        console.log(`✅ Successfully loaded ${data?.length || 0} quotes`);
         setQuotes(data as Quote[]);
       }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      showError('Terjadi kesalahan tidak terduga saat memuat penawaran');
+    } catch (err: any) {
+      console.error('❌ Unexpected error:', err);
+      
+      // Last resort: try direct fetch
+      console.log('🔄 Trying direct fetch as last resort...');
+      const directSuccess = await fetchQuotesDirectly();
+      if (!directSuccess) {
+        showError(`Terjadi kesalahan: ${err.message}`);
+      }
     }
     
     setLoading(false);
