@@ -58,65 +58,46 @@ const QuoteList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
-  // Alternative fetch method using direct HTTP if Supabase client has issues
-  const fetchQuotesDirectly = async () => {
-    if (!user) return;
+  const fetchQuotes = async () => {
+    if (!user) {
+      console.log('❌ No user found, skipping fetch');
+      return;
+    }
+    setLoading(true);
     
-    console.log('🔄 Trying direct HTTP fetch...');
+    console.log('📡 Simple fetch for user:', user.id);
     
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/quotes?user_id=eq.${user.id}&select=id,quote_number,to_client,created_at,status&order=created_at.desc`, {
-        headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${user.session?.access_token || SUPABASE_PUBLISHABLE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Direct fetch successful:', { count: data?.length || 0 });
+      // Ultra simple query - just the basics
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('id, quote_number, to_client, created_at, status')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('❌ Simple fetch failed:', error);
+        showError(`Gagal memuat penawaran: ${error.message}`);
+        setQuotes([]);
+      } else {
+        console.log(`✅ Simple fetch success: ${data?.length || 0} quotes found`);
         
-        const quotesData = data.map((quote: any) => ({
+        // Add default values for optional fields
+        const quotesWithDefaults = (data || []).map(quote => ({
           ...quote,
           view_count: 0,
           last_viewed_at: null
         }));
         
-        setQuotes(quotesData);
-        return true;
+        setQuotes(quotesWithDefaults as Quote[]);
       }
-    } catch (err) {
-      console.log('❌ Direct fetch failed:', err);
+    } catch (err: any) {
+      console.error('❌ Fetch error:', err);
+      showError('Terjadi kesalahan saat memuat data');
+      setQuotes([]);
     }
     
-    return false;
+    setLoading(false);
   };
-    if (!user) {
-      console.log('❌ No user found, skipping fetch');
-      return;
-    }
-    setLoading(true);
-    
-    console.log('📡 Fetching quotes for user:', user.id);
-    const fetchQuotes = async () => {
-    if (!user) {
-      console.log('❌ No user found, skipping fetch');
-      return;
-    }
-    setLoading(true);
-    
-    console.log('📡 Fetching quotes for user:', user.id);
-    
-    try {
-      // Try with minimal columns first to avoid header issues
-      let { data, error } = await supabase
-        .from('quotes')
-        .select('id, quote_number, to_client, created_at, status')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      console.log('📊 Minimal fetch result:', { data, error, count: data?.length || 0 });
 
       // If header error, try direct HTTP method
       if (error && error.message?.includes('Headers')) {

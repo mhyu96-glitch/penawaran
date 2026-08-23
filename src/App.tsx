@@ -9,7 +9,7 @@ import QuoteGenerator from "./pages/QuoteGenerator";
 import { AuthProvider } from "./contexts/SessionContext";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
-import QuoteList from "./pages/QuoteList";
+import QuoteListSimple from "./pages/QuoteListSimple";
 import QuoteView from "./pages/QuoteView";
 import Profile from "./pages/Profile";
 import SharedLayout from "./components/SharedLayout";
@@ -56,7 +56,7 @@ const App = () => (
               <Route element={<ProtectedRoute />}>
                 <Route element={<SharedLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/quotes" element={<QuoteList />} />
+                  <Route path="/quotes" element={<QuoteListSimple />} />
                   <Route path="/quote/new" element={<QuoteGenerator />} />
                   <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
                   <Route path="/quote/:id" element={<QuoteView />} />
