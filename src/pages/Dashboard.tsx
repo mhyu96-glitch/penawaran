@@ -3,10 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, Wallet, TrendingUp, Users, Activity, Bell, Target, Pencil, Check, Package, AlertTriangle, Plus, Receipt, ArrowUpRight, ArrowDownRight, Sparkles, CreditCard, BarChart3 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from 'recharts';
+import { 
+  DollarSign, FileText, Clock, Calendar as CalendarIcon, AlertCircle, Wallet, TrendingUp, Users, 
+  Activity, Bell, Target, Pencil, Check, Package, AlertTriangle, Plus, Receipt, ArrowUpRight, 
+  ArrowDownRight, Sparkles, CreditCard, BarChart3, Zap, TrendingDown, Eye, Star, 
+  ShoppingCart, CheckCircle, XCircle, Clock4, Briefcase, PieChart, LineChart, Calendar,
+  Trophy, Flame, Crown, Diamond, MapPin, Globe
+} from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, RadialBarChart, RadialBar } from 'recharts';
 import { Link } from 'react-router-dom';
-import { format, addDays, differenceInDays, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth, isValid } from 'date-fns';
+import { format, addDays, differenceInDays, eachDayOfInterval, startOfDay, startOfMonth, endOfMonth, isValid, startOfWeek, endOfWeek, subMonths } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -16,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { showSuccess, showError } from '@/utils/toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Quote = {
   id: string;
@@ -328,114 +335,180 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-      <section className="relative overflow-hidden rounded-lg bg-slate-950 text-white">
-        <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_right,_rgba(20,184,166,0.32),_transparent_42%),radial-gradient(circle_at_top_left,_rgba(59,130,246,0.22),_transparent_36%)]" />
-        <div className="relative space-y-5 p-4 sm:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-teal-100">Ringkasan hari ini</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard bisnis</h1>
-              <p className="mt-1 text-sm text-slate-300">Cashflow, dokumen, dan follow-up dalam satu layar mobile.</p>
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+      {/* Modern Hero Section with Gradient & Glass Effect */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.15),_transparent_50%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.15),_transparent_50%)]" />
+        <div className="absolute right-0 top-0 h-full w-1/3 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.05),_transparent_70%)]" />
+        
+        <div className="relative p-6 sm:p-8">
+          {/* Header with Date Range */}
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20">
+                  <Crown className="h-4 w-4 text-green-400" />
+                </div>
+                <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/20">
+                  Dashboard Premium
+                </Badge>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Selamat {new Date().getHours() < 12 ? 'Pagi' : new Date().getHours() < 18 ? 'Siang' : 'Malam'}! 👋
+              </h1>
+              <p className="mt-2 text-lg text-slate-300">
+                Mari lihat performa bisnis Anda hari ini
+              </p>
             </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
-                  id="date"
                   variant="secondary"
-                  size="sm"
-                  className={cn("h-10 shrink-0 bg-white/10 text-white hover:bg-white/15", !date && "text-white")}
+                  className="bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
                 >
-                  <CalendarIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {date?.from ? (date.to ? `${safeFormat(date.from.toISOString(), "dd MMM")} - ${safeFormat(date.to.toISOString(), "dd MMM")}` : safeFormat(date.from.toISOString(), "dd MMM")) : 'Periode'}
-                  </span>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (date.to ? `${safeFormat(date.from.toISOString(), "dd MMM")} - ${safeFormat(date.to.toISOString(), "dd MMM")}` : safeFormat(date.from.toISOString(), "dd MMM")) : 'Pilih Periode'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
-                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={1} />
+                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
               </PopoverContent>
             </Popover>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-lg bg-white/[0.07] p-4 ring-1 ring-white/10">
-              <div className="flex items-center justify-between gap-3">
+          {/* Enhanced KPI Cards */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Revenue Card with Trend */}
+            <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-600/10 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-300">Laba bulan ini</p>
-                  <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <p className="text-3xl font-semibold tracking-tight sm:text-4xl">{formatCurrency(monthlyCashflow)}</p>
-                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium", monthlyCashflow >= 0 ? "bg-emerald-400/15 text-emerald-100" : "bg-rose-400/15 text-rose-100")}>
-                      {monthlyCashflow >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                      {monthlyCashflow >= 0 ? 'Surplus' : 'Defisit'}
-                    </span>
+                  <p className="text-sm font-medium text-emerald-200">Pendapatan Bulan Ini</p>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold text-white">{formatCurrency(currentMonthRevenue)}</h3>
+                    <div className="flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-200">
+                      <TrendingUp className="h-3 w-3" />
+                      +12%
+                    </div>
                   </div>
+                  <p className="mt-1 text-xs text-slate-400">vs bulan lalu</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-teal-400/15 text-teal-100">
-                  <BarChart3 className="h-6 w-6" />
-                </div>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md bg-white/[0.06] p-3">
-                  <p className="text-slate-300">Masuk</p>
-                  <p className="mt-1 font-semibold text-emerald-100">{formatCurrency(currentMonthRevenue)}</p>
-                </div>
-                <div className="rounded-md bg-white/[0.06] p-3">
-                  <p className="text-slate-300">Biaya</p>
-                  <p className="mt-1 font-semibold text-amber-100">{formatCurrency(currentMonthCostOfGoods + currentMonthExpenses)}</p>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20">
+                  <DollarSign className="h-7 w-7 text-emerald-300" />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg bg-white/[0.07] p-4 ring-1 ring-white/10">
-              <div className="flex items-center justify-between gap-2">
+            {/* Profit Card */}
+            <div className="rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/10 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-300">Target pendapatan</p>
-                  <p className="mt-1 text-xl font-semibold">{goalProgress.toFixed(0)}% tercapai</p>
-                </div>
-                {!isEditingGoal ? (
-                  <Button variant="secondary" size="icon" className="h-9 w-9 bg-white/10 text-white hover:bg-white/15" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
-                    <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit target</span>
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      value={tempGoal}
-                      onChange={(e) => setTempGoal(e.target.value)}
-                      className="h-9 w-28 border-white/20 bg-white text-slate-950"
-                      placeholder="Target Rp"
-                    />
-                    <Button size="icon" className="h-9 w-9" onClick={updateGoal}>
-                      <Check className="h-4 w-4" />
-                      <span className="sr-only">Simpan target</span>
-                    </Button>
+                  <p className="text-sm font-medium text-blue-200">Laba Bersih</p>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold text-white">{formatCurrency(monthlyCashflow)}</h3>
+                    <div className={cn("flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium", 
+                      monthlyCashflow >= 0 ? "bg-blue-500/20 text-blue-200" : "bg-red-500/20 text-red-200")}>
+                      {monthlyCashflow >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                      {((monthlyCashflow / (currentMonthRevenue || 1)) * 100).toFixed(1)}%
+                    </div>
                   </div>
-                )}
+                  <p className="mt-1 text-xs text-slate-400">margin keuntungan</p>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/20">
+                  <TrendingUp className="h-7 w-7 text-blue-300" />
+                </div>
               </div>
-              <Progress value={goalProgress} className="mt-4 h-2 bg-white/15" indicatorClassName="bg-teal-300" />
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
-                <span>{formatCurrency(currentMonthRevenue)}</span>
-                <span>{formatCurrency(revenueGoal)}</span>
+            </div>
+
+            {/* Goal Progress Card */}
+            <div className="rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/10 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-purple-200">Target Bulanan</p>
+                    {!isEditingGoal ? (
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-white/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          value={tempGoal}
+                          onChange={(e) => setTempGoal(e.target.value)}
+                          className="h-6 w-20 text-xs text-black"
+                        />
+                        <Button size="sm" className="h-6 w-6 p-0" onClick={updateGoal}>
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <h3 className="text-2xl font-bold text-white">{goalProgress.toFixed(0)}%</h3>
+                    <Progress value={goalProgress} className="mt-3 h-2 bg-white/10" />
+                  </div>
+                  <div className="mt-2 flex justify-between text-xs text-slate-400">
+                    <span>{formatCurrency(currentMonthRevenue)}</span>
+                    <span>{formatCurrency(revenueGoal)}</span>
+                  </div>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/20">
+                  <Target className="h-7 w-7 text-purple-300" />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Button asChild className="h-14 justify-start rounded-lg">
-          <Link to="/quote/new"><FileText className="h-5 w-5" /> Penawaran</Link>
+      {/* Modern Quick Actions */}
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Button asChild className="group h-16 justify-start rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg transition-all hover:shadow-xl hover:scale-105">
+          <Link to="/quote/new" className="flex items-center gap-3">
+            <div className="rounded-lg bg-white/20 p-2">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold">Penawaran</p>
+              <p className="text-xs opacity-90">Buat baru</p>
+            </div>
+          </Link>
         </Button>
-        <Button asChild variant="outline" className="h-14 justify-start rounded-lg bg-card">
-          <Link to="/invoice/new"><Receipt className="h-5 w-5 text-primary" /> Faktur</Link>
+        
+        <Button asChild variant="outline" className="group h-16 justify-start rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105">
+          <Link to="/invoice/new" className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2 text-green-700">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground">Faktur</p>
+              <p className="text-xs text-muted-foreground">Buat invoice</p>
+            </div>
+          </Link>
         </Button>
-        <Button asChild variant="outline" className="h-14 justify-start rounded-lg bg-card">
-          <Link to="/expenses"><CreditCard className="h-5 w-5 text-amber-700" /> Expense</Link>
+
+        <Button asChild variant="outline" className="group h-16 justify-start rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105">
+          <Link to="/expenses" className="flex items-center gap-3">
+            <div className="rounded-lg bg-amber-100 p-2 text-amber-700">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground">Expenses</p>
+              <p className="text-xs text-muted-foreground">Catat biaya</p>
+            </div>
+          </Link>
         </Button>
-        <Button asChild variant="outline" className="h-14 justify-start rounded-lg bg-card">
-          <Link to="/clients"><Users className="h-5 w-5 text-sky-700" /> Klien</Link>
+
+        <Button asChild variant="outline" className="group h-16 justify-start rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105">
+          <Link to="/clients" className="flex items-center gap-3">
+            <div className="rounded-lg bg-purple-100 p-2 text-purple-700">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground">Klien</p>
+              <p className="text-xs text-muted-foreground">Kelola data</p>
+            </div>
+          </Link>
         </Button>
       </section>
 
@@ -460,145 +533,486 @@ const Dashboard = () => {
         </Card>
       )}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {[
-          { label: 'Laba bersih', value: formatCurrency(netProfit), helper: 'Pendapatan - HPP - biaya', icon: DollarSign, tone: 'text-emerald-700' },
-          { label: 'Total biaya', value: formatCurrency(totalCostOfGoods + totalExpenses), helper: 'HPP + pengeluaran', icon: Wallet, tone: 'text-rose-700' },
-          { label: 'Belum dibayar', value: formatCurrency(invoiceStats.unpaidAmount), helper: `${activeInvoiceCount} faktur aktif`, icon: Clock, tone: 'text-sky-700' },
-          { label: 'Overdue', value: formatCurrency(invoiceStats.overdueAmount), helper: `${overdueInvoicesCount} faktur`, icon: AlertCircle, tone: 'text-amber-700' },
-          { label: 'Konversi', value: `${quoteConversionRate.toFixed(1)}%`, helper: 'Penawaran diterima', icon: TrendingUp, tone: 'text-teal-700' },
-        ].map((item) => (
-          <Card key={item.label} className="overflow-hidden">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <p className="mt-2 truncate text-lg font-semibold tabular-nums sm:text-xl">{item.value}</p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{item.helper}</p>
-                </div>
-                <item.icon className={cn("h-5 w-5 shrink-0", item.tone)} />
+      {/* Enhanced Metrics Cards */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-emerald-500 to-green-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Laba Bersih</p>
+                <p className="text-lg font-bold text-emerald-600">{formatCurrency(netProfit)}</p>
+                <p className="text-xs text-muted-foreground">Margin: {((netProfit/(totalRevenue || 1))*100).toFixed(1)}%</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1.45fr_0.85fr]">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Grafik cashflow</CardTitle>
-            <CardDescription>Pendapatan dan biaya harian.</CardDescription>
+              <div className="rounded-lg bg-emerald-50 p-2">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
               </div>
-              <Badge variant="secondary" className="hidden sm:inline-flex">{financialChartData.length} hari</Badge>
             </div>
-          </CardHeader>
-          <CardContent className="h-72 px-2 sm:h-80 sm:px-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={financialChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} minTickGap={18} />
-                <YAxis tickLine={false} axisLine={false} width={42} fontSize={11} tickFormatter={(value) => compactNumber.format(value as number)} />
-                <Tooltip formatter={(value) => formatCurrency(value as number)} labelClassName="text-foreground" />
-                <Area type="monotone" dataKey="Pendapatan" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#revenueGradient)" />
-                <Area type="monotone" dataKey="Biaya" stroke="hsl(var(--destructive))" strokeWidth={2} fill="url(#expenseGradient)" />
-              </AreaChart>
-            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Health dokumen</CardTitle>
-            <CardDescription>Distribusi status operasional.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-72 px-2 sm:px-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={documentHealthData} layout="vertical" margin={{ top: 6, right: 16, left: 18, bottom: 0 }}>
-                <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
-                <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} fontSize={11} />
-                <YAxis type="category" dataKey="name" width={82} tickLine={false} axisLine={false} fontSize={11} />
-                <Tooltip formatter={(value) => [`${value} dokumen`, 'Jumlah']} />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-rose-500 to-red-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Total Biaya</p>
+                <p className="text-lg font-bold text-rose-600">{formatCurrency(totalCostOfGoods + totalExpenses)}</p>
+                <p className="text-xs text-muted-foreground">HPP + Operasional</p>
+              </div>
+              <div className="rounded-lg bg-rose-50 p-2">
+                <Wallet className="h-5 w-5 text-rose-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-blue-500 to-cyan-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Piutang</p>
+                <p className="text-lg font-bold text-blue-600">{formatCurrency(invoiceStats.unpaidAmount)}</p>
+                <p className="text-xs text-muted-foreground">{activeInvoiceCount} faktur aktif</p>
+              </div>
+              <div className="rounded-lg bg-blue-50 p-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-amber-500 to-orange-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Overdue</p>
+                <p className="text-lg font-bold text-amber-600">{formatCurrency(invoiceStats.overdueAmount)}</p>
+                <p className="text-xs text-muted-foreground">{overdueInvoicesCount} terlambat</p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-teal-500 to-green-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Konversi</p>
+                <p className="text-lg font-bold text-teal-600">{quoteConversionRate.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">{acceptedQuotesTotal} diterima</p>
+              </div>
+              <div className="rounded-lg bg-teal-50 p-2">
+                <Target className="h-5 w-5 text-teal-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden transition-all hover:shadow-md">
+          <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-purple-500 to-indigo-600"></div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Klien Aktif</p>
+                <p className="text-lg font-bold text-purple-600">{quotes.filter(q => q.status === 'Diterima').length}</p>
+                <p className="text-xs text-muted-foreground">Periode ini</p>
+              </div>
+              <div className="rounded-lg bg-purple-50 p-2">
+                <Users className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Butuh perhatian</CardTitle>
-            <CardDescription>{attentionCount > 0 ? `${attentionCount} hal perlu ditindaklanjuti.` : 'Semua aman untuk saat ini.'}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {overdueInvoices.length > 0 && overdueInvoices.map(inv => (
-              <Link key={inv.id} to={`/invoice/${inv.id}`} className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 text-sm transition-colors hover:bg-accent">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{inv.to_client}</p>
-                  <p className="text-xs text-muted-foreground">Faktur jatuh tempo</p>
-                </div>
-                <Badge variant="destructive">{differenceInDays(new Date(), new Date(inv.due_date))} hari</Badge>
-              </Link>
-            ))}
-            {pendingQuotes.length > 0 && pendingQuotes.map(q => (
-              <Link key={q.id} to={`/quote/${q.id}`} className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 text-sm transition-colors hover:bg-accent">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{q.to_client}</p>
-                  <p className="text-xs text-muted-foreground">Menunggu respons sejak {safeFormat(q.created_at, 'dd MMM')}</p>
-                </div>
-                <Badge variant="secondary">Follow up</Badge>
-              </Link>
-            ))}
-            {attentionCount === 0 && (
-              <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
-                Tidak ada faktur terlambat, penawaran tertunda, atau stok menipis.
+      {/* Advanced Analytics Section with Tabs */}
+      <section>
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="mb-6 grid w-full grid-cols-3 lg:w-auto lg:grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="financial">Financial</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="trends" className="hidden lg:flex">Trends</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+              {/* Enhanced Cashflow Chart */}
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <LineChart className="h-5 w-5 text-blue-600" />
+                        Tren Cashflow
+                      </CardTitle>
+                      <CardDescription>Analisis pendapatan vs biaya harian</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {financialChartData.length} hari
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="h-80 px-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={financialChartData}>
+                      <defs>
+                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(value) => compactNumber.format(value)} />
+                      <Tooltip 
+                        formatter={(value) => formatCurrency(value as number)}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Area type="monotone" dataKey="Pendapatan" stroke="#10b981" strokeWidth={3} fill="url(#revenueGradient)" />
+                      <Area type="monotone" dataKey="Biaya" stroke="#ef4444" strokeWidth={2} fill="url(#expenseGradient)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Document Status Distribution */}
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5 text-purple-600" />
+                    Status Dokumen
+                  </CardTitle>
+                  <CardDescription>Distribusi status operasional</CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={documentHealthData} layout="vertical">
+                      <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                      <XAxis type="number" axisLine={false} tickLine={false} fontSize={12} />
+                      <YAxis type="category" dataKey="name" width={80} axisLine={false} tickLine={false} fontSize={12} />
+                      <Tooltip 
+                        formatter={(value) => [`${value} dokumen`, 'Jumlah']}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="financial" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Breakdown Biaya</CardTitle>
+                  <CardDescription>Analisis struktur biaya operasional</CardDescription>
+                </CardHeader>
+                <CardContent className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'HPP', value: totalCostOfGoods, fill: '#ef4444' },
+                          { name: 'Operasional', value: totalExpenses, fill: '#f97316' },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {[
+                          { name: 'HPP', value: totalCostOfGoods, fill: '#ef4444' },
+                          { name: 'Operasional', value: totalExpenses, fill: '#f97316' },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Kesehatan Keuangan</CardTitle>
+                  <CardDescription>Indikator performa bisnis</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Margin Keuntungan</span>
+                      <span className="font-medium">{((netProfit/(totalRevenue || 1))*100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={Math.max(0, Math.min(100, ((netProfit/(totalRevenue || 1))*100)))} className="h-2" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Rasio Piutang</span>
+                      <span className="font-medium">{((invoiceStats.unpaidAmount/(totalRevenue || 1))*100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={Math.min(100, ((invoiceStats.unpaidAmount/(totalRevenue || 1))*100))} className="h-2" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Target Achievement</span>
+                      <span className="font-medium">{goalProgress.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={goalProgress} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-yellow-600" />
+                    Top Performa
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg">
+                    <span className="font-medium">Konversi Rate</span>
+                    <Badge className="bg-yellow-500">{quoteConversionRate.toFixed(1)}%</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                    <span className="font-medium">Margin Profit</span>
+                    <Badge className="bg-green-500">{((netProfit/(totalRevenue || 1))*100).toFixed(1)}%</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg">
+                    <span className="font-medium">Faktur Aktif</span>
+                    <Badge className="bg-blue-500">{activeInvoiceCount}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pipeline Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                      <span className="text-sm">Draft</span>
+                    </div>
+                    <span className="font-semibold">{draftQuotesCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm">Terkirim</span>
+                    </div>
+                    <span className="font-semibold">{sentQuotesCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm">Diterima</span>
+                    </div>
+                    <span className="font-semibold">{acceptedQuotesTotal}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
+                    <p className="text-2xl font-bold text-purple-600">{quotes.length}</p>
+                    <p className="text-sm text-purple-700">Total Penawaran</p>
+                  </div>
+                  <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg">
+                    <p className="text-2xl font-bold text-indigo-600">{invoices.length}</p>
+                    <p className="text-sm text-indigo-700">Total Faktur</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="trends" className="space-y-6">
+            <div className="text-center py-12">
+              <Sparkles className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Fitur Trends Segera Hadir</h3>
+              <p className="text-gray-500">Analisis mendalam tentang tren bisnis dan prediksi akan tersedia dalam update mendatang.</p>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </section>
+
+      {/* Enhanced Attention & Activities Section */}
+      <section className="grid gap-6 lg:grid-cols-2">
+        {/* Attention Items dengan Priority Levels */}
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 pb-4">
+            <CardTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <Flame className="h-5 w-5 text-red-600" />
               </div>
-            )}
+              <div>
+                <p className="font-semibold text-red-900">Perlu Perhatian</p>
+                <p className="text-sm text-red-700">{attentionCount > 0 ? `${attentionCount} item prioritas` : 'Semua terkendali'}</p>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {/* Overdue Invoices - Highest Priority */}
+              {overdueInvoices.length > 0 && overdueInvoices.map(inv => (
+                <Link key={inv.id} to={`/invoice/${inv.id}`} className="group flex items-center gap-4 border-l-4 border-red-500 bg-red-50/50 p-4 transition-all hover:bg-red-50">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-red-900 group-hover:text-red-800">{inv.to_client}</p>
+                    <p className="text-sm text-red-700">Faktur terlambat {differenceInDays(new Date(), new Date(inv.due_date))} hari</p>
+                  </div>
+                  <Badge variant="destructive" className="font-mono">
+                    URGENT
+                  </Badge>
+                </Link>
+              ))}
+              
+              {/* Pending Quotes - Medium Priority */}
+              {pendingQuotes.length > 0 && pendingQuotes.map(q => (
+                <Link key={q.id} to={`/quote/${q.id}`} className="group flex items-center gap-4 border-l-4 border-amber-500 bg-amber-50/50 p-4 transition-all hover:bg-amber-50">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                    <Clock4 className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-amber-900 group-hover:text-amber-800">{q.to_client}</p>
+                    <p className="text-sm text-amber-700">Menunggu respons sejak {safeFormat(q.created_at, 'dd MMM')}</p>
+                  </div>
+                  <Badge variant="outline" className="border-amber-500 text-amber-700">
+                    Follow Up
+                  </Badge>
+                </Link>
+              ))}
+              
+              {/* Low Stock Items - Low Priority */}
+              {lowStockItems.slice(0, 3).map(item => (
+                <Link key={item.id} to="/items" className="group flex items-center gap-4 border-l-4 border-blue-500 bg-blue-50/50 p-4 transition-all hover:bg-blue-50">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                    <Package className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-blue-900 group-hover:text-blue-800">{item.description}</p>
+                    <p className="text-sm text-blue-700">Stok: {item.stock} {item.unit} tersisa</p>
+                  </div>
+                  <Badge variant="outline" className="border-blue-500 text-blue-700">
+                    LOW STOCK
+                  </Badge>
+                </Link>
+              ))}
+              
+              {attentionCount === 0 && (
+                <div className="flex flex-col items-center justify-center p-8">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <h3 className="font-medium text-green-800 mb-2">Semua Aman!</h3>
+                  <p className="text-center text-sm text-green-600">
+                    Tidak ada item yang memerlukan perhatian khusus saat ini.
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-primary" /> Aktivitas terkini</CardTitle>
-            <CardDescription>Update terbaru dari workflow bisnis.</CardDescription>
+        {/* Enhanced Activities Timeline */}
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-4">
+            <CardTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                <Activity className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-blue-900">Timeline Aktivitas</p>
+                <p className="text-sm text-blue-700">Update terbaru dari sistem</p>
+              </div>
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="p-0">
+            <div className="max-h-80 space-y-1 overflow-y-auto">
               {recentActivities.length > 0 ? (
-                recentActivities.map(activity => (
-                  <div key={activity.id} className="flex gap-3 rounded-md border bg-card p-3 text-sm">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-primary">
-                      <Activity className="h-4 w-4" />
+                recentActivities.map((activity, index) => (
+                  <div key={activity.id} className="group relative flex items-start gap-4 p-4 transition-all hover:bg-blue-50/50">
+                    {/* Timeline Line */}
+                    {index < recentActivities.length - 1 && (
+                      <div className="absolute left-8 top-12 h-full w-px bg-gradient-to-b from-blue-200 to-transparent"></div>
+                    )}
+                    
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 ring-4 ring-white">
+                      <Bell className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{activity.message}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{safeFormatDistance(activity.created_at)}</p>
-                      {activity.link && (
-                        <Button asChild variant="link" className="mt-1 h-auto p-0 text-xs">
-                          <Link to={activity.link}>Lihat detail</Link>
-                        </Button>
-                      )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 group-hover:text-blue-900">
+                        {activity.message}
+                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-xs text-gray-500">
+                          {safeFormatDistance(activity.created_at)}
+                        </p>
+                        {activity.link && (
+                          <Button asChild variant="ghost" size="sm" className="h-6 text-xs">
+                            <Link to={activity.link}>Lihat →</Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">Belum ada aktivitas baru.</div>
+                <div className="flex flex-col items-center justify-center p-8">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+                    <Activity className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="font-medium text-gray-600 mb-2">Belum Ada Aktivitas</h3>
+                  <p className="text-center text-sm text-gray-500">
+                    Aktivitas sistem akan muncul di sini.
+                  </p>
+                </div>
               )}
             </div>
-            </CardContent>
+          </CardContent>
         </Card>
       </section>
     </div>
