@@ -304,12 +304,15 @@ const QuoteView = () => {
             onSend={() => {}} // No refresh needed for quote status usually, but can reload if needed
         />
 
-        {/* Header Actions */}
+        {/* Header Actions - Mobile */}
         <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-2 print:hidden md:hidden">
             <Button asChild variant="outline" size="sm" className="h-10">
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
             </Button>
             <div className="flex items-center gap-2">
+                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} size="sm" className="h-10 bg-green-600 hover:bg-green-700">
+                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
+                </Button>
                 <Button onClick={() => setIsSendDialogOpen(true)} size="sm" className="h-10">
                     <Send className="mr-2 h-4 w-4" /> Kirim
                 </Button>
@@ -321,9 +324,6 @@ const QuoteView = () => {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={handleCreateInvoice} disabled={isCreatingInvoice}>
-                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
-                        </DropdownMenuItem>
                         {quote.status === 'Diterima' && (
                             <DropdownMenuItem onClick={handleCreateProject}>
                                 <FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek
@@ -337,14 +337,15 @@ const QuoteView = () => {
             </div>
         </div>
 
+        {/* Header Actions - Desktop */}
         <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
             <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
+                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
+                </Button>
                 <Button onClick={() => setIsSendDialogOpen(true)} variant="default">
                     <Send className="mr-2 h-4 w-4" /> Kirim
-                </Button>
-                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} variant="outline" className="border-primary/30 text-primary hover:bg-accent">
-                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
                 </Button>
                 {quote.status === 'Diterima' && (
                     <Button onClick={handleCreateProject} variant="outline" className="border-primary/30 text-primary hover:bg-accent"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
