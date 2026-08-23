@@ -54,23 +54,63 @@ const QuoteList = () => {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const fetchQuotes = async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('quotes')
-      .select('id, quote_number, to_client, created_at, status, view_count, last_viewed_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching quotes:', error);
-    } else {
-      setQuotes(data as Quote[]);
+    if (!user) {
+      console.log('No user found, skipping fetch');
+      return;
     }
+    setLoading(true);
+    
+    console.log('Fetching quotes for user:', user.id);
+    
+    try {
+      // First try with all columns
+      let { data, error } = await supabase
+        .from('quotes')
+        .select('id, quote_number, to_client, created_at, status, view_count, last_viewed_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      // If there's a column error, try with basic columns only
+      if (error && error.message?.includes('column')) {
+        console.log('Column error detected, trying with basic columns:', error.message);
+        const result = await supabase
+          .from('quotes')
+          .select('id, quote_number, to_client, created_at, status')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        data = result.data;
+        error = result.error;
+        
+        // Add default values for missing columns
+        if (data) {
+          data = data.map(quote => ({
+            ...quote,
+            view_count: 0,
+            last_viewed_at: null
+          }));
+        }
+      }
+
+      console.log('Supabase response:', { data, error, count: data?.length || 0 });
+
+      if (error) {
+        console.error('Error fetching quotes:', error);
+        showError(`Gagal memuat penawaran: ${error.message}`);
+      } else {
+        console.log(`Found ${data?.length || 0} quotes`);
+        setQuotes(data as Quote[]);
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      showError('Terjadi kesalahan tidak terduga saat memuat penawaran');
+    }
+    
     setLoading(false);
   };
 
   useEffect(() => {
+    console.log('Current user:', user);
     fetchQuotes();
   }, [user]);
 
