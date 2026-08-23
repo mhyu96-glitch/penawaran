@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download, Copy, Search, Filter } from 'lucide-react';
+import { PlusCircle, Eye, Pencil, Trash2, Receipt, MoreVertical, Download, Copy, Search, Filter, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -19,6 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +65,10 @@ const InvoiceList = () => {
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; invoice: Invoice | null }>({ 
+    open: false, 
+    invoice: null 
+  });
 
   const fetchInvoices = async () => {
     if (!user) return;
@@ -91,6 +103,63 @@ const InvoiceList = () => {
     } else {
       showSuccess('Status faktur berhasil diperbarui.');
       setInvoices(invoices.map(i => i.id === invoiceId ? { ...i, status } : i));
+    }
+  };
+
+  const showPaymentDialog = (invoice: Invoice) => {
+    setPaymentDialog({ open: true, invoice });
+  };
+
+  const closePaymentDialog = () => {
+    setPaymentDialog({ open: false, invoice: null });
+  };
+
+  const confirmPayment = async () => {
+    if (!paymentDialog.invoice) return;
+    await handlePaymentComplete(paymentDialog.invoice);
+    closePaymentDialog();
+  };
+
+  const handlePaymentComplete = async (invoice: Invoice) => {
+    try {
+      // Update status to "Lunas"
+      const { error: statusError } = await supabase
+        .from('invoices')
+        .update({ status: 'Lunas' })
+        .eq('id', invoice.id);
+
+      if (statusError) {
+        showError('Gagal mengubah status faktur.');
+        return;
+      }
+
+      // Create payment record
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          invoice_id: invoice.id,
+          user_id: user?.id,
+          payment_date: new Date().toISOString(),
+          payment_method: 'Pelunasan Manual',
+          amount_paid: 0, // Will be calculated from invoice total
+          status: 'Completed',
+          notes: 'Pembayaran pelunasan manual'
+        });
+
+      if (paymentError) {
+        console.error('Payment record error:', paymentError);
+        // Don't show error for payment record as it might be optional
+      }
+
+      // Update local state
+      setInvoices(invoices.map(inv => 
+        inv.id === invoice.id ? { ...inv, status: 'Lunas' } : inv
+      ));
+
+      showSuccess('Faktur berhasil ditandai sebagai lunas!');
+    } catch (error) {
+      console.error('Payment completion error:', error);
+      showError('Terjadi kesalahan saat memproses pelunasan.');
     }
   };
 
@@ -219,6 +288,11 @@ const InvoiceList = () => {
   const renderActions = (invoice: Invoice) => (
     <>
       <DropdownMenuItem asChild><Link to={`/invoice/${invoice.id}`}><Eye className="mr-2 h-4 w-4" />Lihat</Link></DropdownMenuItem>
+      {invoice.status !== 'Lunas' && (
+        <DropdownMenuItem onClick={() => showPaymentDialog(invoice)} className="text-green-600">
+          <CheckCircle className="mr-2 h-4 w-4" />Tandai Lunas
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem asChild><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="mr-2 h-4 w-4" />Edit</Link></DropdownMenuItem>
       <DropdownMenuItem onClick={() => handleDuplicateInvoice(invoice.id)}><Copy className="mr-2 h-4 w-4" />Duplikat</DropdownMenuItem>
       <AlertDialogTrigger asChild>
@@ -235,6 +309,31 @@ const InvoiceList = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={paymentDialog.open} onOpenChange={closePaymentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Pelunasan</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menandai faktur <strong>{paymentDialog.invoice?.invoice_number}</strong> sebagai lunas?
+              <br /><br />
+              Klien: <strong>{paymentDialog.invoice?.to_client}</strong>
+              <br />
+              Status akan diubah menjadi "Lunas" dan tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={closePaymentDialog}>
+              Batal
+            </Button>
+            <Button onClick={confirmPayment} className="bg-green-600 hover:bg-green-700">
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Ya, Tandai Lunas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -358,6 +457,17 @@ const InvoiceList = () => {
                         <TableCell>{safeFormat(invoice.due_date, 'PPP')}</TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/${invoice.id}`}><Eye className="h-4 w-4" /></Link></Button>
+                          {invoice.status !== 'Lunas' && (
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              onClick={() => showPaymentDialog(invoice)}
+                              className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                              title="Tandai Lunas"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button asChild variant="outline" size="icon"><Link to={`/invoice/edit/${invoice.id}`}><Pencil className="h-4 w-4" /></Link></Button>
                           <Button variant="outline" size="icon" onClick={() => handleDuplicateInvoice(invoice.id)}><Copy className="h-4 w-4" /></Button>
                           <AlertDialog>
