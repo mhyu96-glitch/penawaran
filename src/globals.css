@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Glass Morphism Theme */
+@import './styles/glass-theme.css';
+
 @layer base {
   :root {
     --background: 210 24% 98%;
