@@ -206,7 +206,8 @@ export default function InvoiceFormGlass() {
       convertedFrom: convertFromQuote?.quoteNumber,
     };
 
-    console.log('Saving invoice:', invoiceData);
+    // In real app, this would call API
+    // TODO: Replace with actual API call
     setShowSaveDialog(false);
     
     // Show success toast

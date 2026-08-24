@@ -170,7 +170,7 @@ export default function QuoteFormGlass() {
 
   const handleSaveNewClient = () => {
     // In real app, this would call API
-    console.log('Saving new client:', newClient);
+    // TODO: Replace with actual API call
     setShowNewClientDialog(false);
     setNewClient({
       companyName: '',
@@ -207,7 +207,8 @@ export default function QuoteFormGlass() {
       status: saveAction === 'draft' ? 'draft' : 'sent',
     };
 
-    console.log('Saving quote:', quoteData);
+    // In real app, this would call API
+    // TODO: Replace with actual API call
     setShowSaveDialog(false);
     
     // Show success toast (would use actual toast in real app)

@@ -297,7 +297,7 @@ export default function ClientListGlass() {
                     <div className="absolute right-0 mt-2 w-48 glass-heavy rounded-lg border border-border-glass shadow-xl z-10">
                       <button
                         onClick={() => {
-                          console.log('View client:', client.id);
+                          // TODO: Navigate to client detail view
                           setActiveMenu(null);
                         }}
                         className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left rounded-t-lg"
@@ -307,7 +307,7 @@ export default function ClientListGlass() {
                       </button>
                       <button
                         onClick={() => {
-                          console.log('Edit client:', client.id);
+                          // TODO: Navigate to edit client form
                           setActiveMenu(null);
                         }}
                         className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
@@ -343,7 +343,7 @@ export default function ClientListGlass() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4 text-text-tertiary" />
-                  <span className="text-text-secondary line-clamp-1">{client.address}</span>
+                  <span className="text-text-secondary truncate">{client.address}</span>
                 </div>
               </div>
 
