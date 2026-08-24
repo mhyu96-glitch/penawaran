@@ -95,9 +95,11 @@ const App = () => (
                   <Route path="/quotes-glass" element={<QuoteListGlass />} />
                   <Route path="/quote-glass/new" element={<QuoteFormGlass />} />
                   <Route path="/quote-glass/edit/:id" element={<QuoteFormGlass />} />
+                  <Route path="/quote-glass/:id" element={<QuoteFormGlass />} />
                   <Route path="/invoices-glass" element={<InvoiceListGlass />} />
                   <Route path="/invoice-glass/new" element={<InvoiceFormGlass />} />
                   <Route path="/invoice-glass/edit/:id" element={<InvoiceFormGlass />} />
+                  <Route path="/invoice-glass/:id" element={<InvoiceFormGlass />} />
                   <Route path="/clients-glass" element={<ClientListGlass />} />
                 </Route>
               </Route>

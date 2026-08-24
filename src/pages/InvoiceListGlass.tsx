@@ -261,7 +261,7 @@ const InvoiceListGlass = () => {
       }
 
       showSuccess('Faktur berhasil diduplikasi.');
-      navigate(`/invoice/edit/${newInvoice.id}`);
+      navigate(`/invoice-glass/edit/${newInvoice.id}`);
     } catch (error) {
       showError('Terjadi kesalahan saat menduplikasi.');
     }
@@ -469,11 +469,11 @@ const InvoiceListGlass = () => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-medium backdrop-blur-lg border-glass-border-DEFAULT">
-            <DropdownMenuItem onClick={() => navigate(`/invoice/${invoice.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/invoice-glass/${invoice.id}`)}>
               <Eye className="h-4 w-4 mr-2" />
               View
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/invoice/edit/${invoice.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/invoice-glass/edit/${invoice.id}`)}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </DropdownMenuItem>
@@ -527,7 +527,7 @@ const InvoiceListGlass = () => {
           </p>
         </div>
         
-        <Link to="/invoice/new">
+        <Link to="/invoice-glass/new">
           <GlassButton 
             variant="primary" 
             size="lg"

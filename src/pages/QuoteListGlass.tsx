@@ -208,7 +208,7 @@ const QuoteListGlass = () => {
       }
 
       showSuccess('Penawaran berhasil diduplikasi.');
-      navigate(`/quote/edit/${newQuote.id}`);
+      navigate(`/quote-glass/edit/${newQuote.id}`);
     } catch (error) {
       showError('Terjadi kesalahan saat menduplikasi.');
     }
@@ -291,7 +291,7 @@ const QuoteListGlass = () => {
       }
 
       showSuccess('Faktur berhasil dibuat.');
-      navigate(`/invoice/edit/${newInvoice.id}`);
+      navigate(`/invoice-glass/edit/${newInvoice.id}`);
     } catch (error) {
       showError('Terjadi kesalahan saat membuat faktur.');
     }
@@ -423,11 +423,11 @@ const QuoteListGlass = () => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-medium backdrop-blur-lg border-glass-border-DEFAULT">
-            <DropdownMenuItem onClick={() => navigate(`/quote/${quote.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/quote-glass/${quote.id}`)}>
               <Eye className="h-4 w-4 mr-2" />
               View
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/quote/edit/${quote.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/quote-glass/edit/${quote.id}`)}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </DropdownMenuItem>
@@ -478,7 +478,7 @@ const QuoteListGlass = () => {
           </p>
         </div>
         
-        <Link to="/quote/new">
+        <Link to="/quote-glass/new">
           <GlassButton 
             variant="primary" 
             size="lg"
