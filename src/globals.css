@@ -1,9 +1,9 @@
+/* Import Glass Morphism Theme FIRST */
+@import './styles/glass-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import Glass Morphism Theme */
-@import './styles/glass-theme.css';
 
 @layer base {
   :root {
