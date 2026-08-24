@@ -36,6 +36,12 @@ import Automation from "./pages/Automation";
 import ProjectCalendar from "./pages/ProjectCalendar";
 import RecurringInvoiceList from "./pages/RecurringInvoiceList";
 
+// Glass Morphism Pages
+import DashboardGlass from "./pages/DashboardGlass";
+import QuoteListGlass from "./pages/QuoteListGlass";
+import InvoiceListGlass from "./pages/InvoiceListGlass";
+import GlassThemeHub from "./pages/GlassThemeHub";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -79,6 +85,12 @@ const App = () => (
                   <Route path="/project/:id" element={<ProjectDetail />} />
                   <Route path="/automation" element={<Automation />} />
                   <Route path="/calendar" element={<ProjectCalendar />} />
+                  
+                  {/* Glass Morphism Pages */}
+                  <Route path="/glass" element={<GlassThemeHub />} />
+                  <Route path="/dashboard-glass" element={<DashboardGlass />} />
+                  <Route path="/quotes-glass" element={<QuoteListGlass />} />
+                  <Route path="/invoices-glass" element={<InvoiceListGlass />} />
                 </Route>
               </Route>
 
