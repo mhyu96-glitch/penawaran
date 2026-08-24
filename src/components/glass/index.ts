@@ -24,6 +24,7 @@ export type { GlassTableProps, Column } from './GlassTable';
 export { GlassSelect } from './GlassSelect';
 export { GlassDialog, GlassDialogFooter } from './GlassDialog';
 export { GlassDatePicker } from './GlassDatePicker';
+export { GlassErrorBoundary } from './GlassErrorBoundary';
 
 // Re-export utility types
 export type GlassVariant = 'light' | 'medium' | 'heavy' | 'ultra';

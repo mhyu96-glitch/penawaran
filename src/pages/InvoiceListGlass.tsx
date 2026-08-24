@@ -215,7 +215,7 @@ const InvoiceListGlass = () => {
         .limit(1);
 
       let nextNumber = 1;
-      if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0].invoice_number) {
+      if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0]?.invoice_number) {
         const lastNumber = latestInvoices[0].invoice_number.split('-').pop();
         if (lastNumber && !Number.isNaN(Number.parseInt(lastNumber, 10))) {
           nextNumber = Number.parseInt(lastNumber, 10) + 1;

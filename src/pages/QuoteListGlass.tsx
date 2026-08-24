@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -65,6 +65,10 @@ const QuoteListGlass = () => {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   
+  // Action States
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [converting, setConverting] = useState<string | null>(null);
+  
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
@@ -104,7 +108,7 @@ const QuoteListGlass = () => {
     fetchQuotes();
   }, [user]);
 
-  const handleStatusChange = async (quoteId: string, status: string) => {
+  const handleStatusChange = useCallback(async (quoteId: string, status: string) => {
     const { error } = await supabase
       .from('quotes')
       .update({ status })
@@ -116,7 +120,7 @@ const QuoteListGlass = () => {
       showSuccess('Status berhasil diperbarui.');
       setQuotes(quotes.map(q => q.id === quoteId ? { ...q, status } : q));
     }
-  };
+  }, [quotes, user]);
 
   const handleDeleteQuote = async () => {
     if (!quoteToDelete) return;
@@ -136,8 +140,9 @@ const QuoteListGlass = () => {
     }
   };
 
-  const handleDuplicate = async (quote: Quote) => {
+  const handleDuplicate = useCallback(async (quote: Quote) => {
     if (!user) return;
+    setDuplicating(quote.id);
 
     try {
       const { data: quoteData, error: quoteError } = await supabase
@@ -162,7 +167,7 @@ const QuoteListGlass = () => {
         .limit(1);
 
       let nextNumber = 1;
-      if (latestQuotes && latestQuotes.length > 0 && latestQuotes[0].quote_number) {
+      if (latestQuotes && latestQuotes.length > 0 && latestQuotes[0]?.quote_number) {
         const lastNumber = latestQuotes[0].quote_number.split('-').pop();
         if (lastNumber && !Number.isNaN(Number.parseInt(lastNumber, 10))) {
           nextNumber = Number.parseInt(lastNumber, 10) + 1;
@@ -211,8 +216,10 @@ const QuoteListGlass = () => {
       navigate(`/quote-glass/edit/${newQuote.id}`);
     } catch (error) {
       showError('Terjadi kesalahan saat menduplikasi.');
+    } finally {
+      setDuplicating(null);
     }
-  };
+  }, [user]);
 
   const handleCreateInvoice = async (quote: Quote) => {
     if (!user) return;
@@ -239,7 +246,7 @@ const QuoteListGlass = () => {
         .limit(1);
 
       let nextNumber = 1;
-      if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0].invoice_number) {
+      if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0]?.invoice_number) {
         const lastNumber = latestInvoices[0].invoice_number.split('-').pop();
         if (lastNumber && !Number.isNaN(Number.parseInt(lastNumber, 10))) {
           nextNumber = Number.parseInt(lastNumber, 10) + 1;
