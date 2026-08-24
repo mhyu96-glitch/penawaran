@@ -43,6 +43,7 @@ import InvoiceListGlass from "./pages/InvoiceListGlass";
 import GlassThemeHub from "./pages/GlassThemeHub";
 import QuoteFormGlass from "./pages/QuoteFormGlass";
 import InvoiceFormGlass from "./pages/InvoiceFormGlass";
+import ClientListGlass from "./pages/ClientListGlass";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const App = () => (
                   <Route path="/invoices-glass" element={<InvoiceListGlass />} />
                   <Route path="/invoice-glass/new" element={<InvoiceFormGlass />} />
                   <Route path="/invoice-glass/edit/:id" element={<InvoiceFormGlass />} />
+                  <Route path="/clients-glass" element={<ClientListGlass />} />
                 </Route>
               </Route>
 
