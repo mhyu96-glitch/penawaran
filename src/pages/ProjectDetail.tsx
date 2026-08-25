@@ -1563,8 +1563,189 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
             </CardHeader>
 
             <CardContent className="p-4 sm:p-6 space-y-6">
-              {/* Financial Breakdown Table */}
-              <div className="rounded-2xl border border-border/80 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {/* MOBILE FINANCIAL BREAKDOWN TILES (block on mobile, hidden on desktop) */}
+              <div className="block sm:hidden rounded-2xl border border-border/80 divide-y divide-border/60 overflow-hidden bg-card text-xs">
+                {/* 1. Pendapatan */}
+                <div className="p-3 bg-emerald-500/10 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <DollarSign className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300 block text-[11px] leading-tight truncate">
+                        A. Total Nilai Kontrak
+                      </span>
+                      <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 block">
+                        Faktur / Penawaran Diterima
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm tabular-nums shrink-0">
+                    {formatCurrency(financials.totalRevenue)}
+                  </span>
+                </div>
+
+                {/* 1.1 Kas Masuk */}
+                <div className="p-2.5 pl-6 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Landmark className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-medium text-foreground block text-[11px] leading-tight truncate">
+                        • Uang Masuk Riil (DP & Kas)
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block">
+                        {financials.totalRevenue > 0 ? `${((financials.actualCashIn / financials.totalRevenue) * 100).toFixed(0)}% Terbayar` : '-'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs tabular-nums shrink-0">
+                    {formatCurrency(financials.actualCashIn)}
+                  </span>
+                </div>
+
+                {/* 1.2 Sisa Piutang */}
+                {financials.unpaidReceivables > 0 && (
+                  <div className="p-2.5 pl-6 flex items-center justify-between gap-2 hover:bg-muted/20">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-medium text-muted-foreground block text-[11px] leading-tight truncate">
+                          • Sisa Piutang Klien
+                        </span>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 block">
+                          Menunggu Pelunasan
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-amber-600 dark:text-amber-400 text-xs tabular-nums shrink-0">
+                      {formatCurrency(financials.unpaidReceivables)}
+                    </span>
+                  </div>
+                )}
+
+                {/* 2. HPP Barang */}
+                <div className="p-2.5 pl-6 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ShoppingCart className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-medium text-foreground block text-[11px] leading-tight truncate">
+                        B. Belanja Barang (HPP Modal)
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {procurementStats.totalItems} Barang ({procurementStats.purchasedCount} Terbeli)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(financials.costOfGoodsSold)}
+                  </span>
+                </div>
+
+                {/* 3. Akomodasi - Bensin */}
+                <div className="p-2 pl-9 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Fuel className="h-3 w-3 text-amber-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">• Bensin & Transport</span>
+                  </div>
+                  <span className="font-medium text-muted-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(expenseBreakdown.fuelTotal)}
+                  </span>
+                </div>
+
+                {/* 3. Akomodasi - Makan */}
+                <div className="p-2 pl-9 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Utensils className="h-3 w-3 text-orange-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">• Makan & Konsumsi</span>
+                  </div>
+                  <span className="font-medium text-muted-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(expenseBreakdown.mealTotal)}
+                  </span>
+                </div>
+
+                {/* 3. Akomodasi - Gaji Teknisi */}
+                <div className="p-2 pl-9 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Users className="h-3 w-3 text-blue-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">• Upah / Gaji Teknisi</span>
+                  </div>
+                  <span className="font-medium text-muted-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(expenseBreakdown.techTotal)}
+                  </span>
+                </div>
+
+                {/* 3. Akomodasi - Hotel & Lainnya */}
+                <div className="p-2 pl-9 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Hotel className="h-3 w-3 text-purple-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">• Penginapan & Alat</span>
+                  </div>
+                  <span className="font-medium text-muted-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(expenseBreakdown.hotelTotal + expenseBreakdown.otherTotal)}
+                  </span>
+                </div>
+
+                {/* Subtotal Operasional */}
+                <div className="p-2.5 pl-6 bg-muted/40 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Car className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-bold text-foreground block text-[11px] leading-tight truncate">
+                        C. Subtotal Akomodasi & Ops
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {expenses.length} Transaksi Tercatat
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-foreground text-xs tabular-nums shrink-0">
+                    {formatCurrency(financials.totalOperationalExpenses)}
+                  </span>
+                </div>
+
+                {/* Total Pengeluaran */}
+                <div className="p-3 bg-rose-500/10 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-rose-700 dark:text-rose-400 block text-[11px] leading-tight truncate">
+                        D. Total Seluruh Biaya (B + C)
+                      </span>
+                      <span className="text-[10px] text-rose-600/80 dark:text-rose-400/80 block">
+                        HPP Barang + Akomodasi
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-black text-rose-600 dark:text-rose-400 text-xs sm:text-sm tabular-nums shrink-0">
+                    {formatCurrency(financials.totalCosts)}
+                  </span>
+                </div>
+
+                {/* LABA BERSIH RIIL */}
+                <div className="p-3.5 bg-emerald-500/15 border-t-2 border-emerald-500/40 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-8 w-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-black text-emerald-800 dark:text-emerald-300 block text-xs sm:text-sm leading-tight truncate">
+                        E. LABA BERSIH RIIL (A - D)
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 block">
+                        Margin Keuntungan: {financials.profitMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tabular-nums shrink-0">
+                    {formatCurrency(financials.netProfit)}
+                  </span>
+                </div>
+              </div>
+
+              {/* DESKTOP FINANCIAL BREAKDOWN TABLE (hidden on mobile, table on desktop) */}
+              <div className="hidden sm:block rounded-2xl border border-border/80 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <Table className="w-full min-w-[650px]">
                   <TableHeader className="bg-muted/40">
                     <TableRow className="border-b border-border/80">
