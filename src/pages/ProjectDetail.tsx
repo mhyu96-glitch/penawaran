@@ -79,6 +79,15 @@ type Invoice = {
   invoice_items: { quantity: number; unit_price: number }[]; 
   discount_amount: number; 
   tax_amount: number; 
+  down_payment_amount?: number;
+};
+
+type Payment = {
+  id: string;
+  amount: number;
+  payment_date: string;
+  status: string;
+  invoice_id?: string;
 };
 
 type Expense = { 
@@ -122,6 +131,7 @@ const ProjectDetail = () => {
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -672,7 +682,7 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
   const budgetRemaining = project.budget - financials.totalCosts;
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* Top Header Breadcrumb & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <Button asChild variant="ghost" size="sm" className="w-fit rounded-xl text-muted-foreground hover:text-foreground">
