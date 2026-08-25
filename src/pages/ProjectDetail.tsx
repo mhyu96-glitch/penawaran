@@ -5,9 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
+import { 
+  ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, 
+  ListTodo, Target, ShoppingCart, CheckCircle2, Circle, Edit3, Check, 
+  X, AlertCircle, PackageCheck, Layers, Sparkles, User
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant, cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  formatCurrency, safeFormat, calculateSubtotal, calculateTotal, 
+  calculateItemTotal, getStatusVariant, cn 
+} from '@/lib/utils';
+import { showError, showSuccess } from '@/utils/toast';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
@@ -21,6 +32,16 @@ type ProjectDetails = {
   budget: number;
 };
 
+type QuoteItem = {
+  id: string;
+  quote_id: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  cost_price: number;
+};
+
 type Quote = { 
   id: string; 
   quote_number: string; 
@@ -28,10 +49,25 @@ type Quote = {
   status: string; 
   discount_amount?: number;
   tax_amount?: number;
-  quote_items: { quantity: number; unit_price: number; cost_price: number }[];
+  quote_items: QuoteItem[];
 };
-type Invoice = { id: string; invoice_number: string; created_at: string; status: string; invoice_items: { quantity: number; unit_price: number }[]; discount_amount: number; tax_amount: number; };
-type Expense = { id: string; description: string; expense_date: string; amount: number; };
+
+type Invoice = { 
+  id: string; 
+  invoice_number: string; 
+  created_at: string; 
+  status: string; 
+  invoice_items: { quantity: number; unit_price: number }[]; 
+  discount_amount: number; 
+  tax_amount: number; 
+};
+
+type Expense = { 
+  id: string; 
+  description: string; 
+  expense_date: string; 
+  amount: number; 
+};
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,33 +79,158 @@ const ProjectDetail = () => {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Procurement items purchase state (stored in localStorage per project)
+  const [purchasedItemIds, setPurchasedItemIds] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(`project-purchased-${id}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Inline editing state for item cost_price
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingCostPrice, setEditingCostPrice] = useState<string>('');
+  const [isSavingCost, setIsSavingCost] = useState(false);
+
   const fetchProjectData = async () => {
     if (!id) return;
     setLoading(true);
 
-    const [projectRes, quotesRes, invoicesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
-      supabase.from('projects').select('*, clients(name)').eq('id', id).single(),
-      supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
-      supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
-      supabase.from('expenses').select('*').eq('project_id', id),
-      supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at', { ascending: true }),
-      supabase.from('time_entries').select('*').eq('project_id', id).order('entry_date', { ascending: false })
-    ]);
+    try {
+      const [projectRes, quotesRes, invoicesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
+        supabase.from('projects').select('*, clients(name)').eq('id', id).single(),
+        supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
+        supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
+        supabase.from('expenses').select('*').eq('project_id', id),
+        supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at', { ascending: true }),
+        supabase.from('time_entries').select('*').eq('project_id', id).order('entry_date', { ascending: false })
+      ]);
 
-    if (projectRes.data) setProject(projectRes.data as ProjectDetails);
-    if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
-    if (invoicesRes.data) setInvoices(invoicesRes.data as Invoice[]);
-    if (expensesRes.data) setExpenses(expensesRes.data as Expense[]);
-    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
-    if (timeEntriesRes.data) setTimeEntries(timeEntriesRes.data as TimeEntry[]);
-
-    setLoading(false);
+      if (projectRes.data) setProject(projectRes.data as ProjectDetails);
+      if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
+      if (invoicesRes.data) setInvoices(invoicesRes.data as Invoice[]);
+      if (expensesRes.data) setExpenses(expensesRes.data as Expense[]);
+      if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+      if (timeEntriesRes.data) setTimeEntries(timeEntriesRes.data as TimeEntry[]);
+    } catch (err) {
+      console.error('Fetch project error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchProjectData();
   }, [id]);
 
+  // Toggle item purchased status
+  const handleTogglePurchased = (itemId: string) => {
+    setPurchasedItemIds(prev => {
+      const updated = { ...prev, [itemId]: !prev[itemId] };
+      if (!updated[itemId]) {
+        delete updated[itemId];
+      }
+      try {
+        localStorage.setItem(`project-purchased-${id}`, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Save purchased state error:', err);
+      }
+      return updated;
+    });
+  };
+
+  // Start editing item cost price
+  const handleStartEditCost = (item: QuoteItem) => {
+    setEditingItemId(item.id);
+    setEditingCostPrice(String(item.cost_price || 0));
+  };
+
+  // Save updated cost price directly to Supabase
+  const handleSaveCostPrice = async (itemId: string, quoteId: string) => {
+    const numPrice = Number(editingCostPrice) || 0;
+    setIsSavingCost(true);
+
+    try {
+      const { error } = await supabase
+        .from('quote_items')
+        .update({ cost_price: numPrice })
+        .eq('id', itemId);
+
+      if (error) {
+        showError(`Gagal menyimpan harga: ${error.message}`);
+      } else {
+        showSuccess('Harga beli berhasil diperbarui!');
+        setQuotes(prevQuotes => prevQuotes.map(q => {
+          if (q.id !== quoteId) return q;
+          return {
+            ...q,
+            quote_items: (q.quote_items || []).map(it => it.id === itemId ? { ...it, cost_price: numPrice } : it)
+          };
+        }));
+        setEditingItemId(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      showError('Terjadi kesalahan saat menyimpan harga.');
+    } finally {
+      setIsSavingCost(false);
+    }
+  };
+
+  // Flatten all procurement items from linked quotes
+  const procurementItems = useMemo(() => {
+    const list: (QuoteItem & { quote_number: string })[] = [];
+    quotes.forEach(q => {
+      (q.quote_items || []).forEach(item => {
+        list.push({
+          ...item,
+          quote_number: q.quote_number
+        });
+      });
+    });
+    return list;
+  }, [quotes]);
+
+  // Procurement summary calculations
+  const procurementStats = useMemo(() => {
+    let totalItems = procurementItems.length;
+    let purchasedCount = 0;
+    let totalEstimatedCost = 0;
+    let totalPurchasedCost = 0;
+    let totalSalesValue = 0;
+
+    procurementItems.forEach(item => {
+      const isPurchased = !!purchasedItemIds[item.id];
+      const itemCostTotal = (item.quantity || 1) * (item.cost_price || 0);
+      const itemSalesTotal = (item.quantity || 1) * (item.unit_price || 0);
+
+      totalEstimatedCost += itemCostTotal;
+      totalSalesValue += itemSalesTotal;
+
+      if (isPurchased) {
+        purchasedCount += 1;
+        totalPurchasedCost += itemCostTotal;
+      }
+    });
+
+    const unpurchasedCost = totalEstimatedCost - totalPurchasedCost;
+    const progressPercent = totalItems > 0 ? (purchasedCount / totalItems) * 100 : 0;
+    const grossProfitItems = totalSalesValue - totalEstimatedCost;
+
+    return {
+      totalItems,
+      purchasedCount,
+      totalEstimatedCost,
+      totalPurchasedCost,
+      unpurchasedCost,
+      progressPercent,
+      grossProfitItems
+    };
+  }, [procurementItems, purchasedItemIds]);
+
+  // Financial calculations
   const financials = useMemo(() => {
     const paidRevenue = invoices
       .filter(inv => inv.status === 'Lunas')
@@ -90,7 +251,7 @@ const ProjectDetail = () => {
         return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
       }, 0);
 
-    // Total pendapatan proyek: gunakan total faktur jika ada, atau nilai penawaran diterima, atau budget proyek
+    // Total pendapatan proyek
     const totalRevenue = allInvoicesTotal > 0 
       ? allInvoicesTotal 
       : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
@@ -103,140 +264,594 @@ const ProjectDetail = () => {
 
     const totalCosts = projectExpenses + costOfGoodsSold;
     const netProfit = totalRevenue - totalCosts;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const totalMinutes = timeEntries.reduce((sum, entry) => sum + entry.duration_minutes, 0);
 
-    return { totalRevenue, paidRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
+    return { 
+      totalRevenue, 
+      paidRevenue, 
+      totalCosts, 
+      netProfit, 
+      profitMargin,
+      totalHours: totalMinutes / 60 
+    };
   }, [invoices, expenses, quotes, timeEntries, project]);
 
   if (loading) {
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid md:grid-cols-4 gap-4"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-8 w-48 rounded-xl" />
+        <div className="grid md:grid-cols-4 gap-4">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+        </div>
+        <Skeleton className="h-96 w-full rounded-3xl" />
       </div>
     );
   }
 
-  if (!project) return <div className="container mx-auto p-8 text-center">Proyek tidak ditemukan.</div>;
+  if (!project) {
+    return (
+      <div className="container mx-auto p-12 text-center">
+        <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <h2 className="text-lg font-bold">Proyek tidak ditemukan</h2>
+        <Button asChild variant="outline" className="mt-4 rounded-xl">
+          <Link to="/projects">Kembali ke Daftar Proyek</Link>
+        </Button>
+      </div>
+    );
+  }
 
   const budgetUsedPercent = project.budget > 0 ? (financials.totalCosts / project.budget) * 100 : 0;
   const budgetRemaining = project.budget - financials.totalCosts;
 
   return (
-    <div className="container mx-auto p-4 md:p-8 space-y-6">
-      <Button asChild variant="outline" size="sm"><Link to="/projects"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar Proyek</Link></Button>
-      
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
-            <CardHeader>
-            <div className="flex justify-between items-start">
-                <div>
-                <CardTitle className="text-3xl">{project.name}</CardTitle>
-                <CardDescription>{project.clients?.name || 'Tanpa klien'}</CardDescription>
-                </div>
-                <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
-            </div>
-            {project.description && <p className="text-sm text-muted-foreground pt-2">{project.description}</p>}
-            </CardHeader>
-        </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Anggaran Proyek</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {project.budget > 0 ? (
-                    <div className="space-y-2">
-                        <Progress value={budgetUsedPercent} />
-                        <div className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">{formatCurrency(financials.totalCosts)}</span> dari <span className="font-medium text-foreground">{formatCurrency(project.budget)}</span> digunakan ({budgetUsedPercent.toFixed(1)}%)
-                        </div>
-                        <div className={`text-sm font-medium ${budgetRemaining >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
-                            {budgetRemaining >= 0 ? `${formatCurrency(budgetRemaining)} tersisa` : `${formatCurrency(Math.abs(budgetRemaining))} melebihi anggaran`}
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">Tidak ada anggaran yang ditetapkan untuk proyek ini.</p>
-                )}
-            </CardContent>
-        </Card>
+    <div className="container mx-auto p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl">
+      {/* Top Header Breadcrumb & Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Button asChild variant="ghost" size="sm" className="w-fit rounded-xl text-muted-foreground hover:text-foreground">
+          <Link to="/projects">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Daftar Proyek
+          </Link>
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <Badge variant={getStatusVariant(project.status)} className="px-3 py-1 text-xs font-bold rounded-full">
+            {project.status}
+          </Badge>
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div>
-            {financials.paidRevenue > 0 && financials.paidRevenue < financials.totalRevenue && (
-              <p className="text-xs text-muted-foreground mt-1">Lunas: {formatCurrency(financials.paidRevenue)}</p>
+      {/* Hero Project Banner */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-5 sm:p-7 shadow-xs">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5 text-xs font-bold text-primary">
+                <Layers className="h-3.5 w-3.5" /> Workspace Proyek
+              </span>
+              {project.clients?.name && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                  <User className="h-3.5 w-3.5" /> {project.clients.name}
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">
+              {project.name}
+            </h1>
+
+            {project.description && (
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                {project.description}
+              </p>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Biaya</CardTitle>
-            <Wallet className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Laba Bersih</CardTitle>
-            <TrendingUp className={cn("h-4 w-4", financials.netProfit >= 0 ? "text-emerald-500" : "text-rose-500")} />
-          </CardHeader>
-          <CardContent>
-            <div className={cn("text-2xl font-bold", financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}>
-              {formatCurrency(financials.netProfit)}
+          </div>
+
+          {/* Budget Quick Summary Card */}
+          <div className="bg-muted/40 border border-border/70 rounded-2xl p-4 sm:p-5 min-w-[280px] sm:min-w-[320px] space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <span className="flex items-center gap-1.5"><Target className="h-4 w-4 text-primary" /> Anggaran Proyek</span>
+              <span className="text-foreground font-extrabold">{budgetUsedPercent.toFixed(0)}%</span>
             </div>
-          </CardContent>
+            <Progress value={budgetUsedPercent} className="h-2 rounded-full" />
+            <div className="flex items-center justify-between text-xs pt-1">
+              <span className="text-muted-foreground">Biaya: <strong className="text-foreground">{formatCurrency(financials.totalCosts)}</strong></span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                Sisa: {formatCurrency(budgetRemaining)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Financial KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Total Pendapatan */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Pendapatan</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <DollarSign className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
+              {formatCurrency(financials.totalRevenue)}
+            </h3>
+          </div>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+            <span>Nilai Kontrak</span>
+            {financials.paidRevenue > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lunas: {formatCurrency(financials.paidRevenue)}</span>
+            )}
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div>
-          </CardContent>
+
+        {/* Card 2: Total Biaya */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Biaya (HPP)</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <Wallet className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
+              {formatCurrency(financials.totalCosts)}
+            </h3>
+          </div>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+            <span>Barang + Operasional</span>
+            <span className="font-semibold text-foreground">{procurementStats.purchasedCount}/{procurementStats.totalItems} Terbeli</span>
+          </div>
+        </Card>
+
+        {/* Card 3: Laba Bersih */}
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Estimasi Laba</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className={cn("text-base sm:text-2xl font-black tracking-tight truncate tabular-nums", financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}>
+              {formatCurrency(financials.netProfit)}
+            </h3>
+          </div>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2 flex items-center justify-between">
+            <span>Margin Keuntungan</span>
+            <span>{financials.profitMargin.toFixed(1)}%</span>
+          </div>
+        </Card>
+
+        {/* Card 4: Jam & Progress */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Jam Kerja</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
+              <Clock className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
+              {financials.totalHours.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">Jam</span>
+            </h3>
+          </div>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+            <span>Aktivitas Tim</span>
+            <span className="font-semibold text-foreground">{tasks.filter(t => t.is_completed).length}/{tasks.length} Tugas Selesai</span>
+          </div>
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><ListTodo className="h-5 w-5" /> Daftar Tugas</CardTitle></CardHeader>
-          <CardContent><ProjectTaskList projectId={project.id} initialTasks={tasks} onTaskUpdate={fetchProjectData} /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Catatan Waktu</CardTitle></CardHeader>
-          <CardContent><ProjectTimeTracker projectId={project.id} initialEntries={timeEntries} onEntryUpdate={fetchProjectData} /></CardContent>
-        </Card>
-      </div>
+      {/* Main Tabs Section */}
+      <Tabs defaultValue="procurement" className="space-y-4">
+        <TabsList className="bg-muted/60 p-1 rounded-2xl border border-border/70 w-full sm:w-auto overflow-x-auto flex justify-start">
+          <TabsTrigger value="procurement" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <ShoppingCart className="h-4 w-4 text-primary" />
+            <span>Pengadaan & Belanja Barang</span>
+            <span className="ml-1 rounded-full bg-primary/10 text-primary px-2 py-0.2 text-[11px] font-extrabold">
+              {procurementItems.length}
+            </span>
+          </TabsTrigger>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Penawaran</CardTitle></CardHeader>
-          <CardContent>
-            {quotes.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{quotes.map(q => <TableRow key={q.id}><TableCell className="font-medium">{q.quote_number}</TableCell><TableCell><Badge variant={getStatusVariant(q.status)}>{q.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/quote/${q.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada penawaran.</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" /> Faktur</CardTitle></CardHeader>
-          <CardContent>
-            {invoices.length > 0 ? <Table><TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{invoices.map(i => <TableRow key={i.id}><TableCell className="font-medium">{i.invoice_number}</TableCell><TableCell><Badge variant={getStatusVariant(i.status)}>{i.status}</Badge></TableCell><TableCell className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/invoice/${i.id}`}>Lihat</Link></Button></TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada faktur.</p>}
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Pengeluaran</CardTitle></CardHeader>
-        <CardContent>
-          {expenses.length > 0 ? <Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{expenses.map(e => <TableRow key={e.id}><TableCell>{safeFormat(e.expense_date, 'PPP')}</TableCell><TableCell className="font-medium">{e.description}</TableCell><TableCell className="text-right">{formatCurrency(e.amount)}</TableCell></TableRow>)}</TableBody></Table> : <p className="text-sm text-muted-foreground text-center py-4">Belum ada pengeluaran.</p>}
-        </CardContent>
-      </Card>
+          <TabsTrigger value="tasks" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <ListTodo className="h-4 w-4 text-violet-500" />
+            <span>Daftar Tugas</span>
+            <span className="ml-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.2 text-[11px] font-extrabold">
+              {tasks.length}
+            </span>
+          </TabsTrigger>
+
+          <TabsTrigger value="time" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <Clock className="h-4 w-4 text-sky-500" />
+            <span>Catatan Waktu</span>
+          </TabsTrigger>
+
+          <TabsTrigger value="documents" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <FileText className="h-4 w-4 text-amber-500" />
+            <span>Dokumen & Kas</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ========================================================================= */}
+        {/* TAB 1: PENGADAAN & DAFTAR BARANG YANG DIBELI (BOM) */}
+        {/* ========================================================================= */}
+        <TabsContent value="procurement" className="space-y-4">
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <PackageCheck className="h-5 w-5 text-primary" />
+                    Daftar Belanja & Pengadaan Barang (BOM)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-1">
+                    Semua item dari penawaran otomatis tercatat di sini. Anda bisa menyesuaikan harga beli asli dan menandai barang yang sudah dibeli.
+                  </CardDescription>
+                </div>
+
+                {/* Procurement Progress Pill */}
+                <div className="flex items-center gap-3 bg-background border border-border/80 rounded-2xl p-2.5 px-4 shrink-0 shadow-2xs">
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Progres Belanja</p>
+                    <p className="text-sm font-black text-foreground">{procurementStats.purchasedCount} dari {procurementStats.totalItems} Barang ({procurementStats.progressPercent.toFixed(0)}%)</p>
+                  </div>
+                  <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {procurementItems.length === 0 ? (
+                <div className="p-12 text-center space-y-3">
+                  <ShoppingCart className="h-10 w-10 text-muted-foreground/60 mx-auto" />
+                  <h4 className="text-base font-bold text-foreground">Belum Ada Item Pengadaan</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    Kaitkan penawaran yang berisi item barang/jasa ke proyek ini untuk memuat daftar belanja secara otomatis.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader className="bg-muted/40">
+                      <TableRow className="border-b border-border/80 hover:bg-transparent">
+                        <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">Beli</TableHead>
+                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Barang / Deskripsi</TableHead>
+                        <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Qty</TableHead>
+                        <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Jual</TableHead>
+                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Beli (HPP)</TableHead>
+                        <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Total Belanja</TableHead>
+                        <TableHead className="w-[120px] text-center font-bold text-xs uppercase text-muted-foreground">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/60">
+                      {procurementItems.map((item) => {
+                        const isPurchased = !!purchasedItemIds[item.id];
+                        const isEditing = editingItemId === item.id;
+                        const itemQty = Number(item.quantity) || 1;
+                        const itemCost = Number(item.cost_price) || 0;
+                        const itemPrice = Number(item.unit_price) || 0;
+                        const totalItemCost = itemQty * itemCost;
+                        const itemMargin = (itemPrice - itemCost) * itemQty;
+
+                        return (
+                          <TableRow 
+                            key={item.id} 
+                            className={cn(
+                              "transition-colors group",
+                              isPurchased ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "hover:bg-muted/30"
+                            )}
+                          >
+                            {/* Checkbox Sudah Dibeli */}
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center">
+                                <Checkbox
+                                  checked={isPurchased}
+                                  onCheckedChange={() => handleTogglePurchased(item.id)}
+                                  className="h-5 w-5 rounded-md border-border data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
+                                  title={isPurchased ? "Tandai belum dibeli" : "Tandai sudah dibeli"}
+                                />
+                              </div>
+                            </TableCell>
+
+                            {/* Nama & Deskripsi Barang */}
+                            <TableCell className="py-3.5">
+                              <div>
+                                <span className={cn("font-bold text-xs sm:text-sm block text-foreground", isPurchased && "line-through text-muted-foreground")}>
+                                  {item.description || 'Item Tanpa Nama'}
+                                </span>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                                  <span>Penawaran: {item.quote_number}</span>
+                                  {itemCost > 0 && itemPrice > itemCost && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                        Profit: {formatCurrency(itemMargin)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Qty & Satuan */}
+                            <TableCell className="text-center font-bold text-xs sm:text-sm text-foreground">
+                              {item.quantity} <span className="text-[11px] font-normal text-muted-foreground">{item.unit || 'unit'}</span>
+                            </TableCell>
+
+                            {/* Harga Jual ke Klien */}
+                            <TableCell className="text-right text-xs sm:text-sm font-semibold text-muted-foreground tabular-nums">
+                              {formatCurrency(itemPrice)}
+                            </TableCell>
+
+                            {/* Harga Beli / HPP (Bisa diedit langsung inline) */}
+                            <TableCell className="text-right">
+                              {isEditing ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Input
+                                    type="number"
+                                    value={editingCostPrice}
+                                    onChange={(e) => setEditingCostPrice(e.target.value)}
+                                    className="h-8 w-28 text-right font-bold text-xs rounded-lg"
+                                    autoFocus
+                                    placeholder="0"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveCostPrice(item.id, item.quote_id);
+                                      if (e.key === 'Escape') setEditingItemId(null);
+                                    }}
+                                  />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleSaveCostPrice(item.id, item.quote_id)}
+                                    disabled={isSavingCost}
+                                    className="h-8 w-8 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25"
+                                    title="Simpan"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => setEditingItemId(null)}
+                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted"
+                                    title="Batal"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div 
+                                  onClick={() => handleStartEditCost(item)}
+                                  className="group/cost inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-2 py-1 hover:bg-muted/60 transition-colors"
+                                  title="Klik untuk sesuaikan harga beli"
+                                >
+                                  <span className="font-bold text-xs sm:text-sm text-foreground tabular-nums">
+                                    {formatCurrency(itemCost)}
+                                  </span>
+                                  <Edit3 className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/cost:text-primary transition-colors" />
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* Total Biaya Belanja (Qty x HPP) */}
+                            <TableCell className="text-right font-black text-xs sm:text-sm text-foreground tabular-nums">
+                              {formatCurrency(totalItemCost)}
+                            </TableCell>
+
+                            {/* Status Badge */}
+                            <TableCell className="text-center">
+                              {isPurchased ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
+                                  <CheckCircle2 className="h-3 w-3" /> Terbeli
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[11px] font-semibold gap-1 px-2 py-0.5">
+                                  <Circle className="h-2.5 w-2.5" /> Rencana
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Bottom Summary Bar */}
+              {procurementItems.length > 0 && (
+                <div className="bg-muted/30 border-t border-border/70 p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span>Klik pada <strong>Harga Beli (HPP)</strong> kapan saja untuk menyesuaikan harga dari supplier toko.</span>
+                  </div>
+
+                  <div className="flex items-center gap-6 justify-end text-xs">
+                    <div>
+                      <span className="text-muted-foreground block">Realisasi Terbeli:</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm tabular-nums">
+                        {formatCurrency(procurementStats.totalPurchasedCost)}
+                      </strong>
+                    </div>
+                    <div className="border-l border-border pl-6">
+                      <span className="text-muted-foreground block">Total Estimasi Belanja:</span>
+                      <strong className="text-foreground font-black text-sm tabular-nums">
+                        {formatCurrency(procurementStats.totalEstimatedCost)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 2: DAFTAR TUGAS */}
+        {/* ========================================================================= */}
+        <TabsContent value="tasks">
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <ListTodo className="h-5 w-5 text-violet-500" />
+                Daftar Tugas & Pekerjaan Proyek
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Kelola checklist tugas, tenggat waktu, dan progres pengerjaan lapangan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <ProjectTaskList projectId={project.id} initialTasks={tasks} onTaskUpdate={fetchProjectData} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 3: CATATAN WAKTU */}
+        {/* ========================================================================= */}
+        <TabsContent value="time">
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Clock className="h-5 w-5 text-sky-500" />
+                Pelacak Jam Kerja Tim
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Catat durasi kerja dan log pengerjaan teknisi di proyek ini.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <ProjectTimeTracker projectId={project.id} initialEntries={timeEntries} onEntryUpdate={fetchProjectData} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 4: DOKUMEN & KAS */}
+        {/* ========================================================================= */}
+        <TabsContent value="documents" className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Penawaran */}
+            <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+              <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" /> Penawaran Terkait
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {quotes.length > 0 ? (
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow className="border-b border-border/80">
+                        <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Status</TableHead>
+                        <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/60">
+                      {quotes.map(q => (
+                        <TableRow key={q.id}>
+                          <TableCell className="font-mono font-bold text-xs text-primary">{q.quote_number}</TableCell>
+                          <TableCell><Badge variant={getStatusVariant(q.status)} className="text-[11px] font-bold">{q.status}</Badge></TableCell>
+                          <TableCell className="text-right">
+                            <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                              <Link to={`/quote/${q.id}`}>Lihat</Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">Belum ada penawaran terkait.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Faktur */}
+            <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+              <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-emerald-500" /> Faktur Tagihan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {invoices.length > 0 ? (
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow className="border-b border-border/80">
+                        <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Status</TableHead>
+                        <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/60">
+                      {invoices.map(i => (
+                        <TableRow key={i.id}>
+                          <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">{i.invoice_number}</TableCell>
+                          <TableCell><Badge variant={getStatusVariant(i.status)} className="text-[11px] font-bold">{i.status}</Badge></TableCell>
+                          <TableCell className="text-right">
+                            <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                              <Link to={`/invoice/${i.id}`}>Lihat</Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">Belum ada faktur tagihan.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pengeluaran Kas Tambahan */}
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-rose-500" /> Pengeluaran Operasional Ekstra
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {expenses.length > 0 ? (
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="border-b border-border/80">
+                      <TableHead className="font-bold text-xs uppercase">Tanggal</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Deskripsi</TableHead>
+                      <TableHead className="text-right font-bold text-xs uppercase">Jumlah</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/60">
+                    {expenses.map(e => (
+                      <TableRow key={e.id}>
+                        <TableCell className="text-xs">{safeFormat(e.expense_date, 'd MMM yyyy')}</TableCell>
+                        <TableCell className="font-semibold text-xs text-foreground">{e.description}</TableCell>
+                        <TableCell className="text-right font-bold text-xs text-rose-600 dark:text-rose-400 tabular-nums">
+                          {formatCurrency(e.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-6">Belum ada pengeluaran operasional ekstra.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
