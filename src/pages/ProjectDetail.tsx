@@ -780,52 +780,78 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
       </div>
 
       {/* Main Tabs Section */}
-      <Tabs defaultValue="procurement" className="space-y-4">
-        <TabsList className="bg-muted/60 p-1 rounded-2xl border border-border/70 w-full sm:w-auto overflow-x-auto flex justify-start">
-          <TabsTrigger value="procurement" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <ShoppingCart className="h-4 w-4 text-primary" />
-            <span>Belanja Barang (BOM)</span>
-            <span className="ml-1 rounded-full bg-primary/10 text-primary px-2 py-0.2 text-[11px] font-extrabold">
-              {procurementItems.length}
-            </span>
-          </TabsTrigger>
+      <Tabs defaultValue="procurement" className="space-y-5">
+        <div className="w-full overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <TabsList className="inline-flex h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1 sm:gap-1.5 w-max">
+            <TabsTrigger 
+              value="procurement" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span>Belanja (BOM)</span>
+              {procurementItems.length > 0 && (
+                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
+                  {procurementItems.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger value="accommodation" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <Car className="h-4 w-4 text-amber-500" />
-            <span>Akomodasi & Gaji Teknisi</span>
-            <span className="ml-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.2 text-[11px] font-extrabold">
-              {expenses.length}
-            </span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="accommodation" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <Car className="h-4 w-4" />
+              <span>Akomodasi & Upah</span>
+              {expenses.length > 0 && (
+                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
+                  {expenses.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger value="report" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <PieChart className="h-4 w-4 text-emerald-500" />
-            <span>Akumulasi Laporan</span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="report" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <PieChart className="h-4 w-4" />
+              <span>Laporan Laba Rugi</span>
+            </TabsTrigger>
 
-          <TabsTrigger value="tasks" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <ListTodo className="h-4 w-4 text-violet-500" />
-            <span>Tugas</span>
-            <span className="ml-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.2 text-[11px] font-extrabold">
-              {tasks.length}
-            </span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="tasks" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <ListTodo className="h-4 w-4" />
+              <span>Tugas</span>
+              {tasks.length > 0 && (
+                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
+                  {tasks.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger value="time" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <Clock className="h-4 w-4 text-sky-500" />
-            <span>Jam Kerja</span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="time" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <Clock className="h-4 w-4" />
+              <span>Jam Kerja</span>
+            </TabsTrigger>
 
-          <TabsTrigger value="documents" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <Layers className="h-4 w-4 text-indigo-500" />
-            <span>Dokumentasi & Dokumen</span>
-            {docPhotos.length > 0 && (
-              <span className="ml-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.2 text-[11px] font-extrabold">
-                {docPhotos.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="documents" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+            >
+              <Layers className="h-4 w-4" />
+              <span>Dokumentasi & Berkas</span>
+              {docPhotos.length > 0 && (
+                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
+                  {docPhotos.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ========================================================================= */}
         {/* TAB 1: PENGADAAN & DAFTAR BARANG YANG DIBELI (BOM) */}
