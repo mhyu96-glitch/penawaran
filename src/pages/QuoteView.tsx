@@ -275,7 +275,6 @@ const QuoteView = () => {
   const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
-    // Export only the quotation card as a clean 1-page PDF
     await generatePdf(quoteRef.current, `Penawaran-${quote.quote_number || quote.id}.pdf`, { format: 'a4', continuous: true });
     setIsGeneratingPDF(false);
   };
@@ -397,37 +396,37 @@ const QuoteView = () => {
       <div className="mx-auto max-w-5xl">
         <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none print:rounded-none">
           {/* Letterhead Header */}
-          <CardHeader className="p-5 sm:p-7 border-b border-border/70 bg-muted/20">
+          <CardHeader className="p-5 sm:p-7 border-b border-border/70 bg-muted/20 print:p-0 print:pb-4 print:border-b-2 print:border-slate-800 print:bg-transparent">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="min-w-0 space-y-1.5">
                 {profile?.company_logo_url ? (
                   <img src={profile.company_logo_url} alt="Company Logo" className="mb-2 max-h-14 object-contain" />
                 ) : (
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-base">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-base print:hidden">
                       {quote.from_company.slice(0, 1) || 'P'}
                     </div>
-                    <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight">
+                    <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight print:text-2xl print:text-black">
                       {quote.from_company}
                     </h1>
                   </div>
                 )}
-                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                <div className="text-[11px] text-muted-foreground space-y-0.5 print:text-slate-600">
                   <p>{quote.from_address}</p>
-                  {quote.from_website && <p className="text-primary font-medium">{quote.from_website}</p>}
+                  {quote.from_website && <p className="text-primary font-medium print:text-slate-800">{quote.from_website}</p>}
                 </div>
               </div>
 
               <div className="shrink-0 text-left sm:text-right space-y-1.5">
-                <div className="inline-block px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] font-black tracking-wider uppercase">
+                <div className="inline-block px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] font-black tracking-wider uppercase print:border-slate-800 print:bg-slate-100 print:text-slate-900">
                   SURAT PENAWARAN
                 </div>
-                <div>
+                <div className="print:hidden">
                   <Badge variant={getStatusVariant(quote.status)} className="text-[10px] font-bold">
                     {quote.status || 'Draf'}
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground space-y-0.5 pt-0.5">
+                <div className="text-[11px] text-muted-foreground space-y-0.5 pt-0.5 print:text-slate-700">
                   <p><strong>No:</strong> {quote.quote_number}</p>
                   <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'd MMMM yyyy')}</p>
                 </div>
@@ -435,32 +434,32 @@ const QuoteView = () => {
             </div>
           </CardHeader>
 
-          <CardContent className="p-5 sm:p-7 space-y-5">
+          <CardContent className="p-5 sm:p-7 space-y-4 print:p-0 print:pt-4 print:space-y-4">
             {/* Bill To & Subject Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/70 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/70 text-xs print:bg-slate-50 print:border-slate-300 print:rounded-xl">
               <div className="space-y-0.5">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ditujukan Kepada:</h3>
-                <p className="font-black text-sm text-foreground">{quote.to_client}</p>
-                <p className="text-[11px] text-muted-foreground">{quote.to_address}</p>
-                {quote.to_phone && <p className="text-[11px] text-muted-foreground">{quote.to_phone}</p>}
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-500">Ditujukan Kepada:</h3>
+                <p className="font-black text-sm text-foreground print:text-black">{quote.to_client}</p>
+                <p className="text-[11px] text-muted-foreground print:text-slate-600">{quote.to_address}</p>
+                {quote.to_phone && <p className="text-[11px] text-muted-foreground print:text-slate-600">{quote.to_phone}</p>}
               </div>
 
-              <div className="sm:text-right space-y-0.5 sm:border-l sm:border-border/70 sm:pl-4">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Perihal / Proyek:</h3>
-                <p className="font-extrabold text-sm text-foreground">{quote.title || '-'}</p>
-                <div className="pt-1 text-[11px] text-muted-foreground">
+              <div className="sm:text-right space-y-0.5 sm:border-l sm:border-border/70 sm:pl-4 print:border-slate-300">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-500">Perihal / Proyek:</h3>
+                <p className="font-extrabold text-sm text-foreground print:text-black">{quote.title || '-'}</p>
+                <div className="pt-1 text-[11px] text-muted-foreground print:text-slate-600">
                   <span>Berlaku Hingga: </span>
-                  <strong className="text-foreground">{safeFormat(quote.valid_until, 'd MMMM yyyy')}</strong>
+                  <strong className="text-foreground print:text-black">{safeFormat(quote.valid_until, 'd MMMM yyyy')}</strong>
                 </div>
               </div>
             </div>
             
             {/* Document Items Table */}
-            <div className="space-y-1.5">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="space-y-1">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-700">
                 Rincian Barang & Jasa
               </h4>
-              <div className="rounded-2xl border border-border/80 overflow-hidden text-xs">
+              <div className="rounded-2xl border border-border/80 overflow-hidden text-xs print:border-slate-300 print:rounded-xl">
                 <DocumentItemsTable 
                   items={quote.quote_items} 
                   config={{
@@ -474,46 +473,46 @@ const QuoteView = () => {
 
             {/* Calculations Breakdown */}
             <div className="flex justify-end pt-1">
-              <div className="w-full sm:w-72 rounded-2xl bg-muted/20 p-4 border border-border/80 space-y-2 text-xs">
-                <div className="flex justify-between font-medium text-muted-foreground">
+              <div className="w-full sm:w-72 rounded-2xl bg-muted/20 p-4 border border-border/80 space-y-1.5 text-xs print:bg-slate-50 print:border-slate-300 print:rounded-xl">
+                <div className="flex justify-between font-medium text-muted-foreground print:text-slate-600">
                   <span>Subtotal:</span>
-                  <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
+                  <span className="font-bold text-foreground tabular-nums print:text-black">{formatCurrency(subtotal)}</span>
                 </div>
 
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-rose-600 dark:text-rose-400 font-medium">
+                  <div className="flex justify-between text-rose-600 dark:text-rose-400 font-medium print:text-rose-700">
                     <span>Diskon:</span>
                     <span className="font-bold tabular-nums">- {formatCurrency(discountAmount)}</span>
                   </div>
                 )}
 
                 {taxAmount > 0 && (
-                  <div className="flex justify-between text-muted-foreground font-medium">
+                  <div className="flex justify-between text-muted-foreground font-medium print:text-slate-600">
                     <span>Pajak (PPN):</span>
-                    <span className="font-bold text-foreground tabular-nums">+ {formatCurrency(taxAmount)}</span>
+                    <span className="font-bold text-foreground tabular-nums print:text-black">+ {formatCurrency(taxAmount)}</span>
                   </div>
                 )}
 
-                <Separator className="my-1.5 border-border/60" />
+                <Separator className="my-1.5 border-border/60 print:border-slate-300" />
 
-                <div className="flex justify-between text-xs sm:text-sm font-black text-foreground">
+                <div className="flex justify-between text-xs sm:text-sm font-black text-foreground print:text-black">
                   <span>Total Penawaran:</span>
-                  <span className="text-primary tabular-nums">{formatCurrency(total)}</span>
+                  <span className="text-primary tabular-nums print:text-slate-900 font-black">{formatCurrency(total)}</span>
                 </div>
               </div>
             </div>
 
             {/* Terms and Conditions */}
             {quote.terms && (
-              <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-1">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Syarat & Ketentuan:
+              <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-1 print:bg-slate-50 print:border-slate-300 print:rounded-xl">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5 print:text-slate-800">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary print:text-slate-800" /> Syarat & Ketentuan:
                 </h3>
-                <p className="whitespace-pre-wrap text-[11px] text-muted-foreground leading-relaxed font-sans">{quote.terms}</p>
+                <p className="whitespace-pre-wrap text-[11px] text-muted-foreground leading-relaxed font-sans print:text-slate-700">{quote.terms}</p>
               </div>
             )}
 
-            {/* Attachments */}
+            {/* Attachments (Screen only) */}
             {quote.attachments && quote.attachments.length > 0 && (
               <div className="space-y-2 no-pdf print:hidden">
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Lampiran Berkas:</h3>
@@ -532,8 +531,8 @@ const QuoteView = () => {
           </CardContent>
 
           {profile?.custom_footer && (
-            <CardFooter className="p-4 sm:p-5 pt-3 border-t border-border/70 bg-muted/20 text-center">
-              <p className="text-[11px] text-muted-foreground text-center w-full whitespace-pre-wrap leading-relaxed">{profile.custom_footer}</p>
+            <CardFooter className="p-4 sm:p-5 pt-3 border-t border-border/70 bg-muted/20 text-center print:bg-transparent print:border-t print:border-slate-300 print:p-2">
+              <p className="text-[11px] text-muted-foreground text-center w-full whitespace-pre-wrap leading-relaxed print:text-slate-600">{profile.custom_footer}</p>
             </CardFooter>
           )}
         </Card>
@@ -568,19 +567,20 @@ const QuoteView = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* DEDICATED PRINT STYLES - 1 SINGLE CLEAN A4 PAGE */}
+      {/* CRISP CORPORATE PRINT STYLES - 1 SINGLE CLEAN PAGE */}
       {/* ========================================================================= */}
       <style>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 10mm 8mm;
           }
-          body {
-            background-color: #ffffff !important;
+          html, body {
+            background: #ffffff !important;
             color: #0f172a !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            font-size: 11px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           body * {
             visibility: hidden;
@@ -589,36 +589,27 @@ const QuoteView = () => {
             visibility: visible;
           }
           .document-print-root {
-            position: absolute;
-            left: 0;
-            top: 0;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
+            border: none !important;
             box-shadow: none !important;
-            background-color: #ffffff !important;
-            color: #0f172a !important;
-            page-break-after: avoid;
-            page-break-inside: avoid;
-          }
-          .document-print-root .bg-card,
-          .document-print-root .bg-muted\\/20,
-          .document-print-root .bg-muted\\/35 {
-            background-color: #f8fafc !important;
-          }
-          .document-print-root .text-foreground {
+            background: #ffffff !important;
             color: #0f172a !important;
           }
-          .document-print-root .text-muted-foreground {
-            color: #475569 !important;
+          .document-print-root th {
+            background-color: #f1f5f9 !important;
+            color: #1e293b !important;
+            border-bottom: 2px solid #cbd5e1 !important;
+            font-size: 9px !important;
           }
-          .document-print-root .border-border\\/80,
-          .document-print-root .border-border\\/70,
-          .document-print-root .border-border\\/60 {
-            border-color: #e2e8f0 !important;
+          .document-print-root td {
+            border-bottom: 1px solid #e2e8f0 !important;
+            font-size: 10px !important;
           }
           .print\\:hidden, .no-pdf {
             display: none !important;

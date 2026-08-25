@@ -1,4 +1,4 @@
-import { calculateItemTotal, formatCurrency } from '@/lib/utils';
+import { calculateItemTotal, formatCurrency, cn } from '@/lib/utils';
 
 export interface DocumentItem {
   description: string;
@@ -23,54 +23,60 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
     showUnitPrice = true
   } = config;
 
-  // Calculate how many columns follow the description column to span correctly
   const colSpanCount = 1 // Total column
     + (showQuantity ? 1 : 0)
     + (showUnit ? 1 : 0)
     + (showUnitPrice ? 1 : 0);
 
+  let itemCounter = 0;
+
   return (
     <>
-      <div className="mobile-document-items space-y-3 md:hidden">
+      {/* Mobile Layout */}
+      <div className="mobile-document-items space-y-2 md:hidden">
         {items.map((item, index) => {
-          const isHeader = item.quantity === 0;
+          const isHeader = Number(item.quantity) === 0;
 
           if (isHeader) {
             return (
-              <div key={index} className="rounded-md border bg-muted/50 px-3 py-2">
-                <p className="text-sm font-semibold text-foreground">{item.description}</p>
+              <div key={index} className="rounded-xl border border-border/80 bg-muted/40 px-3 py-2 mt-3 first:mt-0">
+                <p className="text-xs font-black uppercase tracking-wider text-foreground">
+                  {item.description.replace(/^[-=_*~#\s]+/, '')}
+                </p>
               </div>
             );
           }
 
+          itemCounter += 1;
+
           return (
-            <div key={index} className="rounded-md border bg-card p-3">
+            <div key={index} className="rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">Item {index + 1}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-snug text-foreground">{item.description}</p>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">#{itemCounter}</span>
+                  <p className="whitespace-pre-wrap text-xs font-bold leading-snug text-foreground">{item.description}</p>
                 </div>
-                <p className="shrink-0 text-right text-sm font-bold text-primary">
+                <p className="shrink-0 text-right text-xs font-black text-foreground tabular-nums">
                   {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
                 </p>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
                 {showQuantity && (
-                  <div className="rounded bg-muted/45 px-2 py-2">
-                    <p className="text-muted-foreground">Jumlah</p>
-                    <p className="mt-1 font-semibold text-foreground">{item.quantity}</p>
+                  <div className="rounded-lg bg-muted/30 px-2 py-1">
+                    <p className="text-[10px] text-muted-foreground">Qty</p>
+                    <p className="font-bold text-foreground tabular-nums">{item.quantity}</p>
                   </div>
                 )}
                 {showUnit && (
-                  <div className="rounded bg-muted/45 px-2 py-2">
-                    <p className="text-muted-foreground">Satuan</p>
-                    <p className="mt-1 font-semibold text-foreground">{item.unit || '-'}</p>
+                  <div className="rounded-lg bg-muted/30 px-2 py-1">
+                    <p className="text-[10px] text-muted-foreground">Satuan</p>
+                    <p className="font-bold text-foreground">{item.unit || '-'}</p>
                   </div>
                 )}
                 {showUnitPrice && (
-                  <div className="rounded bg-muted/45 px-2 py-2">
-                    <p className="text-muted-foreground">Harga</p>
-                    <p className="mt-1 font-semibold text-foreground">{formatCurrency(item.unit_price)}</p>
+                  <div className="rounded-lg bg-muted/30 px-2 py-1 text-right">
+                    <p className="text-[10px] text-muted-foreground">Harga</p>
+                    <p className="font-bold text-foreground tabular-nums">{formatCurrency(item.unit_price)}</p>
                   </div>
                 )}
               </div>
@@ -79,46 +85,54 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
         })}
       </div>
 
-      <div className="desktop-document-table hidden overflow-x-auto rounded-md border md:block">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-muted/65">
-            <tr className="border-b">
-              <th className="w-10 p-3 text-center font-medium text-muted-foreground">No.</th>
-              <th className="p-3 text-left font-medium text-muted-foreground">Deskripsi</th>
-              {showQuantity && <th className="w-20 p-3 text-center font-medium text-muted-foreground">Jumlah</th>}
-              {showUnit && <th className="w-20 p-3 text-center font-medium text-muted-foreground">Satuan</th>}
-              {showUnitPrice && <th className="w-36 p-3 text-right font-medium text-muted-foreground">Harga Satuan</th>}
-              <th className="w-36 p-3 text-right font-medium text-muted-foreground">Total</th>
+      {/* Desktop / Print Table */}
+      <div className="desktop-document-table hidden overflow-hidden rounded-2xl border border-border/80 md:block bg-card">
+        <table className="w-full text-xs text-left border-collapse">
+          <thead className="bg-muted/40 border-b border-border/80">
+            <tr>
+              <th className="w-12 py-2.5 px-3 text-center font-bold text-muted-foreground uppercase text-[10px] tracking-wider">No.</th>
+              <th className="py-2.5 px-3 font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Deskripsi</th>
+              {showQuantity && <th className="w-16 py-2.5 px-3 text-center font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Jumlah</th>}
+              {showUnit && <th className="w-16 py-2.5 px-3 text-center font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Satuan</th>}
+              {showUnitPrice && <th className="w-32 py-2.5 px-3 text-right font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Harga Satuan</th>}
+              <th className="w-36 py-2.5 px-3 text-right font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Total</th>
             </tr>
           </thead>
-          <tbody>
-            {items.map((item, index) => {
-              const isHeader = item.quantity === 0;
+          <tbody className="divide-y divide-border/60">
+            {(() => {
+              let count = 0;
+              return items.map((item, index) => {
+                const isHeader = Number(item.quantity) === 0;
 
-              if (isHeader) {
+                if (isHeader) {
                   return (
-                      <tr key={index} className="border-b bg-muted/50 last:border-none">
-                          <td className="select-none p-3 text-center align-top font-medium text-muted-foreground/70">#</td>
-                          <td className="p-3 align-top font-bold text-foreground" colSpan={colSpanCount + 1}>
-                              {item.description}
-                          </td>
-                      </tr>
+                    <tr key={index} className="bg-muted/30 font-bold border-y border-border/80">
+                      <td colSpan={colSpanCount + 1} className="py-2 px-3 text-foreground tracking-wide font-black uppercase text-[11px]">
+                        <span className="inline-flex items-center gap-1.5 text-primary">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          {item.description.replace(/^[-=_*~#\s]+/, '')}
+                        </span>
+                      </td>
+                    </tr>
                   );
-              }
+                }
 
-              return (
-                  <tr key={index} className="border-b last:border-none">
-                  <td className="p-3 text-center align-top">{index + 1}</td>
-                  <td className="whitespace-pre-wrap p-3 align-top">{item.description}</td>
-                  {showQuantity && <td className="p-3 text-center align-top">{item.quantity}</td>}
-                  {showUnit && <td className="p-3 text-center align-top">{item.unit || '-'}</td>}
-                  {showUnitPrice && <td className="p-3 text-right align-top">{formatCurrency(item.unit_price)}</td>}
-                  <td className="p-3 text-right align-top">
+                count += 1;
+
+                return (
+                  <tr key={index} className="hover:bg-muted/20 transition-colors">
+                    <td className="py-2 px-3 text-center font-bold text-muted-foreground tabular-nums">{count}</td>
+                    <td className="py-2 px-3 font-semibold text-foreground whitespace-pre-wrap">{item.description}</td>
+                    {showQuantity && <td className="py-2 px-3 text-center font-bold text-foreground tabular-nums">{item.quantity}</td>}
+                    {showUnit && <td className="py-2 px-3 text-center text-muted-foreground font-medium">{item.unit || '-'}</td>}
+                    {showUnitPrice && <td className="py-2 px-3 text-right font-semibold text-muted-foreground tabular-nums">{formatCurrency(item.unit_price)}</td>}
+                    <td className="py-2 px-3 text-right font-bold text-foreground tabular-nums">
                       {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
-                  </td>
+                    </td>
                   </tr>
-              );
-            })}
+                );
+              });
+            })()}
           </tbody>
         </table>
       </div>
