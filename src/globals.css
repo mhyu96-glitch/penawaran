@@ -166,13 +166,19 @@
   *, *::before, *::after {
     box-shadow: none !important;
     text-shadow: none !important;
+    background-image: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  html, body, #root {
+  html, body, #root, #root *, .min-h-screen, .min-h-screen * {
     background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
     color: #0f172a !important; /* slate-900 */
+  }
+
+  body {
     font-size: 9.5pt !important;
     line-height: 1.25 !important;
     width: 100% !important;
@@ -192,10 +198,12 @@
   .document-print-root {
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
     color: #0f172a !important;
     box-shadow: none !important;
     box-sizing: border-box !important;

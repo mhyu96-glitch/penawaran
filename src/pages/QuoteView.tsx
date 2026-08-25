@@ -328,7 +328,7 @@ const QuoteView = () => {
   const isAccepted = quote.status === 'Diterima' || quote.status === 'accepted';
 
   return (
-    <div className="min-h-screen bg-background px-3 py-6 text-foreground sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-screen bg-background px-3 py-6 text-foreground sm:px-6 lg:px-8 space-y-6 print:min-h-0 print:p-0 print:m-0 print:bg-white print:space-y-0 print:w-full print:max-w-none">
       <SendDocumentDialog
         isOpen={isSendDialogOpen}
         setIsOpen={setIsSendDialogOpen}
@@ -410,8 +410,8 @@ const QuoteView = () => {
       {/* ========================================================================= */}
       {/* MAIN SINGLE-PAGE QUOTATION DOCUMENT CARD (THE ONLY PART PRINTED & EXPORTED) */}
       {/* ========================================================================= */}
-      <div className="mx-auto max-w-5xl">
-        <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none print:rounded-none">
+      <div className="mx-auto max-w-5xl print:max-w-none print:m-0 print:p-0 print:w-full print:bg-white">
+        <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none print:rounded-none print:m-0 print:p-0 print:w-full print:bg-white">
           {/* Letterhead Header */}
           <CardHeader className="p-5 sm:p-7 border-b border-border/70 bg-muted/20 print:p-0 print:pb-4 print:border-b-2 print:border-slate-800 print:bg-transparent">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -590,18 +590,31 @@ const QuoteView = () => {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 6mm;
           }
-          html, body, #root, .min-h-screen {
+          *, *::before, *::after {
+            background-image: none !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          html, body, #root, #root *, .min-h-screen, .min-h-screen * {
             background-color: #ffffff !important;
             background: #ffffff !important;
+            background-image: none !important;
             color: #0f172a !important;
+          }
+          body {
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
             min-height: auto !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          }
+          .min-h-screen {
+            padding: 0 !important;
+            margin: 0 !important;
+            min-height: auto !important;
           }
           .document-print-root {
             width: 100% !important;
