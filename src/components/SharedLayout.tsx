@@ -109,7 +109,7 @@ const SharedLayout = () => {
     { to: '/items', icon: Package, label: 'Barang & Jasa', desc: 'Katalog & Stok', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
     { to: '/reports', icon: AreaChart, label: 'Laporan Keuangan', desc: 'Finansial 360°', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
     { to: '/reports/profit-loss', icon: BarChart3, label: 'Laba Rugi', desc: 'Income Statement', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
-    { to: '/reports/profitability', icon: TrendingUp, label: 'Profitabilitas', desc: 'Analisis Margin', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+    { to: '/reports/profitability', icon: TrendingUp, label: 'Laba & Margin', desc: 'Analisis Margin', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
     { to: '/automation', icon: Wand2, label: 'Otomatisasi AI', desc: 'Smart Workflows', color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20' },
   ];
 
@@ -137,7 +137,7 @@ const SharedLayout = () => {
       items: [
         { to: '/expenses', icon: Wallet, label: 'Pengeluaran', color: 'text-rose-500 dark:text-rose-400', activeBg: 'bg-rose-500/10' },
         { to: '/reports', icon: AreaChart, label: 'Laporan Keuangan', exact: true, color: 'text-blue-500 dark:text-blue-400', activeBg: 'bg-blue-500/10' },
-        { to: '/reports/profitability', icon: TrendingUp, label: 'Profitabilitas', color: 'text-emerald-500 dark:text-emerald-400', activeBg: 'bg-emerald-500/10' },
+        { to: '/reports/profitability', icon: TrendingUp, label: 'Laba & Margin', color: 'text-emerald-500 dark:text-emerald-400', activeBg: 'bg-emerald-500/10' },
         { to: '/reports/profit-loss', icon: BarChart3, label: 'Laba Rugi', color: 'text-purple-500 dark:text-purple-400', activeBg: 'bg-purple-500/10' },
       ],
     },

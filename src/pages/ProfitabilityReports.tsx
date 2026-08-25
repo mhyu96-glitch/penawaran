@@ -250,10 +250,10 @@ const ProfitabilityReports = () => {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              Laporan Profitabilitas Penjualan
+              Laporan Laba & Margin Penjualan
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-              Laporan keuntungan riil berdasarkan seluruh faktur tagihan yang diterbitkan kepada klien.
+              Laporan keuntungan riil dan persentase margin berdasarkan seluruh faktur tagihan yang diterbitkan kepada klien.
             </p>
           </div>
 
@@ -402,7 +402,7 @@ const ProfitabilityReports = () => {
                 <div>
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                     <Package className="h-5 w-5 text-amber-500" />
-                    Profitabilitas Penjualan Barang Fisik di Faktur
+                    Laba & Margin Penjualan Barang Fisik di Faktur
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
                     Membandingkan harga penjualan faktur dan modal beli supplier (HPP) untuk setiap produk fisik.
@@ -525,7 +525,7 @@ const ProfitabilityReports = () => {
                 <div>
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                     <Wrench className="h-5 w-5 text-sky-500" />
-                    Profitabilitas Layanan & Jasa di Faktur
+                    Laba & Kontribusi Layanan / Jasa di Faktur
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
                     Daftar pekerjaan jasa pasang, setting, penarikan kabel, dan akomodasi yang ditagihkan di faktur.
