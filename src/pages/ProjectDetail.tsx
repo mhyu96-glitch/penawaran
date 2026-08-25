@@ -781,77 +781,75 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
       {/* Main Tabs Section */}
       <Tabs defaultValue="procurement" className="space-y-5">
-        <div className="w-full overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <TabsList className="inline-flex h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1 sm:gap-1.5 w-max">
-            <TabsTrigger 
-              value="procurement" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span>Belanja (BOM)</span>
-              {procurementItems.length > 0 && (
-                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
-                  {procurementItems.length}
-                </span>
-              )}
-            </TabsTrigger>
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 w-full h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
+          <TabsTrigger 
+            value="procurement" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <ShoppingCart className="h-4 w-4 shrink-0" />
+            <span className="truncate">Belanja (BOM)</span>
+            {procurementItems.length > 0 && (
+              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
+                {procurementItems.length}
+              </span>
+            )}
+          </TabsTrigger>
 
-            <TabsTrigger 
-              value="accommodation" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <Car className="h-4 w-4" />
-              <span>Akomodasi & Upah</span>
-              {expenses.length > 0 && (
-                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
-                  {expenses.length}
-                </span>
-              )}
-            </TabsTrigger>
+          <TabsTrigger 
+            value="accommodation" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <Car className="h-4 w-4 shrink-0" />
+            <span className="truncate">Akomodasi & Upah</span>
+            {expenses.length > 0 && (
+              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
+                {expenses.length}
+              </span>
+            )}
+          </TabsTrigger>
 
-            <TabsTrigger 
-              value="report" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <PieChart className="h-4 w-4" />
-              <span>Laporan Laba Rugi</span>
-            </TabsTrigger>
+          <TabsTrigger 
+            value="report" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <PieChart className="h-4 w-4 shrink-0" />
+            <span className="truncate">Laporan Laba Rugi</span>
+          </TabsTrigger>
 
-            <TabsTrigger 
-              value="tasks" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <ListTodo className="h-4 w-4" />
-              <span>Tugas</span>
-              {tasks.length > 0 && (
-                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
-                  {tasks.length}
-                </span>
-              )}
-            </TabsTrigger>
+          <TabsTrigger 
+            value="tasks" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <ListTodo className="h-4 w-4 shrink-0" />
+            <span className="truncate">Tugas</span>
+            {tasks.length > 0 && (
+              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
+                {tasks.length}
+              </span>
+            )}
+          </TabsTrigger>
 
-            <TabsTrigger 
-              value="time" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <Clock className="h-4 w-4" />
-              <span>Jam Kerja</span>
-            </TabsTrigger>
+          <TabsTrigger 
+            value="time" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <Clock className="h-4 w-4 shrink-0" />
+            <span className="truncate">Jam Kerja</span>
+          </TabsTrigger>
 
-            <TabsTrigger 
-              value="documents" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0 transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-            >
-              <Layers className="h-4 w-4" />
-              <span>Dokumentasi & Berkas</span>
-              {docPhotos.length > 0 && (
-                <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none">
-                  {docPhotos.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
+          <TabsTrigger 
+            value="documents" 
+            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
+          >
+            <Layers className="h-4 w-4 shrink-0" />
+            <span className="truncate">Dokumentasi</span>
+            {docPhotos.length > 0 && (
+              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
+                {docPhotos.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
         {/* ========================================================================= */}
         {/* TAB 1: PENGADAAN & DAFTAR BARANG YANG DIBELI (BOM) */}
