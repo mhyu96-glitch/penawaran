@@ -246,14 +246,11 @@ const QuoteListSimple = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-3 sm:space-y-4 px-3 py-2 sm:px-6 lg:px-8 lg:py-4">
       {/* Executive Command Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/80 text-white p-5 sm:p-8 shadow-2xl">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-sky-500/15 blur-3xl" />
-        <div className="pointer-events-none absolute left-1/3 -bottom-16 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
-          <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/80 text-white p-3 sm:p-4 shadow-2xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="space-y-1 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 border border-sky-500/30 px-3 py-1 text-xs font-semibold text-sky-300 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
@@ -264,13 +261,9 @@ const QuoteListSimple = () => {
               </span>
             </div>
 
-            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-white flex items-center gap-3">
               Daftar Penawaran
             </h1>
-
-            <p className="text-slate-300/90 text-xs sm:text-sm leading-relaxed max-w-xl">
-              Kelola seluruh proposal komersial, pantau status respon klien, dan konversi penawaran yang diterima langsung menjadi faktur tagihan resmi.
-            </p>
           </div>
 
           {/* Action Buttons */}
@@ -300,78 +293,78 @@ const QuoteListSimple = () => {
       </div>
 
       {/* 4 Summary KPI Cards (Responsive 2x2 on Mobile, 4 Cols on Desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {/* Card 1: Total Nilai Pipeline */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-border/80 bg-card p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Pipeline</p>
-            <div className="flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary group-hover:scale-105 transition-transform shadow-2xs">
-              <TrendingUp className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary group-hover:scale-105 transition-transform shadow-2xs">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-2 sm:mt-3">
+          <div className="mt-1.5 sm:mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(stats.totalValue)}
             </h3>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             <span className="truncate">{stats.totalCount} Dokumen Aktif</span>
           </div>
         </Card>
 
         {/* Card 2: Diterima */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Goal Diterima</p>
-            <div className="flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <CheckCircle2 className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-2 sm:mt-3">
+          <div className="mt-1.5 sm:mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
               {formatCurrency(stats.acceptedValue)}
             </h3>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2">
+          <div className="mt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-1.5">
             <span className="truncate">{stats.totalAccepted} Goal</span>
             <span>{stats.conversionRate.toFixed(0)}% Konversi</span>
           </div>
         </Card>
 
         {/* Card 3: Terkirim */}
-        <Card className="relative overflow-hidden rounded-2xl border border-sky-500/30 bg-sky-500/5 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Terkirim</p>
-            <div className="flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <Send className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shadow-2xs">
+              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-2 sm:mt-3">
+          <div className="mt-1.5 sm:mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums">
               {stats.totalSent} <span className="text-xs font-normal text-muted-foreground">Proposal</span>
             </h3>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-sky-700/80 dark:text-sky-300 font-bold border-t border-sky-500/20 pt-2">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-sky-700/80 dark:text-sky-300 font-bold border-t border-sky-500/20 pt-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
             <span className="truncate">Menunggu Respon Klien</span>
           </div>
         </Card>
 
         {/* Card 4: Draf */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-border/80 bg-card p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Draf / Proses</p>
-            <div className="flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <FileEdit className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform shadow-2xs">
+              <FileEdit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-2 sm:mt-3">
+          <div className="mt-1.5 sm:mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {stats.totalDraft} <span className="text-xs font-normal text-muted-foreground">Draf</span>
             </h3>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             <span className="truncate">Perlu difinalisasi</span>
           </div>
