@@ -9,22 +9,26 @@ import {
   TrendingUp, Users, Package, DollarSign, Award, 
   Sparkles, RefreshCw, Layers, ArrowUpRight, CheckCircle2,
   Wrench, Search, X, HelpCircle, Info, ShieldCheck, Wallet,
-  BarChart3, ArrowDownRight, AlertCircle, Percent
+  BarChart3, ArrowDownRight, AlertCircle, Percent, Receipt, FileText
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, calculateItemTotal, cn } from '@/lib/utils';
+import { formatCurrency, calculateItemTotal, calculateSubtotal, calculateTotal, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-type AcceptedQuote = {
+type InvoiceData = {
   id: string;
-  clients: { name: string } | null;
-  client_id: string;
-  quote_number: string;
-  discount_amount?: number;
-  tax_amount?: number;
-  quote_items: {
+  invoice_number: string;
+  invoice_date: string;
+  to_client: string;
+  client_id?: string | null;
+  status: string;
+  discount_amount: number;
+  tax_amount: number;
+  clients?: { name: string } | null;
+  projects?: { id: string; name: string } | null;
+  invoice_items: {
     id: string;
     description: string;
     quantity: number;
@@ -82,7 +86,7 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
 const ProfitabilityReports = () => {
   const { user } = useAuth();
-  const [acceptedQuotes, setAcceptedQuotes] = useState<AcceptedQuote[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Active Tab & Searches
@@ -91,20 +95,20 @@ const ProfitabilityReports = () => {
   const [servicesSearch, setServicesSearch] = useState('');
   const [clientsSearch, setClientsSearch] = useState('');
 
-  const fetchAcceptedQuotes = async () => {
+  const fetchInvoices = async () => {
     if (!user) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('quotes')
-        .select('id, client_id, quote_number, discount_amount, tax_amount, clients(name), quote_items(id, description, quantity, unit, unit_price, cost_price)')
+        .from('invoices')
+        .select('id, invoice_number, invoice_date, to_client, client_id, status, discount_amount, tax_amount, clients(name), projects(id, name), invoice_items(id, description, quantity, unit, unit_price, cost_price)')
         .eq('user_id', user.id)
-        .eq('status', 'Diterima');
+        .order('invoice_date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching accepted quotes:', error);
+        console.error('Error fetching invoices for profitability report:', error);
       } else {
-        setAcceptedQuotes((data as AcceptedQuote[]) || []);
+        setInvoices((data as InvoiceData[]) || []);
       }
     } catch (err) {
       console.error(err);
@@ -114,29 +118,32 @@ const ProfitabilityReports = () => {
   };
 
   useEffect(() => {
-    fetchAcceptedQuotes();
+    fetchInvoices();
   }, [user]);
 
-  // Aggregate Data
+  // Aggregate Data from Invoices
   const reportData = useMemo(() => {
-    const clientProfit: Record<string, { name: string; totalRevenue: number; totalCost: number; totalProfit: number; quoteCount: number }> = {};
+    const clientProfit: Record<string, { name: string; totalRevenue: number; totalCost: number; totalProfit: number; invoiceCount: number; paidCount: number }> = {};
     const goodsProfit: Record<string, { description: string; totalQuantity: number; totalRevenue: number; totalCost: number; totalProfit: number; hasMissingHpp: boolean }> = {};
     const servicesProfit: Record<string, { description: string; totalQuantity: number; totalRevenue: number; totalCost: number; totalProfit: number }> = {};
 
     let grandRevenue = 0;
     let grandCost = 0;
     let grandProfit = 0;
+    let paidRevenue = 0;
 
-    acceptedQuotes.forEach(quote => {
-      const clientId = quote.client_id || 'unknown';
-      const clientName = quote.clients?.name || 'Klien Umum';
+    invoices.forEach(inv => {
+      const isPaid = inv.status === 'Lunas';
+      const clientName = inv.clients?.name || inv.to_client || 'Klien Umum';
+      const clientKey = clientName.trim().toLowerCase();
 
-      if (!clientProfit[clientId]) {
-        clientProfit[clientId] = { name: clientName, totalRevenue: 0, totalCost: 0, totalProfit: 0, quoteCount: 0 };
+      if (!clientProfit[clientKey]) {
+        clientProfit[clientKey] = { name: clientName, totalRevenue: 0, totalCost: 0, totalProfit: 0, invoiceCount: 0, paidCount: 0 };
       }
-      clientProfit[clientId].quoteCount += 1;
+      clientProfit[clientKey].invoiceCount += 1;
+      if (isPaid) clientProfit[clientKey].paidCount += 1;
 
-      (quote.quote_items || []).forEach(item => {
+      (inv.invoice_items || []).forEach(item => {
         if (isHeaderOrDivider(item)) return;
 
         const qty = Number(item.quantity) || 0;
@@ -151,11 +158,12 @@ const ProfitabilityReports = () => {
         grandRevenue += revenue;
         grandCost += cost;
         grandProfit += profit;
+        if (isPaid) paidRevenue += revenue;
 
         // Aggregate by client
-        clientProfit[clientId].totalRevenue += revenue;
-        clientProfit[clientId].totalCost += cost;
-        clientProfit[clientId].totalProfit += profit;
+        clientProfit[clientKey].totalRevenue += revenue;
+        clientProfit[clientKey].totalCost += cost;
+        clientProfit[clientKey].totalProfit += profit;
 
         const itemKey = (item.description || 'Tanpa Deskripsi').trim();
 
@@ -198,12 +206,13 @@ const ProfitabilityReports = () => {
       grandRevenue,
       grandCost,
       grandProfit,
+      paidRevenue,
       overallMargin,
       topClient,
       topGood,
       topService
     };
-  }, [acceptedQuotes]);
+  }, [invoices]);
 
   // Filtered lists
   const filteredGoods = useMemo(() => {
@@ -234,23 +243,23 @@ const ProfitabilityReports = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5" /> Analisis Profitabilitas Bisnis
+                <Receipt className="h-3.5 w-3.5" /> Sumber Data: Faktur Tagihan Penjualan (Invoices)
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60">
-                {acceptedQuotes.length} Penawaran Goal Diterima
+                {invoices.length} Faktur Tagihan
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              Laporan Profitabilitas
+              Laporan Profitabilitas Penjualan
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-              Analisis kontribusi laba kotor penjualan barang fisik, layanan jasa, dan profil keuntungan per klien.
+              Laporan keuntungan riil berdasarkan seluruh faktur tagihan yang diterbitkan kepada klien.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <Button 
-              onClick={fetchAcceptedQuotes} 
+              onClick={fetchInvoices} 
               variant="outline" 
               className="rounded-xl font-bold text-xs h-11 gap-2 border-border/80 hover:bg-muted"
               title="Refresh Data"
@@ -266,12 +275,12 @@ const ProfitabilityReports = () => {
       {/* 4 KPI SUMMARY CARDS */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Nilai Kontrak/Penjualan */}
+        {/* Card 1: Total Nilai Faktur */}
         <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Penjualan</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Penjualan Faktur</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
-              <DollarSign className="h-4 w-4" />
+              <Receipt className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2">
@@ -280,8 +289,10 @@ const ProfitabilityReports = () => {
             </h3>
           </div>
           <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Modal Barang (HPP):</span>
-            <span className="font-bold text-foreground">{formatCurrency(reportData.grandCost)}</span>
+            <span>Modal HPP: {formatCurrency(reportData.grandCost)}</span>
+            {reportData.paidRevenue > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lunas: {formatCurrency(reportData.paidRevenue)}</span>
+            )}
           </div>
         </Card>
 
@@ -307,7 +318,7 @@ const ProfitabilityReports = () => {
         {/* Card 3: Top Good */}
         <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Barang Paling Laris</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Barang Terbanyak Terjual</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
               <Package className="h-4 w-4" />
             </div>
@@ -325,7 +336,7 @@ const ProfitabilityReports = () => {
         {/* Card 4: Top Service */}
         <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Jasa Terbanyak</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Jasa Terbanyak Ditagihkan</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
               <Wrench className="h-4 w-4" />
             </div>
@@ -391,10 +402,10 @@ const ProfitabilityReports = () => {
                 <div>
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                     <Package className="h-5 w-5 text-amber-500" />
-                    Profitabilitas Penjualan Barang Fisik
+                    Profitabilitas Penjualan Barang Fisik di Faktur
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Membandingkan harga jual dan modal beli supplier (HPP) untuk setiap produk fisik.
+                    Membandingkan harga penjualan faktur dan modal beli supplier (HPP) untuk setiap produk fisik.
                   </CardDescription>
                 </div>
 
@@ -423,7 +434,7 @@ const ProfitabilityReports = () => {
                 </div>
               ) : filteredGoods.length === 0 ? (
                 <div className="p-12 text-center text-xs text-muted-foreground">
-                  Tidak ada data barang fisik yang sesuai dengan pencarian.
+                  Belum ada catatan barang fisik pada faktur tagihan.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -455,7 +466,7 @@ const ProfitabilityReports = () => {
                               </span>
                               {good.hasMissingHpp && (
                                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-semibold mt-0.5">
-                                  <AlertCircle className="h-2.5 w-2.5" /> HPP belum diisi di penawaran
+                                  <AlertCircle className="h-2.5 w-2.5" /> HPP belum diisi di faktur
                                 </span>
                               )}
                             </TableCell>
@@ -514,10 +525,10 @@ const ProfitabilityReports = () => {
                 <div>
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                     <Wrench className="h-5 w-5 text-sky-500" />
-                    Profitabilitas Layanan & Jasa Instalasi
+                    Profitabilitas Layanan & Jasa di Faktur
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Daftar pekerjaan jasa pasang, setting, penarikan kabel, dan akomodasi yang ditagihkan.
+                    Daftar pekerjaan jasa pasang, setting, penarikan kabel, dan akomodasi yang ditagihkan di faktur.
                   </CardDescription>
                 </div>
 
@@ -546,7 +557,7 @@ const ProfitabilityReports = () => {
                 </div>
               ) : filteredServices.length === 0 ? (
                 <div className="p-12 text-center text-xs text-muted-foreground">
-                  Tidak ada data layanan jasa yang sesuai dengan pencarian.
+                  Belum ada catatan layanan jasa pada faktur tagihan.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -615,7 +626,7 @@ const ProfitabilityReports = () => {
                     Profitabilitas & Kontribusi per Klien
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Peringkat klien berdasarkan total omzet penjualan dan laba kotor yang dihasilkan.
+                    Peringkat klien berdasarkan total omzet faktur yang diterbitkan dan laba kotor yang dihasilkan.
                   </CardDescription>
                 </div>
 
@@ -644,7 +655,7 @@ const ProfitabilityReports = () => {
                 </div>
               ) : filteredClients.length === 0 ? (
                 <div className="p-12 text-center text-xs text-muted-foreground">
-                  Tidak ada data klien yang sesuai dengan pencarian.
+                  Belum ada data faktur klien.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -653,8 +664,8 @@ const ProfitabilityReports = () => {
                       <TableRow className="border-b border-border/80">
                         <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
                         <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Klien</TableHead>
-                        <TableHead className="w-[140px] text-center font-bold text-xs uppercase text-muted-foreground">Jumlah Proyek</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Omzet Penjualan</TableHead>
+                        <TableHead className="w-[140px] text-center font-bold text-xs uppercase text-muted-foreground">Jumlah Faktur</TableHead>
+                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan</TableHead>
                         <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Modal (HPP)</TableHead>
                         <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Laba Kotor</TableHead>
                         <TableHead className="w-[130px] text-center font-bold text-xs uppercase text-muted-foreground">Margin (%)</TableHead>
@@ -674,10 +685,13 @@ const ProfitabilityReports = () => {
                               <span className="font-bold text-xs sm:text-sm block text-foreground">
                                 {client.name}
                               </span>
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {client.paidCount} dari {client.invoiceCount} Faktur Lunas
+                              </span>
                             </TableCell>
 
                             <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
-                              {client.quoteCount} <span className="text-[11px] font-normal text-muted-foreground">Penawaran</span>
+                              {client.invoiceCount} <span className="text-[11px] font-normal text-muted-foreground">Faktur</span>
                             </TableCell>
 
                             <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
