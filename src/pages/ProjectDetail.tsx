@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, ListTodo, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant, cn } from '@/lib/utils';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
 import ProjectTimeTracker, { TimeEntry } from '@/components/ProjectTimeTracker';
 import { Progress } from '@/components/ui/progress';
@@ -21,7 +21,15 @@ type ProjectDetails = {
   budget: number;
 };
 
-type Quote = { id: string; quote_number: string; created_at: string; status: string; quote_items: { quantity: number; unit_price: number; cost_price: number }[] };
+type Quote = { 
+  id: string; 
+  quote_number: string; 
+  created_at: string; 
+  status: string; 
+  discount_amount?: number;
+  tax_amount?: number;
+  quote_items: { quantity: number; unit_price: number; cost_price: number }[];
+};
 type Invoice = { id: string; invoice_number: string; created_at: string; status: string; invoice_items: { quantity: number; unit_price: number }[]; discount_amount: number; tax_amount: number; };
 type Expense = { id: string; description: string; expense_date: string; amount: number; };
 
@@ -63,25 +71,42 @@ const ProjectDetail = () => {
   }, [id]);
 
   const financials = useMemo(() => {
-    const totalRevenue = invoices
+    const paidRevenue = invoices
       .filter(inv => inv.status === 'Lunas')
       .reduce((sum, inv) => {
         const subtotal = calculateSubtotal(inv.invoice_items);
         return sum + calculateTotal(subtotal, inv.discount_amount, inv.tax_amount);
       }, 0);
 
+    const allInvoicesTotal = invoices.reduce((sum, inv) => {
+      const subtotal = calculateSubtotal(inv.invoice_items);
+      return sum + calculateTotal(subtotal, inv.discount_amount, inv.tax_amount);
+    }, 0);
+
+    const acceptedQuotesTotal = quotes
+      .filter(q => q.status === 'Diterima' || q.status === 'accepted')
+      .reduce((sum, q) => {
+        const subtotal = (q.quote_items || []).reduce((s, it) => s + calculateItemTotal(it.quantity, it.unit_price || 0), 0);
+        return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
+      }, 0);
+
+    // Total pendapatan proyek: gunakan total faktur jika ada, atau nilai penawaran diterima, atau budget proyek
+    const totalRevenue = allInvoicesTotal > 0 
+      ? allInvoicesTotal 
+      : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
+
     const projectExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
     
     const costOfGoodsSold = quotes
-      .filter(q => q.status === 'Diterima')
-      .reduce((sum, q) => sum + q.quote_items.reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
+      .filter(q => q.status === 'Diterima' || q.status === 'accepted')
+      .reduce((sum, q) => sum + (q.quote_items || []).reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
 
     const totalCosts = projectExpenses + costOfGoodsSold;
     const netProfit = totalRevenue - totalCosts;
     const totalMinutes = timeEntries.reduce((sum, entry) => sum + entry.duration_minutes, 0);
 
-    return { totalRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
-  }, [invoices, expenses, quotes, timeEntries]);
+    return { totalRevenue, paidRevenue, totalCosts, netProfit, totalHours: totalMinutes / 60 };
+  }, [invoices, expenses, quotes, timeEntries, project]);
 
   if (loading) {
     return (
@@ -126,7 +151,7 @@ const ProjectDetail = () => {
                         <div className="text-sm text-muted-foreground">
                             <span className="font-medium text-foreground">{formatCurrency(financials.totalCosts)}</span> dari <span className="font-medium text-foreground">{formatCurrency(project.budget)}</span> digunakan ({budgetUsedPercent.toFixed(1)}%)
                         </div>
-                        <div className={`text-sm font-medium ${budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className={`text-sm font-medium ${budgetRemaining >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
                             {budgetRemaining >= 0 ? `${formatCurrency(budgetRemaining)} tersisa` : `${formatCurrency(Math.abs(budgetRemaining))} melebihi anggaran`}
                         </div>
                     </div>
@@ -138,10 +163,47 @@ const ProjectDetail = () => {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle><DollarSign className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Biaya</CardTitle><Wallet className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Laba Bersih</CardTitle><TrendingUp className="h-4 w-4 text-primary" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(financials.netProfit)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle><Clock className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div></CardContent></Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+            <DollarSign className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(financials.totalRevenue)}</div>
+            {financials.paidRevenue > 0 && financials.paidRevenue < financials.totalRevenue && (
+              <p className="text-xs text-muted-foreground mt-1">Lunas: {formatCurrency(financials.paidRevenue)}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Biaya</CardTitle>
+            <Wallet className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(financials.totalCosts)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Laba Bersih</CardTitle>
+            <TrendingUp className={cn("h-4 w-4", financials.netProfit >= 0 ? "text-emerald-500" : "text-rose-500")} />
+          </CardHeader>
+          <CardContent>
+            <div className={cn("text-2xl font-bold", financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}>
+              {formatCurrency(financials.netProfit)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Jam Tercatat</CardTitle>
+            <Clock className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{financials.totalHours.toFixed(2)} Jam</div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
