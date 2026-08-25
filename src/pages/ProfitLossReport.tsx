@@ -492,107 +492,216 @@ const ProfitLossReport = () => {
               <Skeleton className="h-12 w-full rounded-xl" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table className="w-full">
-                <TableHeader className="bg-muted/40">
-                  <TableRow className="hover:bg-transparent border-b border-border/80">
-                    <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-left">Komponen Keuangan</TableHead>
-                    <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Rasio %</TableHead>
-                    <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Nominal (IDR)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border/60">
-                  {/* Row 1: Pendapatan Usaha */}
-                  <TableRow className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="px-6 py-4">
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-sm text-foreground">
-                          {reportMethod === 'accrual' ? 'Total Pendapatan Tagihan (Invoiced Revenue)' : 'Realisasi Kas Masuk (Cash Collected)'}
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          {reportMethod === 'accrual' 
-                            ? 'Akumulasi seluruh nilai faktur tagihan yang diterbitkan kepada klien.' 
-                            : 'Penerimaan kas dari pembayaran faktur yang berhasil lunas.'}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
-                      100.0%
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-right font-black text-base text-emerald-600 dark:text-emerald-400 tabular-nums">
-                      {formatCurrency(financials.revenue)}
-                    </TableCell>
-                  </TableRow>
+            <>
+              {/* MOBILE VIEW: Interactive Financial Tiles (block on mobile, hidden on desktop) */}
+              <div className="block sm:hidden divide-y divide-border/60 text-xs">
+                {/* Row 1: Pendapatan Usaha */}
+                <div className="p-3.5 bg-emerald-500/10 flex items-center justify-between gap-2">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-foreground block">
+                        {reportMethod === 'accrual' ? 'Total Pendapatan Tagihan' : 'Realisasi Kas Masuk'}
+                      </span>
+                      <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                        100.0%
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">
+                      {reportMethod === 'accrual' 
+                        ? 'Akumulasi seluruh nilai faktur tagihan' 
+                        : 'Penerimaan kas pembayaran lunas'}
+                    </p>
+                  </div>
+                  <span className="font-black text-sm text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0">
+                    {formatCurrency(financials.revenue)}
+                  </span>
+                </div>
 
-                  {/* Row 2: HPP */}
-                  <TableRow className="hover:bg-muted/30 transition-colors bg-muted/10">
-                    <TableCell className="px-6 py-4 pl-10">
-                      <div className="space-y-0.5">
-                        <span className="font-semibold text-sm text-muted-foreground">(-) Harga Pokok Penjualan (HPP)</span>
-                        <p className="text-xs text-muted-foreground/80">Akumulasi modal item barang/jasa sesuai metode yang dipilih.</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
-                      {financials.revenue > 0 ? `${((financials.cogs / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-right font-bold text-sm text-rose-600 dark:text-rose-400 tabular-nums">
-                      ({formatCurrency(financials.cogs)})
-                    </TableCell>
-                  </TableRow>
+                {/* Row 2: HPP */}
+                <div className="p-3 pl-5 bg-muted/10 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-xs text-muted-foreground block">
+                        (-) Harga Pokok Penjualan (HPP)
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-rose-500/10 text-rose-600">
+                        {financials.revenue > 0 ? `${((financials.cogs / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/80 line-clamp-1">
+                      Modal item barang dan jasa
+                    </p>
+                  </div>
+                  <span className="font-bold text-xs text-rose-600 dark:text-rose-400 tabular-nums shrink-0">
+                    ({formatCurrency(financials.cogs)})
+                  </span>
+                </div>
 
-                  {/* Row 3: Laba Kotor (Subtotal Highlight) */}
-                  <TableRow className="bg-muted/40 hover:bg-muted/50 transition-colors font-bold border-y-2 border-border">
-                    <TableCell className="px-6 py-4 font-black text-sm text-foreground">
-                      (=) LABA KOTOR (GROSS PROFIT)
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-center font-black text-xs text-primary">
-                      {financials.grossMargin.toFixed(1)}%
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-right font-black text-base text-foreground tabular-nums">
-                      {formatCurrency(financials.grossProfit)}
-                    </TableCell>
-                  </TableRow>
+                {/* Row 3: Laba Kotor */}
+                <div className="p-3 bg-muted/40 flex items-center justify-between gap-2 border-y border-border/80">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-xs text-foreground block">
+                        (=) LABA KOTOR (GROSS PROFIT)
+                      </span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-md bg-primary/20 text-primary">
+                        {financials.grossMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-black text-xs sm:text-sm text-foreground tabular-nums shrink-0">
+                    {formatCurrency(financials.grossProfit)}
+                  </span>
+                </div>
 
-                  {/* Row 4: Beban Operasional */}
-                  <TableRow className="hover:bg-muted/30 transition-colors bg-muted/10">
-                    <TableCell className="px-6 py-4 pl-10">
-                      <div className="space-y-0.5">
-                        <span className="font-semibold text-sm text-muted-foreground">(-) Beban Operasional & Pengeluaran</span>
-                        <p className="text-xs text-muted-foreground/80">Biaya umum, operasional harian, dan pengeluaran non-HPP.</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
-                      {financials.revenue > 0 ? `${((financials.totalExpenses / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-right font-bold text-sm text-rose-600 dark:text-rose-400 tabular-nums">
-                      ({formatCurrency(financials.totalExpenses)})
-                    </TableCell>
-                  </TableRow>
+                {/* Row 4: Beban Operasional */}
+                <div className="p-3 pl-5 bg-muted/10 flex items-center justify-between gap-2 hover:bg-muted/20">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-xs text-muted-foreground block">
+                        (-) Beban Operasional & Pengeluaran
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-rose-500/10 text-rose-600">
+                        {financials.revenue > 0 ? `${((financials.totalExpenses / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/80 line-clamp-1">
+                      Biaya operasional harian & non-HPP
+                    </p>
+                  </div>
+                  <span className="font-bold text-xs text-rose-600 dark:text-rose-400 tabular-nums shrink-0">
+                    ({formatCurrency(financials.totalExpenses)})
+                  </span>
+                </div>
 
-                  {/* Row 5: Laba Bersih (Grand Total Highlight) */}
-                  <TableRow className={cn(
-                    "font-black text-base border-t-2 border-primary/40",
-                    financials.netProfit >= 0 ? "bg-emerald-500/10 hover:bg-emerald-500/15" : "bg-rose-500/10 hover:bg-rose-500/15"
+                {/* Row 5: Laba Bersih */}
+                <div className={cn(
+                  "p-3.5 flex items-center justify-between gap-2 border-t-2",
+                  financials.netProfit >= 0 ? "bg-emerald-500/15 border-emerald-500/40" : "bg-rose-500/15 border-rose-500/40"
+                )}>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      {financials.netProfit >= 0 ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <TrendingDown className="h-4 w-4 text-rose-500 shrink-0" />}
+                      <span className="font-black text-xs sm:text-sm text-foreground block truncate">
+                        (=) LABA BERSIH REAL
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 block pl-5.5">
+                      {financials.netMargin.toFixed(1)}% Net Margin
+                    </span>
+                  </div>
+                  <span className={cn(
+                    "font-black text-sm sm:text-base tabular-nums shrink-0",
+                    financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                   )}>
-                    <TableCell className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        {financials.netProfit >= 0 ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <TrendingDown className="h-5 w-5 text-rose-500" />}
-                        <span className="font-black text-base text-foreground">(=) LABA BERSIH REAL (NET PROFIT)</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-5 text-center font-black text-sm text-emerald-600 dark:text-emerald-400">
-                      {financials.netMargin.toFixed(1)}%
-                    </TableCell>
-                    <TableCell className={cn(
-                      "px-6 py-5 text-right font-black text-xl tabular-nums",
-                      financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                    {formatCurrency(financials.netProfit)}
+                  </span>
+                </div>
+              </div>
+
+              {/* DESKTOP VIEW: Full Table (hidden on mobile, table on desktop) */}
+              <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <Table className="w-full min-w-[650px]">
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="hover:bg-transparent border-b border-border/80">
+                      <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-left">Komponen Keuangan</TableHead>
+                      <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Rasio %</TableHead>
+                      <TableHead className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Nominal (IDR)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/60">
+                    {/* Row 1: Pendapatan Usaha */}
+                    <TableRow className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="px-6 py-4">
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-sm text-foreground">
+                            {reportMethod === 'accrual' ? 'Total Pendapatan Tagihan (Invoiced Revenue)' : 'Realisasi Kas Masuk (Cash Collected)'}
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            {reportMethod === 'accrual' 
+                              ? 'Akumulasi seluruh nilai faktur tagihan yang diterbitkan kepada klien.' 
+                              : 'Penerimaan kas dari pembayaran faktur yang berhasil lunas.'}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
+                        100.0%
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right font-black text-base text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        {formatCurrency(financials.revenue)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 2: HPP */}
+                    <TableRow className="hover:bg-muted/30 transition-colors bg-muted/10">
+                      <TableCell className="px-6 py-4 pl-10">
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-sm text-muted-foreground">(-) Harga Pokok Penjualan (HPP)</span>
+                          <p className="text-xs text-muted-foreground/80">Akumulasi modal item barang/jasa sesuai metode yang dipilih.</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
+                        {financials.revenue > 0 ? `${((financials.cogs / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right font-bold text-sm text-rose-600 dark:text-rose-400 tabular-nums">
+                        ({formatCurrency(financials.cogs)})
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 3: Laba Kotor (Subtotal Highlight) */}
+                    <TableRow className="bg-muted/40 hover:bg-muted/50 transition-colors font-bold border-y-2 border-border">
+                      <TableCell className="px-6 py-4 font-black text-sm text-foreground">
+                        (=) LABA KOTOR (GROSS PROFIT)
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center font-black text-xs text-primary">
+                        {financials.grossMargin.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right font-black text-base text-foreground tabular-nums">
+                        {formatCurrency(financials.grossProfit)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 4: Beban Operasional */}
+                    <TableRow className="hover:bg-muted/30 transition-colors bg-muted/10">
+                      <TableCell className="px-6 py-4 pl-10">
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-sm text-muted-foreground">(-) Beban Operasional & Pengeluaran</span>
+                          <p className="text-xs text-muted-foreground/80">Biaya umum, operasional harian, dan pengeluaran non-HPP.</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center font-bold text-xs text-muted-foreground">
+                        {financials.revenue > 0 ? `${((financials.totalExpenses / financials.revenue) * 100).toFixed(1)}%` : '0.0%'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right font-bold text-sm text-rose-600 dark:text-rose-400 tabular-nums">
+                        ({formatCurrency(financials.totalExpenses)})
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 5: Laba Bersih (Grand Total Highlight) */}
+                    <TableRow className={cn(
+                      "font-black text-base border-t-2 border-primary/40",
+                      financials.netProfit >= 0 ? "bg-emerald-500/10 hover:bg-emerald-500/15" : "bg-rose-500/10 hover:bg-rose-500/15"
                     )}>
-                      {formatCurrency(financials.netProfit)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+                      <TableCell className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                          {financials.netProfit >= 0 ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <TrendingDown className="h-5 w-5 text-rose-500" />}
+                          <span className="font-black text-base text-foreground">(=) LABA BERSIH REAL (NET PROFIT)</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-5 text-center font-black text-sm text-emerald-600 dark:text-emerald-400">
+                        {financials.netMargin.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className={cn(
+                        "px-6 py-5 text-right font-black text-xl tabular-nums",
+                        financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                      )}>
+                        {formatCurrency(financials.netProfit)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
