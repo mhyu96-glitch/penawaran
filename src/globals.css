@@ -258,32 +258,49 @@
   .desktop-document-table {
     display: block !important;
     overflow: visible !important;
-    border: 1px solid #94a3b8 !important;
-    border-radius: 4px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
     margin: 8px 0 !important;
+    background: #ffffff !important;
   }
 
   .desktop-document-table table {
     width: 100% !important;
     min-width: 100% !important;
     border-collapse: collapse !important;
+    background: #ffffff !important;
   }
 
   .desktop-document-table th {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
     font-weight: 800 !important;
     font-size: 9pt !important;
-    padding: 5px 8px !important;
-    border: 1px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
   }
 
   .desktop-document-table td {
     padding: 4px 8px !important;
     font-size: 9pt !important;
     line-height: 1.25 !important;
-    border: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
     background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .desktop-document-table tr.section-header-row td {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    border-top: 1px solid #cbd5e1 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
   }
 
   /* Hindari Pemotongan Baris */
@@ -333,7 +350,6 @@
 
 .pdf-exporting * {
   color: #0f172a !important;
-  border-color: #e2e8f0 !important;
 }
 
 .pdf-exporting .mobile-document-items {
@@ -342,4 +358,25 @@
 
 .pdf-exporting .desktop-document-table {
   display: block !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
 }
+
+.pdf-exporting .desktop-document-table th {
+  background-color: #f8fafc !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+
+.pdf-exporting .desktop-document-table td {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+.pdf-exporting .desktop-document-table tr.section-header-row td {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+

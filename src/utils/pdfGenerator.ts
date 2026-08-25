@@ -17,6 +17,12 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
   const originalOverflow = element.style.overflow;
   const originalBackground = element.style.backgroundColor;
 
+  // Temporarily remove dark class for pristine clean white PDF export
+  const isDark = document.documentElement.classList.contains('dark');
+  if (isDark) {
+    document.documentElement.classList.remove('dark');
+  }
+
   try {
     // Force a crisp content width. 760px maps cleanly into F4/A4 with margins.
     element.style.width = '760px';
@@ -30,7 +36,7 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
     // Wait a brief moment for DOM layout updates
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 80));
 
     const canvas = await html2canvas(element, {
       scale: 2, // Higher scale for crystal-clear quality
@@ -64,6 +70,10 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     element.style.overflow = originalOverflow;
     element.style.backgroundColor = originalBackground;
 
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+
     return true;
   } catch (err) {
     console.error("Error generating PDF", err);
@@ -78,6 +88,10 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     element.style.overflow = originalOverflow;
     element.style.backgroundColor = originalBackground;
     
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+
     return false;
   }
 };
@@ -86,38 +100,6 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
  * Export Full Page Long Screenshot (PNG) - Jadi 1 Gambar Utuh Memanjang ke Bawah
  */
 export const exportLongImage = async (element: HTMLElement, fileName: string) => {
-  try {
-    // Hide buttons/controls marked with .no-pdf or .no-screenshot
-    const elementsToHide = element.querySelectorAll('.no-pdf, .no-screenshot');
-    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
-
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#090d16', // Preserves theme background
-      windowWidth: element.scrollWidth,
-    });
-
-    const link = document.createElement('a');
-    link.download = fileName.endsWith('.png') ? fileName : `${fileName}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-
-    elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-    showSuccess("Screenshot panjang berhasil diunduh!");
-    return true;
-  } catch (err) {
-    console.error("Error exporting long image", err);
-    showError("Gagal mengambil screenshot laporan.");
-    return false;
-  }
-};
-
-/**
- * Export Full Page Long PDF (1 Single Continuous Page, No Pagination)
- */
-export const exportLongPdf = async (element: HTMLElement, fileName: string) => {
   try {
     const elementsToHide = element.querySelectorAll('.no-pdf, .no-screenshot');
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
@@ -130,23 +112,18 @@ export const exportLongPdf = async (element: HTMLElement, fileName: string) => {
       windowWidth: element.scrollWidth,
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdfWidth = 215; // F4 Width in mm
-    const renderedHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    // Create a single custom-height PDF that fits the entire report in 1 page!
-    const pdf = new jsPDF('p', 'mm', [pdfWidth, renderedHeight]);
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, renderedHeight);
-    
-    const finalName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-    pdf.save(finalName);
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-    showSuccess("PDF Laporan 1 Lembar Panjang berhasil diunduh!");
     return true;
   } catch (err) {
-    console.error("Error exporting long PDF", err);
-    showError("Gagal mengunduh PDF laporan.");
+    console.error("Error generating image", err);
+    showError("Gagal menyimpan gambar.");
     return false;
   }
 };

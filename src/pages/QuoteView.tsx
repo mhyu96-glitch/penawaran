@@ -573,43 +573,30 @@ const QuoteView = () => {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm 8mm;
+            margin: 10mm;
           }
-          html, body {
+          html, body, #root, .min-h-screen {
+            background-color: #ffffff !important;
             background: #ffffff !important;
             color: #0f172a !important;
-            font-size: 11px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            min-height: auto !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body * {
-            visibility: hidden;
-          }
-          .document-print-root, .document-print-root * {
-            visibility: visible;
-          }
           .document-print-root {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
-            background: #ffffff !important;
+            background-color: #ffffff !important;
             color: #0f172a !important;
-          }
-          .document-print-root th {
-            background-color: #f1f5f9 !important;
-            color: #1e293b !important;
-            border-bottom: 2px solid #cbd5e1 !important;
-            font-size: 9px !important;
-          }
-          .document-print-root td {
-            border-bottom: 1px solid #e2e8f0 !important;
-            font-size: 10px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .print\\:hidden, .no-pdf {
             display: none !important;
