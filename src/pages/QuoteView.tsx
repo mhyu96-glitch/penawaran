@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, 
   FileText, Send, FolderKanban, MoreVertical, CheckCircle2,
-  Building2, MapPin, Phone, Globe, ShieldCheck, History, TrendingUp, Sparkles
+  Building2, MapPin, Phone, Globe, ShieldCheck, History, TrendingUp, Sparkles,
+  Landmark, CreditCard, Clock
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -21,10 +22,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant, cn, formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
@@ -97,6 +109,13 @@ const QuoteView = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+  
+  // Dialog Buat Faktur & DP States
+  const [isCreateInvoiceDialogOpen, setIsCreateInvoiceDialogOpen] = useState(false);
+  const [invoiceDpPercent, setInvoiceDpPercent] = useState<string>('50');
+  const [invoiceDpAmount, setInvoiceDpAmount] = useState<number>(0);
+  const [recordAsPayment, setRecordAsPayment] = useState<boolean>(true);
+  
   const quoteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,7 +146,50 @@ const QuoteView = () => {
     fetchQuote();
   }, [id, navigate]);
 
-  const handleCreateInvoice = async () => {
+  const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
+  const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
+  const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
+  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
+
+  const handleOpenCreateInvoiceDialog = () => {
+    const defaultDp = Math.round(total * 0.5);
+    setInvoiceDpPercent('50');
+    setInvoiceDpAmount(defaultDp);
+    setRecordAsPayment(true);
+    setIsCreateInvoiceDialogOpen(true);
+  };
+
+  const handleDialogDpPreset = (percent: number) => {
+    if (percent === 0) {
+      setInvoiceDpPercent('');
+      setInvoiceDpAmount(0);
+    } else {
+      setInvoiceDpPercent(String(percent));
+      setInvoiceDpAmount(Math.round((total * percent) / 100));
+    }
+  };
+
+  const handleDialogDpPercentChange = (valStr: string) => {
+    setInvoiceDpPercent(valStr);
+    const p = parseFloat(valStr);
+    if (!isNaN(p) && p >= 0 && p <= 100) {
+      setInvoiceDpAmount(Math.round((total * p) / 100));
+    } else if (valStr === '') {
+      setInvoiceDpAmount(0);
+    }
+  };
+
+  const handleDialogDpAmountChange = (amountNum: number) => {
+    setInvoiceDpAmount(amountNum);
+    if (total > 0 && amountNum > 0) {
+      const p = ((amountNum / total) * 100).toFixed(1);
+      setInvoiceDpPercent(p.endsWith('.0') ? p.slice(0, -2) : p);
+    } else {
+      setInvoiceDpPercent('');
+    }
+  };
+
+  const handleCreateInvoiceSubmit = async () => {
     if (!quote || !user) return;
     setIsCreatingInvoice(true);
 
@@ -164,11 +226,11 @@ const QuoteView = () => {
         discount_amount: quote.discount_amount,
         tax_amount: quote.tax_amount,
         terms: quote.terms,
-        status: 'Draf',
+        status: invoiceDpAmount >= total && total > 0 ? 'Lunas' : 'Draf',
         invoice_number: `INV-${year}-${String(nextNumber).padStart(3, '0')}`,
         invoice_date: new Date().toISOString(),
         due_date: quote.valid_until || null,
-        down_payment_amount: 0,
+        down_payment_amount: invoiceDpAmount,
         attachments: quote.attachments || [],
       };
 
@@ -221,8 +283,31 @@ const QuoteView = () => {
         }
       }
 
-      showSuccess('Faktur berhasil dibuat. Silakan periksa detailnya.');
-      navigate(`/invoice/edit/${newInvoice.id}`);
+      // Catat DP di tabel pembayaran jika dipilih
+      if (invoiceDpAmount > 0 && recordAsPayment) {
+        const pDesc = invoiceDpPercent 
+          ? `Uang Muka (DP ${invoiceDpPercent}%) dari Penawaran #${quote.quote_number}`
+          : `Uang Muka (DP) dari Penawaran #${quote.quote_number}`;
+        
+        await supabase.from('payments').insert({
+          invoice_id: newInvoice.id,
+          user_id: user.id,
+          amount: invoiceDpAmount,
+          payment_date: new Date().toISOString(),
+          notes: pDesc,
+          status: 'Lunas',
+        });
+      }
+
+      // Tandai status penawaran Diterima
+      if (quote.status !== 'Diterima' && quote.status !== 'accepted') {
+        await supabase.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
+        setQuote({ ...quote, status: 'Diterima' });
+      }
+
+      showSuccess('Faktur berhasil dibuat dengan rincian DP!');
+      setIsCreateInvoiceDialogOpen(false);
+      navigate(`/invoice/${newInvoice.id}`);
     } finally {
       setIsCreatingInvoice(false);
     }
@@ -342,6 +427,146 @@ const QuoteView = () => {
         onSend={() => {}}
       />
 
+      {/* Dialog Konversi Penawaran ke Faktur & Hitung DP Otomatis */}
+      <Dialog open={isCreateInvoiceDialogOpen} onOpenChange={setIsCreateInvoiceDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-3xl p-6 border border-border/80 shadow-2xl">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-emerald-500" />
+              Buat Faktur Tagihan dari Penawaran
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Penawaran #{quote.quote_number} • Klien: <strong className="text-foreground">{quote.to_client}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Total Nilai Penawaran Card */}
+            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Nilai Penawaran</span>
+                <h3 className="text-xl font-black text-foreground tabular-nums">{formatCurrency(total)}</h3>
+              </div>
+              <Badge variant="outline" className="text-xs font-bold bg-primary/10 text-primary border-primary/30">
+                {quote.quote_items?.length || 0} Item
+              </Badge>
+            </div>
+
+            {/* Pilihan Uang Muka (DP) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  Tentukan Uang Muka (DP)
+                </Label>
+                {/* Preset Pills */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: '0%', val: 0 },
+                    { label: '30%', val: 30 },
+                    { label: '50%', val: 50 },
+                    { label: '70%', val: 70 },
+                    { label: '100%', val: 100 },
+                  ].map(btn => (
+                    <button
+                      key={btn.label}
+                      type="button"
+                      onClick={() => handleDialogDpPreset(btn.val)}
+                      className={cn(
+                        "px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all",
+                        (btn.val === 0 && invoiceDpAmount === 0) || (invoiceDpPercent === String(btn.val))
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                          : "bg-muted/40 hover:bg-muted text-muted-foreground border-border/80"
+                      )}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dual Input: Percentage and Nominal */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative flex items-center">
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    max="100"
+                    value={invoiceDpPercent}
+                    onChange={e => handleDialogDpPercentChange(e.target.value)}
+                    className="h-10 rounded-xl pr-8 text-xs font-bold text-right tabular-nums"
+                  />
+                  <span className="pointer-events-none absolute right-3 text-xs font-bold text-muted-foreground select-none">%</span>
+                </div>
+
+                <div className="relative flex items-center">
+                  <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-10 rounded-xl pl-9 text-right text-xs font-bold tabular-nums"
+                    value={formatNumberWithDots(invoiceDpAmount)}
+                    onChange={e => handleDialogDpAmountChange(parseDotsToNumber(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {/* Breakdown Preview */}
+              <div className="rounded-2xl bg-muted/30 border border-border/80 p-3.5 space-y-2">
+                <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span>Uang Muka (DP){invoiceDpPercent ? ` ${invoiceDpPercent}%` : ''}:</span>
+                  <span className="tabular-nums font-black">{formatCurrency(invoiceDpAmount)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold text-foreground">
+                  <span className="text-muted-foreground">Sisa Tagihan / Pelunasan:</span>
+                  <span className="tabular-nums font-black text-rose-600 dark:text-rose-400">
+                    {formatCurrency(Math.max(0, total - invoiceDpAmount))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Checkbox: Record directly to payments */}
+              {invoiceDpAmount > 0 && (
+                <div className="flex items-start space-x-2 pt-1">
+                  <Checkbox
+                    id="recordPayment"
+                    checked={recordAsPayment}
+                    onCheckedChange={(checked) => setRecordAsPayment(Boolean(checked))}
+                    className="mt-0.5"
+                  />
+                  <label
+                    htmlFor="recordPayment"
+                    className="text-xs text-muted-foreground leading-tight cursor-pointer font-medium select-none"
+                  >
+                    Catat langsung penerimaan DP ini sebagai <strong className="text-foreground">Kas Masuk & Pembayaran Lunas</strong> di riwayat faktur dan keuangan proyek.
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateInvoiceDialogOpen(false)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleCreateInvoiceSubmit}
+              disabled={isCreatingInvoice}
+              className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            >
+              <Receipt className="mr-1.5 h-4 w-4" />
+              {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur Tagihan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ========================================================================= */}
       {/* HEADER ACTION TOOLBAR (EXCLUDED FROM PRINT & PDF) */}
       {/* ========================================================================= */}
@@ -352,13 +577,18 @@ const QuoteView = () => {
 
         <div className="flex w-full sm:w-auto flex-wrap items-center justify-end gap-2">
           {!isAccepted ? (
-            <Button onClick={handleAcceptQuote} className="rounded-xl h-11 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Tandai Diterima
-            </Button>
+            <>
+              <Button onClick={handleAcceptQuote} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+                <CheckCircle2 className="mr-1.5 h-4 w-4" /> Tandai Diterima
+              </Button>
+              <Button onClick={handleOpenCreateInvoiceDialog} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+                <Receipt className="mr-1.5 h-4 w-4" /> Buat Faktur (DP)
+              </Button>
+            </>
           ) : (
             <>
-              <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
-                <Receipt className="mr-1.5 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
+              <Button onClick={handleOpenCreateInvoiceDialog} disabled={isCreatingInvoice} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+                <Receipt className="mr-1.5 h-4 w-4" /> Buat Faktur (DP)
               </Button>
               <Button onClick={handleCreateProject} className="rounded-xl h-11 px-4 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs">
                 <FolderKanban className="mr-1.5 h-4 w-4" /> Buat Proyek
