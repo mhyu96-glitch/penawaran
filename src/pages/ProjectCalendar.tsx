@@ -24,7 +24,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText, 
   Receipt, FolderKanban, CheckCircle2, Clock, AlertTriangle, 
   TrendingUp, PlusCircle, ExternalLink, RefreshCw, X, Eye, 
-  Building2, CheckSquare, Sparkles, DollarSign
+  Building2, CheckSquare, Sparkles, DollarSign, LayoutGrid, ListFilter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -103,6 +103,7 @@ const ProjectCalendar = () => {
   const [allOngoingProjects, setAllOngoingProjects] = useState<ProjectData[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | 'invoices' | 'quotes' | 'projects'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'agenda'>('grid');
 
   // Selected Day Pop-up Modal State
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -323,64 +324,67 @@ const ProjectCalendar = () => {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-      {/* Executive Header Command Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 text-white p-6 sm:p-8 shadow-2xl">
-        {/* Ambient Glow */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-sky-500/15 blur-3xl" />
-        <div className="pointer-events-none absolute left-1/4 -bottom-16 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
+      {/* ========================================================================= */}
+      {/* HERO COMMAND BANNER & MONTH NAVIGATION */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-slate-900 via-slate-900/90 to-teal-950/40 p-6 sm:p-8 shadow-xl">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-teal-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute left-1/3 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2 max-w-xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 border border-sky-500/30 px-3 py-1 text-xs font-semibold text-sky-300 backdrop-blur-md">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
-                Jadwal & Agenda Interaktif
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 px-3 py-1 text-xs font-bold text-teal-400 backdrop-blur-md">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse" />
+                Kalender Kerja & Jatuh Tempo
               </div>
-              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
-                {events.length} Agenda Terjadwal
+              <span className="rounded-full bg-slate-800/90 border border-border/70 px-2.5 py-0.5 text-[11px] font-bold text-slate-300">
+                {events.length} Agenda Bulan Ini
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-              Kalender Proyek & Tagihan
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+              Jadwal & Agenda Proyek
             </h1>
 
-            <p className="text-slate-300/90 text-sm leading-relaxed">
-              Klik tanggal atau kegiatan mana saja untuk membuka <strong>Pop-up Detail Lengkap</strong> faktur jatuh tempo, penawaran, dan proyek yang sedang berjalan.
+            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+              Pantau jadwal pengiriman surat penawaran, tanggal jatuh tempo faktur pembayaran, dan progres awal proyek secara terpusat.
             </p>
           </div>
 
-          {/* Month Navigation & Action Controls */}
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          {/* Stepper & Controls */}
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
             <Button 
               onClick={fetchEvents} 
               variant="outline" 
-              size="lg"
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
-              title="Refresh Kalender"
+              size="icon"
+              className="h-10 w-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-border/80 shadow-xs active:scale-95"
+              title="Perbarui Data"
             >
-              <RefreshCw className={cn("h-4 w-4 text-sky-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-4 w-4 text-teal-400", loading && "animate-spin")} />
             </Button>
 
             {/* Month Stepper */}
-            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-2xl p-1 shadow-lg">
+            <div className="flex items-center bg-slate-900/90 border border-border/80 rounded-2xl p-1 shadow-md">
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={prevMonth} 
-                className="h-9 w-9 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+                className="h-8 w-8 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+                title="Bulan Sebelumnya"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="px-3 font-bold text-sm text-white min-w-[140px] text-center capitalize">
+              <span className="px-3 font-bold text-xs sm:text-sm text-white min-w-[130px] text-center capitalize">
                 {format(currentDate, 'MMMM yyyy', { locale: localeId })}
               </span>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={nextMonth} 
-                className="h-9 w-9 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+                className="h-8 w-8 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
+                title="Bulan Berikutnya"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -388,7 +392,7 @@ const ProjectCalendar = () => {
 
             <Button 
               onClick={goToToday} 
-              className="h-11 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 shadow-lg shadow-sky-950/50 transition-all active:scale-95 text-xs"
+              className="h-10 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold px-3.5 shadow-md text-xs active:scale-95"
             >
               Hari Ini
             </Button>
@@ -396,93 +400,97 @@ const ProjectCalendar = () => {
         </div>
       </div>
 
-      {/* 4 Stat KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Faktur Belum Bayar / Jatuh Tempo */}
-        <Card className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+      {/* ========================================================================= */}
+      {/* 4 STAT KPI METRIC CARDS */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Jatuh Tempo */}
+        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Jatuh Tempo Bulan Ini</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 shadow-2xs">
-              <AlertTriangle className="h-5 w-5" />
+            <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Jatuh Tempo Bulan Ini</p>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums">
               {formatCurrency(monthStats.overdueInvoicesAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-rose-700/80 dark:text-rose-300 font-bold border-t border-rose-500/20 pt-2.5">
+          <p className="mt-2 text-[11px] text-rose-700/80 dark:text-rose-300 font-semibold border-t border-rose-500/20 pt-2 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
             <span>{monthStats.overdueInvoicesCount} Faktur Menunggu Pembayaran</span>
-          </div>
+          </p>
         </Card>
 
         {/* Card 2: Faktur Lunas */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Faktur Lunas Bulan Ini</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
-              <CheckCircle2 className="h-5 w-5" />
+            <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Faktur Lunas Bulan Ini</p>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
               {formatCurrency(monthStats.paidInvoicesAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2.5">
+          <p className="mt-2 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-semibold border-t border-emerald-500/20 pt-2 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>{monthStats.paidInvoicesCount} Faktur Berhasil Diterima</span>
-          </div>
+          </p>
         </Card>
 
-        {/* Card 3: Penawaran Harga */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
+        {/* Card 3: Penawaran Aktif */}
+        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Batas Penawaran</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
-              <FileText className="h-5 w-5" />
+            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Penawaran Aktif</p>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <FileText className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-foreground truncate">
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
               {formatCurrency(monthStats.quotesAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-300 font-semibold border-t border-amber-500/20 pt-2 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            <span>{monthStats.quotesCount} Penawaran Aktif Bulan Ini</span>
-          </div>
+            <span>{monthStats.quotesCount} Penawaran Terjadwal</span>
+          </p>
         </Card>
 
-        {/* Card 4: Proyek Sedang Dikerjakan */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
+        {/* Card 4: Proyek Berjalan */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Proyek Sedang Berjalan</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shadow-2xs">
-              <FolderKanban className="h-5 w-5" />
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Proyek Sedang Berjalan</p>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <FolderKanban className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{monthStats.ongoingProjectsCount}</h3>
-            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">{monthStats.ongoingProjectsCount}</h3>
+            <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full border border-teal-500/20">
               Aktif
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            <span>Progres tugas proyek berjalan</span>
-          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+            <span>Progres operasional proyek</span>
+          </p>
         </Card>
       </div>
 
-      {/* Main Calendar Card */}
+      {/* ========================================================================= */}
+      {/* MAIN CALENDAR CARD WITH REFINED TOOLBAR & GRID */}
+      {/* ========================================================================= */}
       <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-        {/* Calendar Header Filter Controls & Legend */}
-        <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        {/* Toolbar: Filters & Legend */}
+        <CardHeader className="p-4 sm:p-5 border-b border-border/70 bg-muted/20">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
             {/* Filter Pills */}
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 overflow-x-auto max-w-full">
+            <div className="flex items-center gap-1.5 bg-muted/50 p-1.5 rounded-2xl border border-border/60 overflow-x-auto">
               {[
                 { key: 'all', label: 'Semua Agenda' },
                 { key: 'invoices', label: 'Faktur Tagihan', icon: Receipt },
@@ -496,10 +504,10 @@ const ProjectCalendar = () => {
                     key={tab.key}
                     onClick={() => setFilterType(tab.key as any)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none",
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap select-none cursor-pointer",
                       isActive
-                        ? "bg-background text-foreground shadow-xs border border-border/70"
-                        : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                        ? "bg-primary text-primary-foreground shadow-xs font-black"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium"
                     )}
                   >
                     {Icon && <Icon className="h-3.5 w-3.5" />}
@@ -510,21 +518,21 @@ const ProjectCalendar = () => {
             </div>
 
             {/* Color Legend Indicators */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap font-medium">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span>Faktur Jatuh Tempo</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
+                <span>Jatuh Tempo</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span>Faktur Lunas</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+                <span>Lunas</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
                 <span>Penawaran</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-500 shadow-[0_0_6px_rgba(20,184,166,0.6)]" />
                 <span>Proyek</span>
               </span>
             </div>
@@ -534,8 +542,14 @@ const ProjectCalendar = () => {
         <CardContent className="p-0">
           {/* Day of Week Header Grid */}
           <div className="grid grid-cols-7 border-b border-border/80 bg-muted/40 text-center font-bold text-xs uppercase tracking-wider text-muted-foreground">
-            {['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((day) => (
-              <div key={day} className="py-3.5 px-2">
+            {['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((day, idx) => (
+              <div 
+                key={day} 
+                className={cn(
+                  "py-3 px-2",
+                  (idx === 0 || idx === 6) && "text-rose-500/80 font-extrabold"
+                )}
+              >
                 {day}
               </div>
             ))}
@@ -560,50 +574,50 @@ const ProjectCalendar = () => {
                     key={day.toString()}
                     onClick={() => handleDateClick(day)}
                     className={cn(
-                      "min-h-[120px] sm:min-h-[135px] p-2 sm:p-2.5 transition-all duration-150 relative cursor-pointer group select-none",
-                      isCurrentMonth ? "bg-card hover:bg-muted/40" : "bg-muted/15 text-muted-foreground/50",
-                      isDayToday && "bg-sky-500/[0.04] ring-1 ring-inset ring-sky-500/40"
+                      "min-h-[120px] sm:min-h-[135px] p-2 sm:p-2.5 transition-all duration-150 relative cursor-pointer group select-none flex flex-col justify-between",
+                      isCurrentMonth ? "bg-card hover:bg-muted/30" : "bg-muted/10 text-muted-foreground/40",
+                      isDayToday && "bg-teal-500/5 ring-1 ring-inset ring-teal-500/50"
                     )}
                   >
-                    {/* Top Row: Date Number */}
+                    {/* Top Row: Date Number & Counter Badge */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className={cn(
-                        "text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl transition-transform group-hover:scale-110",
+                        "text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl transition-transform group-hover:scale-105",
                         isDayToday 
-                          ? "bg-sky-600 text-white font-black shadow-md shadow-sky-600/30" 
-                          : isCurrentMonth ? "text-foreground font-bold" : "text-muted-foreground/60"
+                          ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black shadow-md shadow-teal-500/30" 
+                          : isCurrentMonth ? "text-foreground font-bold" : "text-muted-foreground/50"
                       )}>
                         {format(day, 'd')}
                       </span>
 
                       {dayEvents.length > 0 && (
-                        <span className="text-[10px] font-extrabold text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-full border border-border/50">
+                        <span className="text-[10px] font-black text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-full border border-border/60">
                           {dayEvents.length}
                         </span>
                       )}
                     </div>
 
                     {/* Event Chips List */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       {dayEvents.slice(0, 3).map((event) => {
                         const s = (event.status || '').toLowerCase();
-                        let badgeBg = 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+                        let chipStyle = 'bg-slate-500/10 text-slate-300 border-slate-500/20';
 
                         if (event.type === 'invoice') {
-                          if (s === 'lunas') badgeBg = 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
-                          else badgeBg = 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30';
+                          if (s === 'lunas') chipStyle = 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+                          else chipStyle = 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30';
                         } else if (event.type === 'quote') {
-                          badgeBg = 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
+                          chipStyle = 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
                         } else if (event.type === 'project') {
-                          badgeBg = 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30';
+                          chipStyle = 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30';
                         }
 
                         return (
                           <div
                             key={`${event.type}-${event.id}`}
                             className={cn(
-                              "text-[11px] px-2 py-1 rounded-lg border font-semibold truncate flex items-center gap-1.5 transition-all shadow-2xs group-hover:border-primary/40",
-                              badgeBg
+                              "text-[10px] sm:text-[11px] px-2 py-1 rounded-xl border font-bold truncate flex items-center gap-1.5 transition-all shadow-2xs hover:scale-[1.02]",
+                              chipStyle
                             )}
                             title={event.title}
                           >
@@ -616,8 +630,8 @@ const ProjectCalendar = () => {
                       })}
 
                       {dayEvents.length > 3 && (
-                        <div className="text-[10px] font-bold text-muted-foreground/80 px-1 pt-0.5">
-                          +{dayEvents.length - 3} kegiatan lainnya...
+                        <div className="text-[10px] font-bold text-primary/80 px-1 pt-0.5">
+                          +{dayEvents.length - 3} lainnya...
                         </div>
                       )}
                     </div>
@@ -629,9 +643,11 @@ const ProjectCalendar = () => {
         </CardContent>
       </Card>
 
-      {/* POP-UP DETAIL DIALOG: PENAWARAN, FAKTUR, DAN PROYEK YANG SEDANG DIKERJAKAN */}
+      {/* ========================================================================= */}
+      {/* POP-UP DETAIL DIALOG */}
+      {/* ========================================================================= */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl p-6 border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl p-6 border border-border/80 shadow-2xl bg-card">
           <DialogHeader className="space-y-2 border-b border-border/70 pb-4 text-left">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5 text-xs font-bold text-primary">
@@ -643,7 +659,7 @@ const ProjectCalendar = () => {
               </span>
             </div>
 
-            <DialogTitle className="text-2xl font-black tracking-tight text-foreground">
+            <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
               Detail Agenda & Proyek Harian
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -748,6 +764,8 @@ const ProjectCalendar = () => {
                 <div className="space-y-2">
                   {selectedQuotes.map((event) => {
                     const quote = event.rawData as QuoteData;
+                    const s = (quote.status || '').toLowerCase();
+
                     return (
                       <div 
                         key={quote.id}
@@ -755,23 +773,25 @@ const ProjectCalendar = () => {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/25">
+                            <span className="font-mono font-bold text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20">
                               #{quote.quote_number || 'N/A'}
                             </span>
                             <span className="font-bold text-sm text-foreground">
                               {quote.to_client || 'Klien Umum'}
                             </span>
-                            <Badge variant="outline" className="text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                               {quote.status || 'Draf'}
-                            </Badge>
+                            </span>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            Estimasi Nilai Proyek
-                          </p>
+                          {quote.valid_until && (
+                            <p className="text-xs text-muted-foreground">
+                              Berlaku hingga: <strong className="text-foreground">{format(new Date(quote.valid_until), 'd MMMM yyyy', { locale: localeId })}</strong>
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                          <span className="font-black text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          <span className="font-black text-sm text-foreground tabular-nums">
                             {formatCurrency(event.amount)}
                           </span>
                           <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-semibold h-8">
@@ -787,71 +807,67 @@ const ProjectCalendar = () => {
               )}
             </div>
 
-            {/* SECTION 3: PROYEK YANG SEDANG DIKERJAKAN */}
+            {/* SECTION 3: PROYEK */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <FolderKanban className="h-4 w-4 text-indigo-500" />
-                  Proyek Yang Sedang Dikerjakan ({allOngoingProjects.length})
+                  <FolderKanban className="h-4 w-4 text-teal-500" />
+                  Mulai Proyek ({selectedProjects.length})
                 </h4>
                 <Button asChild variant="ghost" size="sm" className="h-7 text-xs font-bold text-primary">
                   <Link to="/projects" onClick={() => setIsDetailOpen(false)}>
-                    <Eye className="mr-1 h-3.5 w-3.5" /> Semua Proyek
+                    <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lihat Semua Proyek
                   </Link>
                 </Button>
               </div>
 
-              {allOngoingProjects.length === 0 ? (
+              {selectedProjects.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/80 p-4 text-center text-xs text-muted-foreground">
-                  Tidak ada proyek berstatus aktif saat ini.
+                  Tidak ada proyek baru yang dibuat pada tanggal ini.
                 </div>
               ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {allOngoingProjects.map((proj) => {
+                <div className="space-y-2">
+                  {selectedProjects.map((event) => {
+                    const proj = event.rawData as ProjectData;
                     const totalTasks = proj.project_tasks?.length || 0;
-                    const doneTasks = proj.project_tasks?.filter(t => t.is_completed).length || 0;
-                    const progress = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
+                    const completedTasks = proj.project_tasks?.filter(t => t.is_completed).length || 0;
+                    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
                     return (
                       <div 
                         key={proj.id}
-                        className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2.5 hover:bg-muted/40 transition-colors"
+                        className="rounded-2xl border border-border/80 bg-muted/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/40 transition-colors"
                       >
-                        <div className="flex items-start sm:items-center justify-between gap-3">
-                          <div className="space-y-0.5 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h5 className="font-bold text-sm text-foreground truncate">
-                                {proj.name}
-                              </h5>
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 px-2 py-0.2 text-[10px] font-bold shrink-0">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                Sedang Berjalan
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                              <Building2 className="h-3 w-3" />
-                              {proj.clients?.name || 'Tanpa Klien'}
-                            </p>
-                          </div>
-
-                          <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-semibold h-8 shrink-0">
-                            <Link to={`/project/${proj.id}`} onClick={() => setIsDetailOpen(false)}>
-                              <TrendingUp className="mr-1 h-3.5 w-3.5 text-emerald-500" /> Detail
-                            </Link>
-                          </Button>
-                        </div>
-
-                        {/* Task Progress Bar */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                            <span className="flex items-center gap-1">
-                              <CheckSquare className="h-3 w-3 text-primary" />
-                              Progres Tugas
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {proj.name}
                             </span>
-                            <span>{doneTasks}/{totalTasks} Selesai ({progress.toFixed(0)}%)</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 text-[11px] font-bold px-2 py-0.5">
+                              {proj.status || 'Ongoing'}
+                            </span>
                           </div>
-                          <Progress value={progress} className="h-1.5 rounded-full" />
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{proj.clients?.name || 'Tanpa Klien'}</span>
+                          </p>
+                          
+                          {totalTasks > 0 && (
+                            <div className="max-w-xs space-y-1 pt-1">
+                              <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
+                                <span>Tugas Selesai</span>
+                                <span>{completedTasks}/{totalTasks} ({progressPercent}%)</span>
+                              </div>
+                              <Progress value={progressPercent} className="h-1.5 rounded-full" />
+                            </div>
+                          )}
                         </div>
+
+                        <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-semibold h-8 shrink-0">
+                          <Link to={`/project/${proj.id}`} onClick={() => setIsDetailOpen(false)}>
+                            <Eye className="mr-1 h-3.5 w-3.5" /> Buka Proyek
+                          </Link>
+                        </Button>
                       </div>
                     );
                   })}
