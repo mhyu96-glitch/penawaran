@@ -916,15 +916,25 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                   </CardDescription>
                 </div>
 
-                {/* Procurement Progress Pill */}
-                <div className="flex items-center gap-3 bg-background border border-border/80 rounded-2xl p-2.5 px-4 shrink-0 shadow-2xs">
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Progres Belanja</p>
-                    <p className="text-xs sm:text-sm font-black text-foreground">{procurementStats.purchasedCount} dari {procurementStats.totalItems} Barang ({procurementStats.progressPercent.toFixed(0)}%)</p>
+                {/* Procurement Progress Box */}
+                <div className="bg-card/80 sm:bg-background border border-border/80 rounded-2xl p-3 sm:p-4 min-w-[260px] sm:min-w-[300px] space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider">Progres Belanja</p>
+                        <p className="text-xs sm:text-sm font-black text-foreground">
+                          {procurementStats.purchasedCount} dari {procurementStats.totalItems} Barang
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm sm:text-base font-black text-primary tabular-nums">
+                      {procurementStats.progressPercent.toFixed(0)}%
+                    </span>
                   </div>
-                  <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
+                  <Progress value={procurementStats.progressPercent} className="h-2 rounded-full" />
                 </div>
               </div>
             </CardHeader>
