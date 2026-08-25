@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,12 +9,29 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, 
   ListTodo, Target, ShoppingCart, CheckCircle2, Circle, Edit3, Check, 
-  X, AlertCircle, PackageCheck, Layers, Sparkles, User
+  X, AlertCircle, PackageCheck, Layers, Sparkles, User, Fuel, Utensils,
+  Users, Hotel, Wrench, Plus, Trash2, PieChart, Calculator, Car, Landmark
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   formatCurrency, safeFormat, calculateSubtotal, calculateTotal, 
   calculateItemTotal, getStatusVariant, cn 
@@ -65,12 +83,25 @@ type Invoice = {
 type Expense = { 
   id: string; 
   description: string; 
-  expense_date: string; 
   amount: number; 
+  category: string | null;
+  expense_date: string; 
+  notes?: string | null;
+  user_id?: string;
+  project_id?: string | null;
 };
+
+const EXPENSE_CATEGORIES = [
+  { value: 'Bensin & Transportasi', label: 'Bensin & Transportasi', icon: Fuel, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  { value: 'Makan & Konsumsi', label: 'Makan & Konsumsi Tim', icon: Utensils, color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' },
+  { value: 'Gaji & Upah Teknisi', label: 'Gaji & Upah Teknisi', icon: Users, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  { value: 'Penginapan & Hotel', label: 'Penginapan & Hotel', icon: Hotel, color: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
+  { value: 'Alat & Lain-lain', label: 'Alat Kerja & Lain-lain', icon: Wrench, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+];
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -94,6 +125,15 @@ const ProjectDetail = () => {
   const [editingCostPrice, setEditingCostPrice] = useState<string>('');
   const [isSavingCost, setIsSavingCost] = useState(false);
 
+  // Add Expense Dialog state
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [newExpenseDescription, setNewExpenseDescription] = useState('');
+  const [newExpenseCategory, setNewExpenseCategory] = useState('Bensin & Transportasi');
+  const [newExpenseAmount, setNewExpenseAmount] = useState('');
+  const [newExpenseDate, setNewExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newExpenseNotes, setNewExpenseNotes] = useState('');
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+
   const fetchProjectData = async () => {
     if (!id) return;
     setLoading(true);
@@ -103,7 +143,7 @@ const ProjectDetail = () => {
         supabase.from('projects').select('*, clients(name)').eq('id', id).single(),
         supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
         supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
-        supabase.from('expenses').select('*').eq('project_id', id),
+        supabase.from('expenses').select('*').eq('project_id', id).order('expense_date', { ascending: false }),
         supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at', { ascending: true }),
         supabase.from('time_entries').select('*').eq('project_id', id).order('entry_date', { ascending: false })
       ]);
@@ -179,6 +219,73 @@ const ProjectDetail = () => {
     }
   };
 
+  // Handle adding new expense
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !id) return;
+    if (!newExpenseDescription.trim()) {
+      showError('Deskripsi biaya wajib diisi');
+      return;
+    }
+    const amountNum = Number(newExpenseAmount);
+    if (!amountNum || amountNum <= 0) {
+      showError('Jumlah biaya harus lebih dari 0');
+      return;
+    }
+
+    setIsSubmittingExpense(true);
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          project_id: id,
+          description: newExpenseDescription.trim(),
+          category: newExpenseCategory,
+          amount: amountNum,
+          expense_date: newExpenseDate,
+          notes: newExpenseNotes.trim() || null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        showError(`Gagal menambah biaya: ${error.message}`);
+      } else {
+        showSuccess('Biaya operasional berhasil dicatat!');
+        if (data) {
+          setExpenses(prev => [data as Expense, ...prev]);
+        }
+        setIsExpenseDialogOpen(false);
+        setNewExpenseDescription('');
+        setNewExpenseAmount('');
+        setNewExpenseNotes('');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showError('Terjadi kesalahan.');
+    } finally {
+      setIsSubmittingExpense(false);
+    }
+  };
+
+  // Handle deleting expense
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus catatan biaya ini?')) return;
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+      if (error) {
+        showError(`Gagal menghapus: ${error.message}`);
+      } else {
+        showSuccess('Catatan biaya berhasil dihapus');
+        setExpenses(prev => prev.filter(e => e.id !== expenseId));
+      }
+    } catch (err: any) {
+      console.error(err);
+      showError('Gagal menghapus biaya.');
+    }
+  };
+
   // Flatten all procurement items from linked quotes
   const procurementItems = useMemo(() => {
     const list: (QuoteItem & { quote_number: string })[] = [];
@@ -230,6 +337,36 @@ const ProjectDetail = () => {
     };
   }, [procurementItems, purchasedItemIds]);
 
+  // Expense breakdown by category
+  const expenseBreakdown = useMemo(() => {
+    let fuelTotal = 0;
+    let mealTotal = 0;
+    let techTotal = 0;
+    let hotelTotal = 0;
+    let otherTotal = 0;
+
+    expenses.forEach(e => {
+      const cat = e.category || 'Alat & Lain-lain';
+      const amt = Number(e.amount) || 0;
+      if (cat.includes('Bensin') || cat.includes('Transport')) fuelTotal += amt;
+      else if (cat.includes('Makan') || cat.includes('Konsumsi')) mealTotal += amt;
+      else if (cat.includes('Gaji') || cat.includes('Teknisi') || cat.includes('Upah')) techTotal += amt;
+      else if (cat.includes('Penginapan') || cat.includes('Hotel')) hotelTotal += amt;
+      else otherTotal += amt;
+    });
+
+    const totalOperational = fuelTotal + mealTotal + techTotal + hotelTotal + otherTotal;
+
+    return {
+      fuelTotal,
+      mealTotal,
+      techTotal,
+      hotelTotal,
+      otherTotal,
+      totalOperational
+    };
+  }, [expenses]);
+
   // Financial calculations
   const financials = useMemo(() => {
     const paidRevenue = invoices
@@ -256,13 +393,18 @@ const ProjectDetail = () => {
       ? allInvoicesTotal 
       : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
 
-    const projectExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    
+    // Biaya modal barang (HPP)
     const costOfGoodsSold = quotes
       .filter(q => q.status === 'Diterima' || q.status === 'accepted')
       .reduce((sum, q) => sum + (q.quote_items || []).reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
 
-    const totalCosts = projectExpenses + costOfGoodsSold;
+    // Total pengeluaran operasional (bensin, makan, gaji teknisi, dll)
+    const totalOperationalExpenses = expenseBreakdown.totalOperational;
+
+    // Total Seluruh Biaya Proyek (Barang + Akomodasi/Operasional)
+    const totalCosts = costOfGoodsSold + totalOperationalExpenses;
+    
+    // Laba Bersih Riil
     const netProfit = totalRevenue - totalCosts;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const totalMinutes = timeEntries.reduce((sum, entry) => sum + entry.duration_minutes, 0);
@@ -270,12 +412,14 @@ const ProjectDetail = () => {
     return { 
       totalRevenue, 
       paidRevenue, 
+      costOfGoodsSold,
+      totalOperationalExpenses,
       totalCosts, 
       netProfit, 
       profitMargin,
       totalHours: totalMinutes / 60 
     };
-  }, [invoices, expenses, quotes, timeEntries, project]);
+  }, [invoices, quotes, expenseBreakdown, timeEntries, project]);
 
   if (loading) {
     return (
@@ -361,7 +505,7 @@ const ProjectDetail = () => {
             <Progress value={budgetUsedPercent} className="h-2 rounded-full" />
             <div className="flex items-center justify-between text-xs pt-1">
               <span className="text-muted-foreground">Biaya: <strong className="text-foreground">{formatCurrency(financials.totalCosts)}</strong></span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+              <span className={cn("font-bold", budgetRemaining >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}>
                 Sisa: {formatCurrency(budgetRemaining)}
               </span>
             </div>
@@ -392,10 +536,10 @@ const ProjectDetail = () => {
           </div>
         </Card>
 
-        {/* Card 2: Total Biaya */}
+        {/* Card 2: Total Biaya (HPP + Akomodasi) */}
         <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Biaya (HPP)</p>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Seluruh Biaya</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
               <Wallet className="h-4 w-4" />
             </div>
@@ -406,15 +550,15 @@ const ProjectDetail = () => {
             </h3>
           </div>
           <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Barang + Operasional</span>
-            <span className="font-semibold text-foreground">{procurementStats.purchasedCount}/{procurementStats.totalItems} Terbeli</span>
+            <span>Barang: {formatCurrency(financials.costOfGoodsSold)}</span>
+            <span className="font-semibold text-foreground">Akom: {formatCurrency(financials.totalOperationalExpenses)}</span>
           </div>
         </Card>
 
         {/* Card 3: Laba Bersih */}
         <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Estimasi Laba</p>
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Estimasi Laba Bersih</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
               <TrendingUp className="h-4 w-4" />
             </div>
@@ -433,19 +577,19 @@ const ProjectDetail = () => {
         {/* Card 4: Jam & Progress */}
         <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Jam Kerja</p>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Jam & Tugas</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
               <Clock className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
-              {financials.totalHours.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">Jam</span>
+              {financials.totalHours.toFixed(1)} <span className="text-xs font-normal text-muted-foreground">Jam</span>
             </h3>
           </div>
           <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Aktivitas Tim</span>
-            <span className="font-semibold text-foreground">{tasks.filter(t => t.is_completed).length}/{tasks.length} Tugas Selesai</span>
+            <span>Progress Tugas</span>
+            <span className="font-semibold text-foreground">{tasks.filter(t => t.is_completed).length}/{tasks.length} Selesai</span>
           </div>
         </Card>
       </div>
@@ -455,15 +599,28 @@ const ProjectDetail = () => {
         <TabsList className="bg-muted/60 p-1 rounded-2xl border border-border/70 w-full sm:w-auto overflow-x-auto flex justify-start">
           <TabsTrigger value="procurement" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
             <ShoppingCart className="h-4 w-4 text-primary" />
-            <span>Pengadaan & Belanja Barang</span>
+            <span>Belanja Barang (BOM)</span>
             <span className="ml-1 rounded-full bg-primary/10 text-primary px-2 py-0.2 text-[11px] font-extrabold">
               {procurementItems.length}
             </span>
           </TabsTrigger>
 
+          <TabsTrigger value="accommodation" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <Car className="h-4 w-4 text-amber-500" />
+            <span>Akomodasi & Gaji Teknisi</span>
+            <span className="ml-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.2 text-[11px] font-extrabold">
+              {expenses.length}
+            </span>
+          </TabsTrigger>
+
+          <TabsTrigger value="report" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
+            <PieChart className="h-4 w-4 text-emerald-500" />
+            <span>Akumulasi Laporan</span>
+          </TabsTrigger>
+
           <TabsTrigger value="tasks" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
             <ListTodo className="h-4 w-4 text-violet-500" />
-            <span>Daftar Tugas</span>
+            <span>Tugas</span>
             <span className="ml-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.2 text-[11px] font-extrabold">
               {tasks.length}
             </span>
@@ -471,12 +628,12 @@ const ProjectDetail = () => {
 
           <TabsTrigger value="time" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
             <Clock className="h-4 w-4 text-sky-500" />
-            <span>Catatan Waktu</span>
+            <span>Jam Kerja</span>
           </TabsTrigger>
 
           <TabsTrigger value="documents" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <FileText className="h-4 w-4 text-amber-500" />
-            <span>Dokumen & Kas</span>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span>Dokumen</span>
           </TabsTrigger>
         </TabsList>
 
@@ -493,7 +650,7 @@ const ProjectDetail = () => {
                     Daftar Belanja & Pengadaan Barang (BOM)
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Semua item dari penawaran otomatis tercatat di sini. Anda bisa menyesuaikan harga beli asli dan menandai barang yang sudah dibeli.
+                    Item dari penawaran otomatis tercatat di sini. Sesuaikan harga beli asli dan centang barang yang sudah dibeli.
                   </CardDescription>
                 </div>
 
@@ -697,7 +854,319 @@ const ProjectDetail = () => {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 2: DAFTAR TUGAS */}
+        {/* TAB 2: AKOMODASI, OPERASIONAL & GAJI TEKNISI */}
+        {/* ========================================================================= */}
+        <TabsContent value="accommodation" className="space-y-4">
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Car className="h-5 w-5 text-amber-500" />
+                    Biaya Akomodasi, Operasional & Gaji Teknisi
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-1">
+                    Catat pengeluaran riil lapangan seperti bensin, uang makan, gaji/upah teknisi, penginapan hotel, dan alat kerja.
+                  </CardDescription>
+                </div>
+
+                <Button 
+                  onClick={() => setIsExpenseDialogOpen(true)} 
+                  className="rounded-xl font-bold gap-1.5 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                >
+                  <Plus className="h-4 w-4" /> Tambah Pengeluaran
+                </Button>
+              </div>
+
+              {/* 5 Category Quick Stat Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-4">
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <Fuel className="h-3.5 w-3.5" /> Bensin & Transport
+                  </div>
+                  <p className="text-sm sm:text-base font-extrabold text-foreground mt-1.5 tabular-nums">
+                    {formatCurrency(expenseBreakdown.fuelTotal)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 dark:text-orange-400">
+                    <Utensils className="h-3.5 w-3.5" /> Makan & Konsumsi
+                  </div>
+                  <p className="text-sm sm:text-base font-extrabold text-foreground mt-1.5 tabular-nums">
+                    {formatCurrency(expenseBreakdown.mealTotal)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                    <Users className="h-3.5 w-3.5" /> Upah / Gaji Teknisi
+                  </div>
+                  <p className="text-sm sm:text-base font-extrabold text-foreground mt-1.5 tabular-nums">
+                    {formatCurrency(expenseBreakdown.techTotal)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400">
+                    <Hotel className="h-3.5 w-3.5" /> Penginapan Hotel
+                  </div>
+                  <p className="text-sm sm:text-base font-extrabold text-foreground mt-1.5 tabular-nums">
+                    {formatCurrency(expenseBreakdown.hotelTotal)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 col-span-2 sm:col-span-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <Wrench className="h-3.5 w-3.5" /> Alat & Lain-lain
+                  </div>
+                  <p className="text-sm sm:text-base font-extrabold text-foreground mt-1.5 tabular-nums">
+                    {formatCurrency(expenseBreakdown.otherTotal)}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {expenses.length === 0 ? (
+                <div className="p-12 text-center space-y-3">
+                  <Car className="h-10 w-10 text-muted-foreground/60 mx-auto" />
+                  <h4 className="text-base font-bold text-foreground">Belum Ada Biaya Operasional / Akomodasi</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    Klik tombol "Tambah Pengeluaran" di atas untuk mencatat bensin, uang makan, upah teknisi, atau akomodasi lainnya.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader className="bg-muted/40">
+                      <TableRow className="border-b border-border/80">
+                        <TableHead className="w-[120px] font-bold text-xs uppercase text-muted-foreground">Tanggal</TableHead>
+                        <TableHead className="w-[180px] font-bold text-xs uppercase text-muted-foreground">Kategori</TableHead>
+                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Deskripsi Biaya</TableHead>
+                        <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Jumlah (Rp)</TableHead>
+                        <TableHead className="w-[80px] text-center font-bold text-xs uppercase text-muted-foreground">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border/60">
+                      {expenses.map((expense) => {
+                        const matchedCat = EXPENSE_CATEGORIES.find(c => c.value === expense.category) || {
+                          icon: Wrench,
+                          color: 'text-muted-foreground bg-muted border-border',
+                          label: expense.category || 'Lain-lain'
+                        };
+                        const IconComp = matchedCat.icon;
+
+                        return (
+                          <TableRow key={expense.id} className="hover:bg-muted/30 transition-colors">
+                            <TableCell className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                              {safeFormat(expense.expense_date, 'd MMM yyyy')}
+                            </TableCell>
+
+                            <TableCell>
+                              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border", matchedCat.color)}>
+                                <IconComp className="h-3 w-3" />
+                                {matchedCat.label}
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="py-3">
+                              <span className="font-bold text-xs sm:text-sm block text-foreground">
+                                {expense.description}
+                              </span>
+                              {expense.notes && (
+                                <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+                                  Catatan: {expense.notes}
+                                </p>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="text-right font-black text-xs sm:text-sm text-rose-600 dark:text-rose-400 tabular-nums">
+                              {formatCurrency(expense.amount)}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteExpense(expense.id)}
+                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Hapus Biaya"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Total Akomodasi Footer Bar */}
+              {expenses.length > 0 && (
+                <div className="bg-muted/30 border-t border-border/70 p-4 sm:p-5 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    Total {expenses.length} Catatan Biaya Operasional
+                  </span>
+                  <div className="text-right">
+                    <span className="text-xs text-muted-foreground mr-3">Total Biaya Operasional & Akomodasi:</span>
+                    <strong className="text-rose-600 dark:text-rose-400 font-black text-base tabular-nums">
+                      {formatCurrency(expenseBreakdown.totalOperational)}
+                    </strong>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 3: AKUMULASI LAPORAN KEUANGAN PROYEK (FINANCIAL RECAP) */}
+        {/* ========================================================================= */}
+        <TabsContent value="report" className="space-y-6">
+          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <PieChart className="h-5 w-5 text-emerald-500" />
+                Akumulasi Laporan Laba Rugi Proyek
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Rekapitulasi lengkap pemasukan kontrak, belanja barang (HPP), biaya akomodasi, dan laba bersih riil.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="p-4 sm:p-6 space-y-6">
+              {/* Financial Breakdown Table */}
+              <div className="rounded-2xl border border-border/80 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="border-b border-border/80">
+                      <TableHead className="font-bold text-xs uppercase">Komponen Keuangan</TableHead>
+                      <TableHead className="w-[180px] font-bold text-xs uppercase">Keterangan</TableHead>
+                      <TableHead className="w-[200px] text-right font-bold text-xs uppercase">Jumlah (Rp)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/60 text-xs sm:text-sm">
+                    {/* 1. Pendapatan */}
+                    <TableRow className="bg-emerald-500/5 hover:bg-emerald-500/10 font-bold">
+                      <TableCell className="py-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                        <DollarSign className="h-4 w-4" />
+                        <span>A. Total Pendapatan / Nilai Kontrak</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-normal">Faktur / Penawaran Diterima</TableCell>
+                      <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-extrabold tabular-nums">
+                        {formatCurrency(financials.totalRevenue)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 2. HPP Barang */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-3 pl-8 flex items-center gap-2 text-foreground font-medium">
+                        <ShoppingCart className="h-4 w-4 text-primary" />
+                        <span>B. Biaya Belanja Barang (HPP Modal)</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{procurementStats.totalItems} Barang ({procurementStats.purchasedCount} Terbeli)</TableCell>
+                      <TableCell className="text-right font-bold text-foreground tabular-nums">
+                        {formatCurrency(financials.costOfGoodsSold)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 3. Akomodasi - Bensin */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-2.5 pl-12 flex items-center gap-2 text-muted-foreground">
+                        <Fuel className="h-3.5 w-3.5 text-amber-500" />
+                        <span>• Bensin & Transportasi</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">BBM, Tol, Parkir</TableCell>
+                      <TableCell className="text-right font-medium text-muted-foreground tabular-nums">
+                        {formatCurrency(expenseBreakdown.fuelTotal)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 3. Akomodasi - Makan */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-2.5 pl-12 flex items-center gap-2 text-muted-foreground">
+                        <Utensils className="h-3.5 w-3.5 text-orange-500" />
+                        <span>• Makan & Konsumsi Tim</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">Konsumsi Lapangan</TableCell>
+                      <TableCell className="text-right font-medium text-muted-foreground tabular-nums">
+                        {formatCurrency(expenseBreakdown.mealTotal)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 3. Akomodasi - Gaji Teknisi */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-2.5 pl-12 flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-3.5 w-3.5 text-blue-500" />
+                        <span>• Gaji & Upah Teknisi</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">Upah Harian / Borongan</TableCell>
+                      <TableCell className="text-right font-medium text-muted-foreground tabular-nums">
+                        {formatCurrency(expenseBreakdown.techTotal)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 3. Akomodasi - Hotel & Lainnya */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-2.5 pl-12 flex items-center gap-2 text-muted-foreground">
+                        <Hotel className="h-3.5 w-3.5 text-purple-500" />
+                        <span>• Penginapan, Alat & Lain-lain</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">Hotel / Sewa Alat</TableCell>
+                      <TableCell className="text-right font-medium text-muted-foreground tabular-nums">
+                        {formatCurrency(expenseBreakdown.hotelTotal + expenseBreakdown.otherTotal)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Subtotal Operasional */}
+                    <TableRow className="bg-muted/30 font-semibold">
+                      <TableCell className="py-3 pl-8 flex items-center gap-2 text-foreground">
+                        <Car className="h-4 w-4 text-amber-500" />
+                        <span>C. Subtotal Akomodasi & Operasional</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{expenses.length} Transaksi</TableCell>
+                      <TableCell className="text-right font-bold text-foreground tabular-nums">
+                        {formatCurrency(financials.totalOperationalExpenses)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Total Biaya Proyek */}
+                    <TableRow className="bg-rose-500/10 hover:bg-rose-500/15 font-bold border-t-2 border-rose-500/30">
+                      <TableCell className="py-3.5 flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                        <Wallet className="h-4 w-4" />
+                        <span>D. Total Seluruh Pengeluaran Proyek (B + C)</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-normal">HPP Barang + Akomodasi</TableCell>
+                      <TableCell className="text-right text-rose-600 dark:text-rose-400 font-extrabold text-base tabular-nums">
+                        {formatCurrency(financials.totalCosts)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* LABA BERSIH RIIL */}
+                    <TableRow className="bg-emerald-500/15 hover:bg-emerald-500/20 font-black border-t-2 border-emerald-500/40">
+                      <TableCell className="py-4 flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-sm sm:text-base">
+                        <TrendingUp className="h-5 w-5 text-emerald-600" />
+                        <span>E. LABA BERSIH RIIL (A - D)</span>
+                      </TableCell>
+                      <TableCell className="text-emerald-700 dark:text-emerald-400 font-bold text-xs sm:text-sm">
+                        Margin Laba: {financials.profitMargin.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-black text-lg sm:text-xl tabular-nums">
+                        {formatCurrency(financials.netProfit)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 4: DAFTAR TUGAS */}
         {/* ========================================================================= */}
         <TabsContent value="tasks">
           <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
@@ -717,7 +1186,7 @@ const ProjectDetail = () => {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 3: CATATAN WAKTU */}
+        {/* TAB 5: CATATAN WAKTU */}
         {/* ========================================================================= */}
         <TabsContent value="time">
           <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
@@ -737,7 +1206,7 @@ const ProjectDetail = () => {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 4: DOKUMEN & KAS */}
+        {/* TAB 6: DOKUMEN (PENAWARAN & FAKTUR) */}
         {/* ========================================================================= */}
         <TabsContent value="documents" className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
@@ -815,43 +1284,114 @@ const ProjectDetail = () => {
               </CardContent>
             </Card>
           </div>
-
-          {/* Pengeluaran Kas Tambahan */}
-          <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-            <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-rose-500" /> Pengeluaran Operasional Ekstra
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {expenses.length > 0 ? (
-                <Table>
-                  <TableHeader className="bg-muted/40">
-                    <TableRow className="border-b border-border/80">
-                      <TableHead className="font-bold text-xs uppercase">Tanggal</TableHead>
-                      <TableHead className="font-bold text-xs uppercase">Deskripsi</TableHead>
-                      <TableHead className="text-right font-bold text-xs uppercase">Jumlah</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-border/60">
-                    {expenses.map(e => (
-                      <TableRow key={e.id}>
-                        <TableCell className="text-xs">{safeFormat(e.expense_date, 'd MMM yyyy')}</TableCell>
-                        <TableCell className="font-semibold text-xs text-foreground">{e.description}</TableCell>
-                        <TableCell className="text-right font-bold text-xs text-rose-600 dark:text-rose-400 tabular-nums">
-                          {formatCurrency(e.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-6">Belum ada pengeluaran operasional ekstra.</p>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ========================================================================= */}
+      {/* DIALOG: TAMBAH BIAYA OPERASIONAL & AKOMODASI */}
+      {/* ========================================================================= */}
+      <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Car className="h-5 w-5 text-amber-500" />
+              Catat Biaya Akomodasi & Operasional
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Masukkan rincian pengeluaran lapangan untuk proyek {project.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddExpense} className="space-y-4 py-2">
+            {/* Kategori */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Kategori Biaya</Label>
+              <Select value={newExpenseCategory} onValueChange={setNewExpenseCategory}>
+                <SelectTrigger className="rounded-xl h-10">
+                  <SelectValue placeholder="Pilih Kategori" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <SelectItem key={c.value} value={c.value} className="rounded-lg">
+                      <div className="flex items-center gap-2 text-xs font-semibold">
+                        <c.icon className="h-4 w-4 text-muted-foreground" />
+                        <span>{c.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deskripsi */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Deskripsi Pengeluaran</Label>
+              <Input
+                placeholder="Contoh: Bensin 2 mobil ke lokasi klien, Makan 3 teknisi"
+                value={newExpenseDescription}
+                onChange={(e) => setNewExpenseDescription(e.target.value)}
+                className="rounded-xl h-10 text-xs"
+                required
+              />
+            </div>
+
+            {/* Jumlah Nominal & Tanggal */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Jumlah (Rp)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={newExpenseAmount}
+                  onChange={(e) => setNewExpenseAmount(e.target.value)}
+                  className="rounded-xl h-10 text-xs font-bold"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Tanggal</Label>
+                <Input
+                  type="date"
+                  value={newExpenseDate}
+                  onChange={(e) => setNewExpenseDate(e.target.value)}
+                  className="rounded-xl h-10 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Catatan Tambahan */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Catatan Tambahan (Opsional)</Label>
+              <Input
+                placeholder="Contoh: Nota terlampir / dibayar via kas kecil"
+                value={newExpenseNotes}
+                onChange={(e) => setNewExpenseNotes(e.target.value)}
+                className="rounded-xl h-10 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsExpenseDialogOpen(false)}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmittingExpense}
+                className="rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {isSubmittingExpense ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
