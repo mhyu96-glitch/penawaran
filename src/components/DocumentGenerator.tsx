@@ -572,11 +572,50 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     if (!user) return;
     setIsSubmitting(true);
 
+    let finalClientId = selectedClientId;
+
+    // Otomatis Simpan / Hubungkan sebagai Klien Master tanpa perlu input manual
+    if (toClient && toClient.trim()) {
+      const trimmedName = toClient.trim();
+      try {
+        if (!finalClientId) {
+          const { data: existingClient } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('user_id', user.id)
+            .ilike('name', trimmedName)
+            .limit(1)
+            .maybeSingle();
+
+          if (existingClient?.id) {
+            finalClientId = existingClient.id;
+          } else {
+            const { data: newClient } = await supabase
+              .from('clients')
+              .insert({
+                user_id: user.id,
+                name: trimmedName,
+                address: toAddress || '',
+                phone: toPhone || '',
+              })
+              .select('id')
+              .single();
+
+            if (newClient?.id) {
+              finalClientId = newClient.id;
+            }
+          }
+        }
+      } catch (clientErr) {
+        console.error('Error auto-syncing client:', clientErr);
+      }
+    }
+
     const docPayload: { [key: string]: any } = {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
       discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
-      client_id: selectedClientId, project_id: selectedProjectId,
+      client_id: finalClientId, project_id: selectedProjectId,
       attachments: attachments,
       title: docTitle, 
     };

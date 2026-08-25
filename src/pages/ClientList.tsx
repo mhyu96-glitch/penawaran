@@ -66,7 +66,94 @@ const ClientList = () => {
     setLoading(true);
 
     try {
-      // 1. Fetch Clients
+      // 1. Fetch all quotes and invoices for transaction calculation and auto-harvesting
+      const { data: quotesData } = await supabase
+        .from('quotes')
+        .select(`
+          id,
+          client_id,
+          to_client,
+          to_address,
+          to_phone,
+          status,
+          discount_amount,
+          tax_amount,
+          quote_items(quantity, unit_price)
+        `)
+        .eq('user_id', user.id);
+
+      const { data: invoicesData } = await supabase
+        .from('invoices')
+        .select(`
+          id,
+          client_id,
+          to_client,
+          to_address,
+          to_phone,
+          status,
+          due_date,
+          discount_amount,
+          tax_amount,
+          invoice_items(quantity, unit_price)
+        `)
+        .eq('user_id', user.id);
+
+      // 2. Fetch existing registered clients
+      const { data: initialClients } = await supabase
+        .from('clients')
+        .select('id, name, address, phone, email, notes')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+
+      // 3. Auto-sync: Find any client names from quotes/invoices not yet registered in clients table
+      const existingNames = new Set((initialClients || []).map(c => (c.name || '').trim().toLowerCase()));
+      const candidatesToInsert = new Map<string, { name: string; address: string; phone: string }>();
+
+      [...(quotesData || []), ...(invoicesData || [])].forEach((doc: any) => {
+        const name = (doc.to_client || '').trim();
+        const lower = name.toLowerCase();
+        if (name && !existingNames.has(lower) && !candidatesToInsert.has(lower)) {
+          candidatesToInsert.set(lower, {
+            name: name,
+            address: doc.to_address || '',
+            phone: doc.to_phone || '',
+          });
+        }
+      });
+
+      if (candidatesToInsert.size > 0) {
+        const newClientsPayload = Array.from(candidatesToInsert.values()).map(c => ({
+          user_id: user.id,
+          name: c.name,
+          address: c.address,
+          phone: c.phone,
+        }));
+
+        const { data: inserted } = await supabase
+          .from('clients')
+          .insert(newClientsPayload)
+          .select('id, name');
+
+        if (inserted && inserted.length > 0) {
+          for (const newClient of inserted) {
+            await supabase
+              .from('quotes')
+              .update({ client_id: newClient.id })
+              .eq('user_id', user.id)
+              .ilike('to_client', newClient.name.trim())
+              .is('client_id', null);
+
+            await supabase
+              .from('invoices')
+              .update({ client_id: newClient.id })
+              .eq('user_id', user.id)
+              .ilike('to_client', newClient.name.trim())
+              .is('client_id', null);
+          }
+        }
+      }
+
+      // 4. Fetch full updated list of clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('id, name, address, phone, email, notes')
@@ -77,35 +164,6 @@ const ClientList = () => {
 
       const loadedClients = (clientsData as Client[]) || [];
       setClients(loadedClients);
-
-      // 2. Fetch all invoices with items
-      const { data: invoicesData } = await supabase
-        .from('invoices')
-        .select(`
-          id,
-          client_id,
-          to_client,
-          status,
-          due_date,
-          discount_amount,
-          tax_amount,
-          invoice_items(quantity, unit_price)
-        `)
-        .eq('user_id', user.id);
-
-      // 3. Fetch all quotes with items
-      const { data: quotesData } = await supabase
-        .from('quotes')
-        .select(`
-          id,
-          client_id,
-          to_client,
-          status,
-          discount_amount,
-          tax_amount,
-          quote_items(quantity, unit_price)
-        `)
-        .eq('user_id', user.id);
 
       // 4. Map transactions per client
       const financialMap: Record<string, ClientFinancialSummary> = {};
