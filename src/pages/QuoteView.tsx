@@ -4,7 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban, MoreVertical, CheckCircle2 } from 'lucide-react';
+import { 
+  Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, 
+  FileText, Send, FolderKanban, MoreVertical, CheckCircle2,
+  Building2, MapPin, Phone, Globe, ShieldCheck, History, TrendingUp, Sparkles
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -27,10 +31,10 @@ import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 import DocumentTimeline from '@/components/DocumentTimeline';
 import SendDocumentDialog from '@/components/SendDocumentDialog';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 interface Attachment {
@@ -71,13 +75,13 @@ type QuoteDetails = {
 };
 
 type ProfileInfo = {
-    company_logo_url: string | null;
-    brand_color: string | null;
-    custom_footer: string | null;
-    show_quantity_column: boolean;
-    show_unit_column: boolean;
-    show_unit_price_column: boolean;
-    whatsapp_quote_template: string | null;
+  company_logo_url: string | null;
+  brand_color: string | null;
+  custom_footer: string | null;
+  show_quantity_column: boolean;
+  show_unit_column: boolean;
+  show_unit_price_column: boolean;
+  whatsapp_quote_template: string | null;
 };
 
 const isMissingColumnError = (error: { message?: string } | null | undefined) =>
@@ -112,9 +116,9 @@ const QuoteView = () => {
       } else {
         setQuote(data as QuoteDetails);
         const { data: profileData } = await supabase.from('profiles')
-            .select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, whatsapp_quote_template')
-            .eq('id', data.user_id)
-            .single();
+          .select('company_logo_url, brand_color, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, whatsapp_quote_template')
+          .eq('id', data.user_id)
+          .single();
         setProfile(profileData);
       }
       setLoading(false);
@@ -231,26 +235,24 @@ const QuoteView = () => {
     const total = calculateTotal(subtotal, quote.discount_amount, quote.tax_amount);
 
     const { data: newProject, error } = await supabase
-        .from('projects')
-        .insert({
-            user_id: user.id,
-            client_id: quote.client_id,
-            name: quote.title || `Proyek ${quote.quote_number}`,
-            description: `Dibuat dari penawaran ${quote.quote_number}`,
-            status: 'Ongoing',
-            budget: total
-        })
-        .select()
-        .single();
+      .from('projects')
+      .insert({
+        user_id: user.id,
+        client_id: quote.client_id,
+        name: quote.title || `Proyek ${quote.quote_number}`,
+        description: `Dibuat dari penawaran ${quote.quote_number}`,
+        status: 'Ongoing',
+        budget: total
+      })
+      .select()
+      .single();
 
     if (error) {
-        showError(`Gagal membuat proyek: ${error.message}`);
+      showError(`Gagal membuat proyek: ${error.message}`);
     } else {
-        // Link quote to new project
-        await supabase.from('quotes').update({ project_id: newProject.id }).eq('id', quote.id);
-        
-        showSuccess('Proyek berhasil dibuat!');
-        navigate(`/project/${newProject.id}`);
+      await supabase.from('quotes').update({ project_id: newProject.id }).eq('id', quote.id);
+      showSuccess('Proyek berhasil dibuat!');
+      navigate(`/project/${newProject.id}`);
     }
   };
 
@@ -295,8 +297,9 @@ const QuoteView = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-8">
-        <Skeleton className="h-96 w-full" />
+      <div className="container mx-auto p-4 sm:p-8 space-y-4 max-w-5xl">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-[600px] w-full rounded-3xl" />
       </div>
     );
   }
@@ -308,196 +311,260 @@ const QuoteView = () => {
   const isAccepted = quote.status === 'Diterima' || quote.status === 'accepted';
 
   return (
-    <div className="min-h-screen bg-background px-2 py-3 text-foreground sm:p-8">
-        <SendDocumentDialog
-            isOpen={isSendDialogOpen}
-            setIsOpen={setIsSendDialogOpen}
-            docType="quote"
-            docId={quote.id}
-            docNumber={quote.quote_number}
-            clientName={quote.to_client}
-            clientEmail={quote.clients?.email}
-            clientPhone={quote.clients?.phone || quote.to_phone}
-            publicLink={`${window.location.origin}/quote/public/${quote.id}`}
-            onSend={() => {}} // No refresh needed for quote status usually, but can reload if needed
-        />
+    <div className="min-h-screen bg-background px-3 py-6 text-foreground sm:px-6 lg:px-8 space-y-6">
+      <SendDocumentDialog
+        isOpen={isSendDialogOpen}
+        setIsOpen={setIsSendDialogOpen}
+        docType="quote"
+        docId={quote.id}
+        docNumber={quote.quote_number}
+        clientName={quote.to_client}
+        clientEmail={quote.clients?.email}
+        clientPhone={quote.clients?.phone || quote.to_phone}
+        publicLink={`${window.location.origin}/quote/public/${quote.id}`}
+        onSend={() => {}}
+      />
 
-        {/* Header Actions - Mobile */}
-        <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-2 print:hidden md:hidden">
-            <Button asChild variant="outline" size="sm" className="h-10">
-                <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
+      {/* ========================================================================= */}
+      {/* HEADER ACTION TOOLBAR */}
+      {/* ========================================================================= */}
+      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+        <Button asChild variant="outline" className="rounded-xl h-11 px-4 text-xs font-bold self-start sm:self-auto border-border/80 hover:bg-muted">
+          <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
+        </Button>
+
+        <div className="flex w-full sm:w-auto flex-wrap items-center justify-end gap-2">
+          {!isAccepted ? (
+            <Button onClick={handleAcceptQuote} className="rounded-xl h-11 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Tandai Diterima
             </Button>
-            <div className="flex items-center gap-2">
-                {!isAccepted ? (
-                    <Button onClick={handleAcceptQuote} size="sm" className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" /> Terima
-                    </Button>
-                ) : (
-                    <>
-                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} size="sm" className="h-10 bg-green-600 hover:bg-green-700">
-                            <Receipt className="mr-1.5 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Faktur'}
-                        </Button>
-                        <Button onClick={handleCreateProject} size="sm" className="h-10 bg-amber-600 hover:bg-amber-700 text-white">
-                            <FolderKanban className="mr-1.5 h-4 w-4" /> Proyek
-                        </Button>
-                    </>
-                )}
-                <Button onClick={() => setIsSendDialogOpen(true)} size="sm" className="h-10">
-                    <Send className="mr-1.5 h-4 w-4" /> Kirim
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-10 w-10">
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Aksi lain</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        {!isAccepted && (
-                            <DropdownMenuItem onClick={handleAcceptQuote} className="text-emerald-600 font-semibold">
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Tandai Diterima
-                            </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem asChild><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSaveAsPDF} disabled={isGeneratingPDF}><Download className="mr-2 h-4 w-4" /> {isGeneratingPDF ? 'Membuat...' : 'PDF'}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Cetak</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+          ) : (
+            <>
+              <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+                <Receipt className="mr-1.5 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
+              </Button>
+              <Button onClick={handleCreateProject} className="rounded-xl h-11 px-4 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs">
+                <FolderKanban className="mr-1.5 h-4 w-4" /> Buat Proyek
+              </Button>
+            </>
+          )}
+
+          <Button onClick={() => setIsSendDialogOpen(true)} className="rounded-xl h-11 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs">
+            <Send className="mr-1.5 h-4 w-4" /> Kirim
+          </Button>
+
+          <Button asChild variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
+            <Link to={`/quote/edit/${id}`}><Pencil className="mr-1.5 h-4 w-4" /> Edit</Link>
+          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="rounded-xl h-11 px-3 text-xs font-bold">
+                <Trash2 className="mr-1.5 h-4 w-4" /> Hapus
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-3xl p-6">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-base font-bold">Hapus Surat Penawaran?</AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-muted-foreground">
+                  Tindakan ini tidak dapat dibatalkan. Surat penawaran #{quote.quote_number} akan dihapus secara permanen.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 pt-2">
+                <AlertDialogCancel className="rounded-xl text-xs font-semibold">Batal</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteQuote} className="rounded-xl text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Hapus
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
+            <Download className="mr-1.5 h-4 w-4 text-primary" />
+            {isGeneratingPDF ? 'Membuat...' : 'PDF'}
+          </Button>
+
+          <Button onClick={() => window.print()} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
+            <Printer className="mr-1.5 h-4 w-4" /> Cetak
+          </Button>
         </div>
+      </div>
 
-        {/* Header Actions - Desktop */}
-        <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
-            <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
-            <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
-                {!isAccepted ? (
-                    <Button onClick={handleAcceptQuote} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Tandai Diterima
-                    </Button>
+      {/* ========================================================================= */}
+      {/* MAIN FULL-WIDTH QUOTATION DOCUMENT CARD */}
+      {/* ========================================================================= */}
+      <div className="mx-auto max-w-5xl">
+        <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none">
+          {/* Letterhead Header */}
+          <CardHeader className="p-6 sm:p-8 border-b border-border/70 bg-muted/20">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+              <div className="min-w-0 space-y-2">
+                {profile?.company_logo_url ? (
+                  <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 object-contain" />
                 ) : (
-                    <>
-                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="bg-green-600 hover:bg-green-700 text-white font-bold">
-                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
-                        </Button>
-                        <Button onClick={handleCreateProject} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">
-                            <FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek
-                        </Button>
-                    </>
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-lg">
+                      {quote.from_company.slice(0, 1) || 'P'}
+                    </div>
+                    <h1 className="text-xl sm:text-2xl font-black leading-tight text-foreground tracking-tight">
+                      {quote.from_company}
+                    </h1>
+                  </div>
                 )}
-                <Button onClick={() => setIsSendDialogOpen(true)} variant="default">
-                    <Send className="mr-2 h-4 w-4" /> Kirim
-                </Button>
-                <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>
-                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Ini akan menghapus penawaran secara permanen.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteQuote}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                </AlertDialog>
-                <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF}>{isGeneratingPDF ? 'Membuat...' : <><Download className="mr-2 h-4 w-4" /> PDF</>}</Button>
-                <Button onClick={() => window.print()} variant="outline"><Printer className="mr-2 h-4 w-4" /> Cetak</Button>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>{quote.from_address}</p>
+                  {quote.from_website && <p className="text-primary font-medium">{quote.from_website}</p>}
+                </div>
+              </div>
+
+              <div className="shrink-0 text-left sm:text-right space-y-2">
+                <div className="inline-block px-3 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 text-xs font-black tracking-wider uppercase">
+                  SURAT PENAWARAN
+                </div>
+                <div>
+                  <Badge variant={getStatusVariant(quote.status)} className="text-xs font-bold">
+                    {quote.status || 'Draf'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+                  <p><strong>No:</strong> {quote.quote_number}</p>
+                  <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'PPP')}</p>
+                </div>
+              </div>
             </div>
-        </div>
+          </CardHeader>
 
-        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-3 lg:gap-8">
-            {/* Main Content: Quote Preview */}
-            <div className="space-y-8 lg:col-span-2">
-                <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-md shadow-sm print:shadow-none print:border-none sm:rounded-lg">
-                    <CardHeader className="rounded-t-md bg-muted/35 p-4 sm:rounded-t-lg sm:p-8">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                        {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{quote.from_company}</h1>}
-                        <p className="text-sm text-muted-foreground">{quote.from_address}</p>
-                        {quote.from_website && <p className="text-sm text-muted-foreground">{quote.from_website}</p>}
-                        </div>
-                        <div className="shrink-0 text-left sm:text-right">
-                        <h2 className="text-2xl font-bold uppercase tracking-wide text-muted-foreground sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
-                        <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
-                        <p className="mt-2 text-sm text-muted-foreground">No: {quote.quote_number}</p>
-                        <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
-                        </div>
-                    </div>
-                    </CardHeader>
-                    <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-8">
-                        <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditujukan Kepada:</h3><p className="font-bold text-foreground">{quote.to_client}</p><p className="text-sm text-muted-foreground">{quote.to_address}</p>{quote.to_phone && <p className="text-sm text-muted-foreground">{quote.to_phone}</p>}</div>
-                        <div className="sm:text-right">
-                            <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Perihal:</h3>
-                            <p className="font-bold text-lg text-foreground">{quote.title || '-'}</p>
-                            <h3 className="mb-2 mt-4 text-sm font-semibold text-muted-foreground">Berlaku Hingga:</h3>
-                            <p className="text-sm font-bold text-foreground">{safeFormat(quote.valid_until, 'PPP')}</p>
-                        </div>
-                    </div>
-                    
-                    <DocumentItemsTable 
-                        items={quote.quote_items} 
-                        config={{
-                            showQuantity: profile?.show_quantity_column,
-                            showUnit: profile?.show_unit_column,
-                            showUnitPrice: profile?.show_unit_price_column
-                        }}
-                    />
+          <CardContent className="p-6 sm:p-8 space-y-8">
+            {/* Bill To & Subject Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-5 rounded-2xl bg-muted/20 border border-border/70">
+              <div className="space-y-1">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ditujukan Kepada:</h3>
+                <p className="font-black text-base text-foreground">{quote.to_client}</p>
+                <p className="text-xs text-muted-foreground">{quote.to_address}</p>
+                {quote.to_phone && <p className="text-xs text-muted-foreground">{quote.to_phone}</p>}
+              </div>
 
-                    <div className="flex justify-end">
-                        <div className="w-full space-y-1.5 rounded-xl bg-muted/35 p-3 text-xs sm:max-w-xs sm:bg-transparent sm:p-0">
-                            <div className="flex justify-between font-medium">
-                                <span className="text-muted-foreground">Subtotal</span>
-                                <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
-                            </div>
-                            {discountAmount > 0 && (
-                                <div className="flex justify-between text-rose-600 dark:text-rose-400">
-                                    <span>Diskon</span>
-                                    <span>- {formatCurrency(discountAmount)}</span>
-                                </div>
-                            )}
-                            {taxAmount > 0 && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Pajak</span>
-                                    <span>+ {formatCurrency(taxAmount)}</span>
-                                </div>
-                            )}
-                            <Separator className="my-1" />
-                            <div className="flex justify-between text-sm sm:text-base font-extrabold text-foreground">
-                                <span>Total Penawaran</span>
-                                <span className="text-primary">{formatCurrency(total)}</span>
-                            </div>
-                        </div>
-                    </div>
-                    {quote.terms && (<div><h3 className="mb-2 font-semibold text-muted-foreground">Syarat & Ketentuan:</h3><p className="whitespace-pre-wrap text-sm text-muted-foreground">{quote.terms}</p></div>)}
-                    {quote.attachments && quote.attachments.length > 0 && (
-                        <div className="no-pdf">
-                        <h3 className="mb-2 font-semibold text-muted-foreground">Lampiran:</h3>
-                        <div className="space-y-2">
-                            {quote.attachments.map((attachment, index) => (
-                            <div key={index} className="flex items-center p-2 border rounded-md">
-                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                                <FileText className="h-4 w-4" />
-                                {attachment.name}
-                                </a>
-                            </div>
-                            ))}
-                        </div>
-                        </div>
-                    )}
-                    </CardContent>
-                    {profile?.custom_footer && (
-                        <CardFooter className="p-8 pt-4 border-t">
-                            <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap">{profile.custom_footer}</p>
-                        </CardFooter>
-                    )}
-                </Card>
+              <div className="sm:text-right space-y-1 sm:border-l sm:border-border/70 sm:pl-6">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Perihal / Proyek:</h3>
+                <p className="font-extrabold text-base text-foreground">{quote.title || '-'}</p>
+                <div className="pt-2 text-xs text-muted-foreground">
+                  <span>Berlaku Hingga: </span>
+                  <strong className="text-foreground">{safeFormat(quote.valid_until, 'PPP')}</strong>
+                </div>
+              </div>
             </div>
-
-            {/* Sidebar: Analysis & History */}
-            <div className="space-y-6 print:hidden">
-                <ProfitAnalysisCard 
-                    items={quote.quote_items} 
-                    discountAmount={quote.discount_amount} 
-                    taxAmount={quote.tax_amount} 
-                    type="Penawaran"
+            
+            {/* Document Items Table */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Rincian Barang & Jasa
+              </h4>
+              <div className="rounded-2xl border border-border/80 overflow-hidden">
+                <DocumentItemsTable 
+                  items={quote.quote_items} 
+                  config={{
+                    showQuantity: profile?.show_quantity_column,
+                    showUnit: profile?.show_unit_column,
+                    showUnitPrice: profile?.show_unit_price_column
+                  }}
                 />
-                
-                <DocumentTimeline docId={id!} type="quote" />
+              </div>
             </div>
+
+            {/* Calculations Breakdown */}
+            <div className="flex justify-end pt-2">
+              <div className="w-full sm:w-80 rounded-2xl bg-muted/20 p-5 border border-border/80 space-y-2.5 text-xs">
+                <div className="flex justify-between font-medium text-muted-foreground">
+                  <span>Subtotal:</span>
+                  <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
+                </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-rose-600 dark:text-rose-400 font-medium">
+                    <span>Diskon:</span>
+                    <span className="font-bold tabular-nums">- {formatCurrency(discountAmount)}</span>
+                  </div>
+                )}
+
+                {taxAmount > 0 && (
+                  <div className="flex justify-between text-muted-foreground font-medium">
+                    <span>Pajak (PPN):</span>
+                    <span className="font-bold text-foreground tabular-nums">+ {formatCurrency(taxAmount)}</span>
+                  </div>
+                )}
+
+                <Separator className="my-2 border-border/60" />
+
+                <div className="flex justify-between text-sm sm:text-base font-black text-foreground">
+                  <span>Total Penawaran:</span>
+                  <span className="text-primary tabular-nums">{formatCurrency(total)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Terms and Conditions */}
+            {quote.terms && (
+              <div className="p-5 rounded-2xl bg-muted/20 border border-border/80 space-y-1.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Syarat & Ketentuan:
+                </h3>
+                <p className="whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed font-sans">{quote.terms}</p>
+              </div>
+            )}
+
+            {/* Attachments */}
+            {quote.attachments && quote.attachments.length > 0 && (
+              <div className="space-y-3 no-pdf">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Lampiran Berkas:</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {quote.attachments.map((attachment, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border border-border/80 rounded-2xl bg-muted/20 hover:bg-muted/40 transition-colors">
+                      <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-primary hover:underline truncate">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{attachment.name}</span>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+
+          {profile?.custom_footer && (
+            <CardFooter className="p-6 sm:p-8 pt-4 border-t border-border/70 bg-muted/20 text-center">
+              <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap leading-relaxed">{profile.custom_footer}</p>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* BOTTOM SECTION: FULL-WIDTH PROFIT ANALYSIS & DOCUMENT TIMELINE */}
+      {/* ========================================================================= */}
+      <div className="mx-auto max-w-5xl space-y-6 pt-2 print:hidden">
+        {/* 1. Analisis Keuntungan Full-Width */}
+        <ProfitAnalysisCard 
+          items={quote.quote_items} 
+          discountAmount={quote.discount_amount} 
+          taxAmount={quote.tax_amount} 
+          type="Penawaran"
+        />
+        
+        {/* 2. Riwayat Dokumen Full-Width */}
+        <div className="rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <History className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-foreground">Riwayat & Jejak Aktivitas Dokumen</h3>
+              <p className="text-xs text-muted-foreground">Catatan interaksi pembuatan, pengiriman, dan pembukaan oleh klien.</p>
+            </div>
+          </div>
+
+          <DocumentTimeline docId={id!} type="quote" />
         </div>
+      </div>
     </div>
   );
 };

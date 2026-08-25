@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { formatCurrency, calculateItemTotal } from '@/lib/utils';
-import { TrendingUp, Package } from 'lucide-react';
+import { formatCurrency, calculateItemTotal, cn } from '@/lib/utils';
+import { TrendingUp, Package, DollarSign, Wallet, Percent, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Item {
   description: string;
   quantity: number;
   unit?: string;
   unit_price: number;
-  cost_price: number; // Harga Modal
+  cost_price: number;
 }
 
 type ItemAnalysis = Item & {
@@ -22,7 +23,7 @@ type ItemAnalysis = Item & {
 interface ProfitAnalysisCardProps {
   items: Item[];
   discountAmount: number;
-  taxAmount: number; // Pajak tidak dihitung sebagai profit, tapi perlu ditampilkan
+  taxAmount: number;
   type: 'Penawaran' | 'Faktur';
 }
 
@@ -32,10 +33,10 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
     let totalCost = 0;
 
     // Filter out items with 0 quantity (Category Headers)
-    const activeItems = items.filter(item => item.quantity > 0);
+    const activeItems = (items || []).filter(item => Number(item.quantity) > 0);
 
     const groupedItems = activeItems.reduce<Map<string, ItemAnalysis>>((groups, item) => {
-      const description = item.description.trim();
+      const description = (item.description || '').trim();
       const unit = item.unit || '';
       const unitPrice = Number(item.unit_price) || 0;
       const costPrice = Number(item.cost_price) || 0;
@@ -77,8 +78,7 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
 
     const itemsAnalysis = Array.from(groupedItems.values());
 
-    // Kurangi diskon dari total pendapatan untuk mendapatkan pendapatan bersih
-    const netRevenue = totalRevenue - discountAmount;
+    const netRevenue = totalRevenue - (discountAmount || 0);
     const grossProfit = netRevenue - totalCost;
     const netMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
 
@@ -86,88 +86,111 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
   }, [items, discountAmount]);
 
   return (
-    <Card className="mt-6 overflow-hidden bg-card shadow-sm print:hidden">
-      <CardHeader className="border-b bg-muted/35 pb-4">
-        <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary p-2.5 shadow-sm">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" />
+    <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden print:hidden">
+      <CardHeader className="p-5 sm:p-6 border-b border-border/70 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-                <CardTitle className="text-base font-bold text-foreground">Analisis Keuntungan</CardTitle>
-                <CardDescription className="text-xs">Statistik internal untuk {type} ini.</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-bold text-foreground">
+                Analisis Estimasi Laba & Margin
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Kalkulasi internal laba kotor & margin profit untuk {type} ini.
+              </CardDescription>
             </div>
+          </div>
+
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            {analysis.itemsAnalysis.length} Rincian Item
+          </span>
         </div>
       </CardHeader>
-      <CardContent className="p-4 space-y-6">
-        {/* KPI Grid - Fixed 2 columns for better sidebar fit */}
-        <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1 rounded-xl border bg-muted/35 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Penjualan Net</p>
-                <p className="text-base font-bold text-foreground" title={formatCurrency(analysis.netRevenue)}>{formatCurrency(analysis.netRevenue)}</p>
-            </div>
-            <div className="space-y-1 rounded-xl border bg-muted/35 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total Modal</p>
-                <p className="text-base font-bold text-foreground" title={formatCurrency(analysis.totalCost)}>{formatCurrency(analysis.totalCost)}</p>
-            </div>
-            <div className="space-y-1 rounded-xl border border-emerald-600/25 bg-emerald-600/10 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Laba Kotor</p>
-                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300" title={formatCurrency(analysis.grossProfit)}>{formatCurrency(analysis.grossProfit)}</p>
-            </div>
-            <div className="space-y-1 rounded-xl border border-primary/25 bg-primary/10 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Margin</p>
-                <div className="flex items-center gap-1">
-                    <p className={`text-base font-bold ${analysis.netMargin < 10 ? 'text-orange-600' : 'text-primary'}`}>
-                        {analysis.netMargin.toFixed(1)}%
-                    </p>
-                </div>
-            </div>
+
+      <CardContent className="p-5 sm:p-6 space-y-6">
+        {/* 4 Top KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Card 1: Penjualan Net */}
+          <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Penjualan Bersih (Net)</p>
+            <h4 className="text-lg sm:text-xl font-black text-foreground tabular-nums">
+              {formatCurrency(analysis.netRevenue)}
+            </h4>
+            <p className="text-[10px] text-muted-foreground font-medium">Setelah dikurangi diskon</p>
+          </div>
+
+          {/* Card 2: Total Modal */}
+          <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total Modal Beli (HPP)</p>
+            <h4 className="text-lg sm:text-xl font-black text-foreground tabular-nums">
+              {formatCurrency(analysis.totalCost)}
+            </h4>
+            <p className="text-[10px] text-muted-foreground font-medium">Biaya belanja supplier</p>
+          </div>
+
+          {/* Card 3: Laba Kotor */}
+          <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Estimasi Laba Kotor</p>
+            <h4 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+              {formatCurrency(analysis.grossProfit)}
+            </h4>
+            <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300 font-medium">Penjualan − Modal</p>
+          </div>
+
+          {/* Card 4: Margin */}
+          <div className="p-4 rounded-2xl border border-primary/30 bg-primary/5 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-primary">Profit Margin</p>
+            <h4 className={cn(
+              "text-lg sm:text-xl font-black tabular-nums",
+              analysis.netMargin < 15 ? 'text-amber-500' : 'text-primary'
+            )}>
+              {analysis.netMargin.toFixed(1)}%
+            </h4>
+            <p className="text-[10px] text-muted-foreground font-medium">Persentase keuntungan</p>
+          </div>
         </div>
 
-        {/* Detailed Table */}
+        {/* Detailed Item Grid */}
         <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Package className="h-4 w-4" />
-                <span>Rincian per Item</span>
-            </div>
-            
-            <div className="overflow-hidden rounded-lg border">
-                {analysis.itemsAnalysis.length > 0 ? (
-                    <div className="divide-y">
-                        {analysis.itemsAnalysis.map((item, idx) => (
-                            <div key={idx} className="space-y-3 p-3 hover:bg-muted/35">
-                                <div>
-                                    <div className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={item.description}>
-                                        {item.description}
-                                    </div>
-                                    <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                                        {item.quantity} x {formatCurrency(item.unit_price)}
-                                        {item.mergedCount > 1 && (
-                                            <span className="ml-1 text-primary">({item.mergedCount} baris digabung)</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="rounded-md bg-muted/45 px-2.5 py-2">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total Modal</p>
-                                        <p className="mt-0.5 text-xs font-semibold text-foreground">{formatCurrency(item.cost)}</p>
-                                    </div>
-                                    <div className="rounded-md bg-emerald-600/10 px-2.5 py-2 text-right">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Laba</p>
-                                        <p className="mt-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(item.profit)}</p>
-                                        <p className={`text-[10px] ${item.margin < 15 ? 'text-orange-600' : 'text-muted-foreground'}`}>
-                                            {item.margin.toFixed(0)}%
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <Package className="h-4 w-4" />
+            <span>Rincian Laba Per Item Barang / Jasa</span>
+          </div>
+          
+          {analysis.itemsAnalysis.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {analysis.itemsAnalysis.map((item, idx) => (
+                <div key={idx} className="p-4 rounded-2xl border border-border/80 bg-muted/20 hover:bg-muted/40 transition-colors space-y-3 flex flex-col justify-between">
+                  <div>
+                    <h5 className="font-bold text-xs sm:text-sm text-foreground line-clamp-2" title={item.description}>
+                      {item.description}
+                    </h5>
+                    <p className="text-[11px] text-muted-foreground font-medium mt-1">
+                      {item.quantity} {item.unit || 'unit'} × {formatCurrency(item.unit_price)}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
+                    <div className="p-2.5 rounded-xl bg-background border border-border/60">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Modal Beli</p>
+                      <p className="text-xs font-bold text-foreground tabular-nums mt-0.5">{formatCurrency(item.cost)}</p>
                     </div>
-                ) : (
-                    <div className="px-3 py-8 text-center text-xs text-muted-foreground">
-                        Belum ada item.
+
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-right">
+                      <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Laba ({item.margin.toFixed(0)}%)</p>
+                      <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">{formatCurrency(item.profit)}</p>
                     </div>
-                )}
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              Belum ada rincian item barang/jasa.
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
