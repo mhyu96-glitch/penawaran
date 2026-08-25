@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -38,6 +37,7 @@ interface PaymentFormProps {
 const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSave }: PaymentFormProps) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
+  const [percent, setPercent] = useState('');
   const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,20 +45,77 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
   useEffect(() => {
     if (payment && isOpen) {
       setAmount(String(payment.amount));
+      if (invoiceTotal > 0) {
+        const p = ((payment.amount / invoiceTotal) * 100).toFixed(1);
+        setPercent(p.endsWith('.0') ? p.slice(0, -2) : p);
+      } else {
+        setPercent('');
+      }
       setPaymentDate(new Date(payment.payment_date));
       setNotes(payment.notes || '');
     } else if (!payment && isOpen) {
-      setAmount('');
+      // Default: set DP 50%
+      if (invoiceTotal > 0) {
+        const defaultAmt = Math.round(invoiceTotal * 0.5);
+        setAmount(String(defaultAmt));
+        setPercent('50');
+        setNotes('Uang Muka (DP 50%)');
+      } else {
+        setAmount('');
+        setPercent('');
+        setNotes('Uang Muka (DP)');
+      }
       setPaymentDate(new Date());
-      setNotes('Uang Muka (DP)');
     }
-  }, [payment, isOpen]);
+  }, [payment, isOpen, invoiceTotal]);
 
-  const handleApplyPreset = (percentage: number, label: string) => {
+  const handleApplyPreset = (percentage: number) => {
+    const pVal = percentage * 100;
     const calcAmount = Math.round(invoiceTotal * percentage);
     setAmount(String(calcAmount));
-    setNotes(label);
+    setPercent(String(pVal));
+    if (pVal === 100) {
+      setNotes('Pelunasan Penuh (100%)');
+    } else {
+      setNotes(`Uang Muka (DP ${pVal}%)`);
+    }
   };
+
+  const handlePercentChange = (valStr: string) => {
+    setPercent(valStr);
+    const p = parseFloat(valStr);
+    if (!isNaN(p) && p >= 0 && p <= 100 && invoiceTotal > 0) {
+      const calcAmount = Math.round((invoiceTotal * p) / 100);
+      setAmount(String(calcAmount));
+      if (p === 100) {
+        setNotes('Pelunasan Penuh (100%)');
+      } else {
+        setNotes(`Uang Muka (DP ${p}%)`);
+      }
+    } else if (valStr === '') {
+      setAmount('');
+    }
+  };
+
+  const handleAmountChange = (valStr: string) => {
+    const num = parseDotsToNumber(valStr);
+    setAmount(String(num));
+    if (invoiceTotal > 0 && num > 0) {
+      const p = ((num / invoiceTotal) * 100).toFixed(1);
+      const cleanP = p.endsWith('.0') ? p.slice(0, -2) : p;
+      setPercent(cleanP);
+      if (num >= invoiceTotal) {
+        setNotes('Pelunasan Penuh (100%)');
+      } else {
+        setNotes(`Uang Muka (DP ${cleanP}%)`);
+      }
+    } else {
+      setPercent('');
+    }
+  };
+
+  const numAmount = parseFloat(amount) || 0;
+  const remainingDue = Math.max(0, invoiceTotal - numAmount);
 
   const handleSubmit = async () => {
     if (!user || !amount || !paymentDate) {
@@ -105,7 +162,7 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[440px] rounded-3xl p-6 border border-border/80 shadow-2xl">
+      <DialogContent className="sm:max-w-[460px] rounded-3xl p-6 border border-border/80 shadow-2xl">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-lg font-black text-foreground">
             {payment ? 'Edit Pembayaran' : 'Catat Pembayaran / DP'}
@@ -122,49 +179,83 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
               <Sparkles className="h-3 w-3 text-amber-500" />
               Pilihan Cepat Nominal DP
             </Label>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleApplyPreset(0.3, 'Uang Muka (DP 30%)')}
-                className="py-1.5 px-2 rounded-xl text-xs font-bold border border-border/80 bg-muted/30 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all text-center"
-              >
-                DP 30% ({formatCurrency(Math.round(invoiceTotal * 0.3))})
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset(0.5, 'Uang Muka (DP 50%)')}
-                className="py-1.5 px-2 rounded-xl text-xs font-bold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all text-center"
-              >
-                DP 50% ({formatCurrency(Math.round(invoiceTotal * 0.5))})
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset(1.0, 'Pelunasan Penuh (100%)')}
-                className="py-1.5 px-2 rounded-xl text-xs font-bold border border-border/80 bg-muted/30 hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-500 transition-all text-center"
-              >
-                Lunas 100%
-              </button>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { label: 'DP 30%', val: 0.3 },
+                { label: 'DP 50%', val: 0.5 },
+                { label: 'DP 70%', val: 0.7 },
+                { label: 'Lunas 100%', val: 1.0 },
+              ].map(btn => (
+                <button
+                  key={btn.label}
+                  type="button"
+                  onClick={() => handleApplyPreset(btn.val)}
+                  className={cn(
+                    "py-1.5 px-1 rounded-xl text-xs font-bold border transition-all text-center",
+                    percent === String(btn.val * 100)
+                      ? "border-primary/50 bg-primary/15 text-primary shadow-2xs"
+                      : "border-border/80 bg-muted/30 hover:bg-muted text-muted-foreground"
+                  )}
+                >
+                  {btn.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
         <div className="grid gap-3.5 py-2">
-          {/* Jumlah Pembayaran */}
+          {/* Dual Input: Persentase (%) dan Nominal (IDR) */}
           <div className="space-y-1.5">
-            <Label htmlFor="amount" className="text-xs font-bold">Jumlah Pembayaran / DP (IDR)</Label>
-            <div className="relative flex items-center">
-              <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
-              <Input 
-                id="amount" 
-                type="text"
-                inputMode="numeric"
-                placeholder="0"
-                value={formatNumberWithDots(amount)} 
-                onChange={(e) => setAmount(String(parseDotsToNumber(e.target.value)))} 
-                className="pl-9 font-bold tabular-nums text-foreground border-primary/40 focus-visible:ring-primary h-10 rounded-xl"
-              />
+            <Label className="text-xs font-bold text-foreground">
+              Input DP Manual (% atau Nominal Rp)
+            </Label>
+            <div className="grid grid-cols-5 gap-2">
+              {/* Kolom Persentase (%) */}
+              <div className="col-span-2 relative flex items-center">
+                <Input 
+                  type="number"
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  value={percent}
+                  onChange={(e) => handlePercentChange(e.target.value)}
+                  className="pr-7 font-bold tabular-nums text-foreground border-primary/40 focus-visible:ring-primary h-10 rounded-xl text-right text-xs"
+                />
+                <span className="pointer-events-none absolute right-2.5 text-xs font-bold text-muted-foreground select-none">%</span>
+              </div>
+
+              {/* Kolom Nominal (IDR) */}
+              <div className="col-span-3 relative flex items-center">
+                <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                <Input 
+                  id="amount" 
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={formatNumberWithDots(amount)} 
+                  onChange={(e) => handleAmountChange(e.target.value)} 
+                  className="pl-9 font-bold tabular-nums text-foreground border-primary/40 focus-visible:ring-primary h-10 rounded-xl text-xs"
+                />
+              </div>
             </div>
           </div>
+
+          {/* Sisa Pelunasan Live Breakdown */}
+          {invoiceTotal > 0 && numAmount > 0 && (
+            <div className="rounded-2xl bg-muted/30 border border-border/80 p-3 space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <span>DP Diterima{percent ? ` (${percent}%)` : ''}:</span>
+                <span className="tabular-nums font-black">{formatCurrency(numAmount)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold text-foreground">
+                <span className="text-muted-foreground">Sisa Pelunasan:</span>
+                <span className={cn("tabular-nums font-black", remainingDue > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600")}>
+                  {formatCurrency(remainingDue)}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Tanggal Pembayaran */}
           <div className="space-y-1.5">
