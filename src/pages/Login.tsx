@@ -197,9 +197,9 @@ const Login = () => {
               />
             </div>
 
-            <CardTitle className="text-2xl font-black tracking-tight text-white mt-1">
-              {mode === 'login' && 'Business Command Portal'}
-              {mode === 'register' && 'Buat Akun Bisnis Baru'}
+            <CardTitle className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">
+              {mode === 'login' && 'QuoteApp'}
+              {mode === 'register' && 'Buat Akun QuoteApp'}
               {mode === 'forgot' && 'Reset Kata Sandi'}
             </CardTitle>
             <CardDescription className="text-xs text-slate-400 mt-1">
@@ -395,7 +395,7 @@ const Login = () => {
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <span>
-                      {mode === 'login' && 'Masuk ke Dashboard'}
+                      {mode === 'login' && 'Masuk ke QuoteApp'}
                       {mode === 'register' && 'Daftar Akun Baru'}
                       {mode === 'forgot' && 'Kirim Link Pemulihan'}
                     </span>
