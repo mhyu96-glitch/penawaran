@@ -99,6 +99,22 @@ const EXPENSE_CATEGORIES = [
   { value: 'Alat & Lain-lain', label: 'Alat Kerja & Lain-lain', icon: Wrench, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
 ];
 
+type ProjectDocPhoto = {
+  id: string;
+  url: string;
+  title: string;
+  stage: 'Sebelum (Before)' | 'Sedang Pengerjaan (In Progress)' | 'Hasil Akhir (After)' | 'Nota & Berkas';
+  date: string;
+  notes?: string;
+};
+
+const STAGE_OPTIONS = [
+  { value: 'Sebelum (Before)', label: 'Sebelum Pengerjaan (Before)', color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  { value: 'Sedang Pengerjaan (In Progress)', label: 'Sedang Pengerjaan (In Progress)', color: 'bg-sky-500/10 text-sky-600 border-sky-500/20' },
+  { value: 'Hasil Akhir (After)', label: 'Hasil Akhir (After / Selesai)', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  { value: 'Nota & Berkas', label: 'Nota / Surat Jalan / Berkas', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+];
+
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -1383,22 +1399,6 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         {/* TAB 6: DOKUMEN (PENAWARAN & FAKTUR) */}
         {/* ========================================================================= */}
         <TabsContent value="documents" className="space-y-6">
-type ProjectDocPhoto = {
-  id: string;
-  url: string;
-  title: string;
-  stage: 'Sebelum (Before)' | 'Sedang Pengerjaan (In Progress)' | 'Hasil Akhir (After)' | 'Nota & Berkas';
-  date: string;
-  notes?: string;
-};
-
-const STAGE_OPTIONS = [
-  { value: 'Sebelum (Before)', label: 'Sebelum Pengerjaan (Before)', color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  { value: 'Sedang Pengerjaan (In Progress)', label: 'Sedang Pengerjaan (In Progress)', color: 'bg-sky-500/10 text-sky-600 border-sky-500/20' },
-  { value: 'Hasil Akhir (After)', label: 'Hasil Akhir (After / Selesai)', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
-  { value: 'Nota & Berkas', label: 'Nota / Surat Jalan / Berkas', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
-];
-
           <div className="space-y-6">
             {/* ========================================================================= */}
             {/* SECTION 1: GALERI DOKUMENTASI & FOTO PENGERJAAN LAPANGAN */}
