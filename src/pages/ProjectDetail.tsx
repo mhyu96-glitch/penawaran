@@ -134,6 +134,123 @@ const ProjectDetail = () => {
   const [newExpenseNotes, setNewExpenseNotes] = useState('');
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
 
+  // Documentation Photo Gallery State
+  const [docPhotos, setDocPhotos] = useState<ProjectDocPhoto[]>(() => {
+    try {
+      const stored = localStorage.getItem(`project-doc-photos-${id}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedPhotoFilter, setSelectedPhotoFilter] = useState<string>('Semua');
+  const [isUploadPhotoDialogOpen, setIsUploadPhotoDialogOpen] = useState(false);
+  const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
+  const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null);
+  const [newPhotoTitle, setNewPhotoTitle] = useState('');
+  const [newPhotoStage, setNewPhotoStage] = useState<ProjectDocPhoto['stage']>('Sedang Pengerjaan (In Progress)');
+  const [newPhotoDate, setNewPhotoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newPhotoNotes, setNewPhotoNotes] = useState('');
+  const [isSubmittingPhoto, setIsSubmittingPhoto] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<ProjectDocPhoto | null>(null);
+
+  // Handle file selected for photo upload
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setNewPhotoPreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Submit photo upload
+  const handleUploadPhotoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhotoPreview || !newPhotoTitle.trim() || !id) {
+      showError('Pilih foto dan isi judul dokumentasi.');
+      return;
+    }
+
+    setIsSubmittingPhoto(true);
+    try {
+      let finalImageUrl = newPhotoPreview;
+
+      // Try uploading to Supabase storage if file is available
+      if (newPhotoFile && user) {
+        try {
+          const fileExt = newPhotoFile.name.split('.').pop();
+          const filePath = `${user.id}/projects/${id}/${Date.now()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('document_attachments')
+            .upload(filePath, newPhotoFile);
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('document_attachments')
+              .getPublicUrl(filePath);
+            if (urlData?.publicUrl) {
+              finalImageUrl = urlData.publicUrl;
+            }
+          }
+        } catch (storageErr) {
+          console.warn('Storage upload fallback to base64:', storageErr);
+        }
+      }
+
+      const newPhotoItem: ProjectDocPhoto = {
+        id: crypto.randomUUID(),
+        url: finalImageUrl,
+        title: newPhotoTitle.trim(),
+        stage: newPhotoStage,
+        date: newPhotoDate,
+        notes: newPhotoNotes.trim() || undefined
+      };
+
+      const updated = [newPhotoItem, ...docPhotos];
+      setDocPhotos(updated);
+      try {
+        localStorage.setItem(`project-doc-photos-${id}`, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Save local photo error:', err);
+      }
+
+      showSuccess('Foto dokumentasi berhasil ditambahkan!');
+      setIsUploadPhotoDialogOpen(false);
+      setNewPhotoFile(null);
+      setNewPhotoPreview(null);
+      setNewPhotoTitle('');
+      setNewPhotoNotes('');
+    } catch (err: any) {
+      console.error(err);
+      showError('Gagal mengunggah foto.');
+    } finally {
+      setIsSubmittingPhoto(false);
+    }
+  };
+
+  // Delete photo from gallery
+  const handleDeletePhoto = (photoId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus foto dokumentasi ini?')) return;
+    const updated = docPhotos.filter(p => p.id !== photoId);
+    setDocPhotos(updated);
+    try {
+      localStorage.setItem(`project-doc-photos-${id}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+    showSuccess('Foto dokumentasi berhasil dihapus.');
+  };
+
+  // Filtered photos
+  const filteredDocPhotos = useMemo(() => {
+    if (selectedPhotoFilter === 'Semua') return docPhotos;
+    return docPhotos.filter(p => p.stage === selectedPhotoFilter);
+  }, [docPhotos, selectedPhotoFilter]);
+
   const fetchProjectData = async () => {
     if (!id) return;
     setLoading(true);
@@ -684,8 +801,13 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
           </TabsTrigger>
 
           <TabsTrigger value="documents" className="rounded-xl px-4 py-2 text-xs sm:text-sm font-bold gap-2 data-[state=active]:bg-background data-[state=active]:shadow-xs">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span>Dokumen</span>
+            <Layers className="h-4 w-4 text-indigo-500" />
+            <span>Dokumentasi & Dokumen</span>
+            {docPhotos.length > 0 && (
+              <span className="ml-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.2 text-[11px] font-extrabold">
+                {docPhotos.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -1261,83 +1383,396 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         {/* TAB 6: DOKUMEN (PENAWARAN & FAKTUR) */}
         {/* ========================================================================= */}
         <TabsContent value="documents" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Penawaran */}
+type ProjectDocPhoto = {
+  id: string;
+  url: string;
+  title: string;
+  stage: 'Sebelum (Before)' | 'Sedang Pengerjaan (In Progress)' | 'Hasil Akhir (After)' | 'Nota & Berkas';
+  date: string;
+  notes?: string;
+};
+
+const STAGE_OPTIONS = [
+  { value: 'Sebelum (Before)', label: 'Sebelum Pengerjaan (Before)', color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  { value: 'Sedang Pengerjaan (In Progress)', label: 'Sedang Pengerjaan (In Progress)', color: 'bg-sky-500/10 text-sky-600 border-sky-500/20' },
+  { value: 'Hasil Akhir (After)', label: 'Hasil Akhir (After / Selesai)', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  { value: 'Nota & Berkas', label: 'Nota / Surat Jalan / Berkas', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+];
+
+          <div className="space-y-6">
+            {/* ========================================================================= */}
+            {/* SECTION 1: GALERI DOKUMENTASI & FOTO PENGERJAAN LAPANGAN */}
+            {/* ========================================================================= */}
             <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
               <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" /> Penawaran Terkait
-                </CardTitle>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <Layers className="h-5 w-5 text-primary" />
+                      Galeri Foto & Dokumentasi Pekerjaan
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-1">
+                      Unggah foto bukti pengerjaan lapangan (sebelum, proses pengerjaan, hasil akhir, hingga nota/surat jalan).
+                    </CardDescription>
+                  </div>
+
+                  <Button
+                    onClick={() => setIsUploadPhotoDialogOpen(true)}
+                    className="rounded-xl font-bold gap-1.5 shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                  >
+                    <Plus className="h-4 w-4" /> Upload Foto Dokumentasi
+                  </Button>
+                </div>
+
+                {/* Filter Tahapan Pills */}
+                {docPhotos.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-3">
+                    {['Semua', 'Sebelum (Before)', 'Sedang Pengerjaan (In Progress)', 'Hasil Akhir (After)', 'Nota & Berkas'].map(stage => {
+                      const count = stage === 'Semua' ? docPhotos.length : docPhotos.filter(p => p.stage === stage).length;
+                      return (
+                        <button
+                          key={stage}
+                          onClick={() => setSelectedPhotoFilter(stage)}
+                          className={cn(
+                            "px-3 py-1 rounded-full text-xs font-bold transition-all border",
+                            selectedPhotoFilter === stage 
+                              ? "bg-primary text-primary-foreground border-primary shadow-2xs" 
+                              : "bg-muted/50 text-muted-foreground hover:bg-muted border-border/60"
+                          )}
+                        >
+                          {stage} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </CardHeader>
-              <CardContent className="p-0">
-                {quotes.length > 0 ? (
-                  <Table>
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
-                        <TableHead className="font-bold text-xs uppercase">Status</TableHead>
-                        <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {quotes.map(q => (
-                        <TableRow key={q.id}>
-                          <TableCell className="font-mono font-bold text-xs text-primary">{q.quote_number}</TableCell>
-                          <TableCell><Badge variant={getStatusVariant(q.status)} className="text-[11px] font-bold">{q.status}</Badge></TableCell>
-                          <TableCell className="text-right">
-                            <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
-                              <Link to={`/quote/${q.id}`}>Lihat</Link>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+
+              <CardContent className="p-4 sm:p-6">
+                {docPhotos.length === 0 ? (
+                  <div className="p-10 text-center space-y-3">
+                    <div className="h-14 w-14 rounded-2xl bg-muted/60 text-muted-foreground flex items-center justify-center mx-auto">
+                      <Layers className="h-7 w-7" />
+                    </div>
+                    <h4 className="text-base font-bold text-foreground">Belum Ada Foto Dokumentasi</h4>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      Klik tombol <strong>"Upload Foto Dokumentasi"</strong> di atas untuk mengunggah foto progres pengerjaan lapangan atau nota.
+                    </p>
+                  </div>
+                ) : filteredDocPhotos.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    Tidak ada foto pada kategori filter ini.
+                  </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Belum ada penawaran terkait.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredDocPhotos.map(photo => {
+                      const matchedStage = STAGE_OPTIONS.find(s => s.value === photo.stage) || STAGE_OPTIONS[1];
+                      return (
+                        <div 
+                          key={photo.id}
+                          className="group relative rounded-2xl border border-border/80 bg-muted/20 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                        >
+                          {/* Image Thumbnail with Click to Zoom */}
+                          <div 
+                            onClick={() => setPreviewPhoto(photo)}
+                            className="relative h-44 w-full overflow-hidden bg-black/20 cursor-pointer"
+                          >
+                            <img 
+                              src={photo.url} 
+                              alt={photo.title}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-xs font-bold text-white bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-xs flex items-center gap-1.5">
+                                <Sparkles className="h-3.5 w-3.5" /> Lihat Ukuran Penuh
+                              </span>
+                            </div>
+
+                            {/* Stage Badge on Top Left */}
+                            <div className="absolute top-2.5 left-2.5">
+                              <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border backdrop-blur-md", matchedStage.color)}>
+                                {photo.stage}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Info Footer */}
+                          <div className="p-3.5 space-y-1.5 flex-1 flex flex-col justify-between">
+                            <div>
+                              <h5 className="font-bold text-xs sm:text-sm text-foreground line-clamp-1">
+                                {photo.title}
+                              </h5>
+                              {photo.notes && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                                  {photo.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
+                              <span>{safeFormat(photo.date, 'd MMM yyyy')}</span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto(photo.id);
+                                }}
+                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Hapus Foto"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Faktur */}
-            <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-              <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-emerald-500" /> Faktur Tagihan
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {invoices.length > 0 ? (
-                  <Table>
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
-                        <TableHead className="font-bold text-xs uppercase">Status</TableHead>
-                        <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {invoices.map(i => (
-                        <TableRow key={i.id}>
-                          <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">{i.invoice_number}</TableCell>
-                          <TableCell><Badge variant={getStatusVariant(i.status)} className="text-[11px] font-bold">{i.status}</Badge></TableCell>
-                          <TableCell className="text-right">
-                            <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
-                              <Link to={`/invoice/${i.id}`}>Lihat</Link>
-                            </Button>
-                          </TableCell>
+            {/* ========================================================================= */}
+            {/* SECTION 2: DOKUMEN ADMINISTRASI (PENAWARAN & FAKTUR) */}
+            {/* ========================================================================= */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Penawaran */}
+              <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+                <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" /> Penawaran Terkait
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {quotes.length > 0 ? (
+                    <Table>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
+                          <TableHead className="font-bold text-xs uppercase">Status</TableHead>
+                          <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Belum ada faktur tagihan.</p>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {quotes.map(q => (
+                          <TableRow key={q.id}>
+                            <TableCell className="font-mono font-bold text-xs text-primary">{q.quote_number}</TableCell>
+                            <TableCell><Badge variant={getStatusVariant(q.status)} className="text-[11px] font-bold">{q.status}</Badge></TableCell>
+                            <TableCell className="text-right">
+                              <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                                <Link to={`/quote/${q.id}`}>Lihat</Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-6">Belum ada penawaran terkait.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Faktur */}
+              <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
+                <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-emerald-500" /> Faktur Tagihan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {invoices.length > 0 ? (
+                    <Table>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="font-bold text-xs uppercase">Nomor</TableHead>
+                          <TableHead className="font-bold text-xs uppercase">Status</TableHead>
+                          <TableHead className="text-right font-bold text-xs uppercase">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {invoices.map(i => (
+                          <TableRow key={i.id}>
+                            <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">{i.invoice_number}</TableCell>
+                            <TableCell><Badge variant={getStatusVariant(i.status)} className="text-[11px] font-bold">{i.status}</Badge></TableCell>
+                            <TableCell className="text-right">
+                              <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                                <Link to={`/invoice/${i.id}`}>Lihat</Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-6">Belum ada faktur tagihan.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ========================================================================= */}
+      {/* DIALOG: UPLOAD FOTO DOKUMENTASI PENGERJAAN */}
+      {/* ========================================================================= */}
+      <Dialog open={isUploadPhotoDialogOpen} onOpenChange={setIsUploadPhotoDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              Upload Foto Dokumentasi Pekerjaan
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ambil foto atau pilih file gambar dari perangkat Anda.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUploadPhotoSubmit} className="space-y-4 py-2">
+            {/* File Input & Preview */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Pilih Foto / Gambar</Label>
+              {newPhotoPreview ? (
+                <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-border group bg-black/10">
+                  <img src={newPhotoPreview} alt="Preview" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPhotoPreview(null);
+                      setNewPhotoFile(null);
+                    }}
+                    className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-32 w-full rounded-2xl border-2 border-dashed border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors p-4">
+                  <Layers className="h-8 w-8 text-muted-foreground/60 mb-2" />
+                  <span className="text-xs font-bold text-foreground">Klik untuk memilih foto</span>
+                  <span className="text-[10px] text-muted-foreground">PNG, JPG, JPEG dari HP atau Komputer</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelected}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* Judul Foto */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Judul / Kegiatan Pengerjaan</Label>
+              <Input
+                placeholder="Contoh: Pemasangan CCTV Titik 1 Ruang Kasir"
+                value={newPhotoTitle}
+                onChange={(e) => setNewPhotoTitle(e.target.value)}
+                className="rounded-xl h-10 text-xs"
+                required
+              />
+            </div>
+
+            {/* Tahapan & Tanggal */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Tahapan Pengerjaan</Label>
+                <Select value={newPhotoStage} onValueChange={(val: any) => setNewPhotoStage(val)}>
+                  <SelectTrigger className="rounded-xl h-10 text-xs">
+                    <SelectValue placeholder="Pilih Tahap" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    {STAGE_OPTIONS.map(s => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Tanggal Foto</Label>
+                <Input
+                  type="date"
+                  value={newPhotoDate}
+                  onChange={(e) => setNewPhotoDate(e.target.value)}
+                  className="rounded-xl h-10 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Catatan / Keterangan */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Catatan / Keterangan (Opsional)</Label>
+              <Input
+                placeholder="Contoh: Kabel sudah ditanam rapi dengan pipa conduit"
+                value={newPhotoNotes}
+                onChange={(e) => setNewPhotoNotes(e.target.value)}
+                className="rounded-xl h-10 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsUploadPhotoDialogOpen(false)}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmittingPhoto || !newPhotoPreview}
+                className="rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {isSubmittingPhoto ? 'Menyimpan...' : 'Simpan Foto'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DIALOG: PREVIEW ZOOM FOTO FULLSIZE */}
+      {/* ========================================================================= */}
+      <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
+        <DialogContent className="sm:max-w-[720px] max-h-[90vh] rounded-3xl p-4 overflow-hidden flex flex-col">
+          {previewPhoto && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm sm:text-base text-foreground">{previewPhoto.title}</h4>
+                  <p className="text-xs text-muted-foreground">{safeFormat(previewPhoto.date, 'EEEE, d MMMM yyyy')}</p>
+                </div>
+                <span className={cn("px-3 py-1 rounded-full text-xs font-bold border", 
+                  STAGE_OPTIONS.find(s => s.value === previewPhoto.stage)?.color || 'bg-muted text-muted-foreground'
+                )}>
+                  {previewPhoto.stage}
+                </span>
+              </div>
+
+              <div className="relative w-full max-h-[60vh] rounded-2xl overflow-hidden bg-black/90 flex items-center justify-center">
+                <img 
+                  src={previewPhoto.url} 
+                  alt={previewPhoto.title} 
+                  className="max-h-[60vh] w-auto max-w-full object-contain"
+                />
+              </div>
+
+              {previewPhoto.notes && (
+                <p className="text-xs text-muted-foreground italic bg-muted/40 p-3 rounded-xl border border-border/60">
+                  {previewPhoto.notes}
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ========================================================================= */}
       {/* DIALOG: TAMBAH BIAYA OPERASIONAL & AKOMODASI */}
