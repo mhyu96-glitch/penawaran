@@ -212,6 +212,28 @@ const SharedLayout = () => {
           </div>
         </div>
 
+        {/* Sidebar Search Trigger Button */}
+        <div className={cn('relative z-10 px-3 pt-3 pb-1 transition-all', isSidebarCollapsed && 'px-2')}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+            className={cn(
+              'w-full rounded-xl border-sidebar-border/80 bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground text-xs font-semibold shadow-2xs transition-all duration-150 flex items-center',
+              isSidebarCollapsed ? 'h-9 px-0 justify-center' : 'h-9 px-3 justify-between'
+            )}
+            title="Cari... (⌘K)"
+          >
+            <div className="flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              {!isSidebarCollapsed && <span className="text-muted-foreground font-normal">Cari...</span>}
+            </div>
+            {!isSidebarCollapsed && (
+              <kbd className="rounded-md bg-background px-1.5 py-0.5 text-[10px] font-mono font-bold text-muted-foreground border border-border">⌘K</kbd>
+            )}
+          </Button>
+        </div>
+
         {/* Sidebar Nav Items */}
         <div className="relative z-10 flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-sidebar-border">
           {navGroups.map((group) => (
@@ -246,8 +268,23 @@ const SharedLayout = () => {
           ))}
         </div>
 
-        {/* Sidebar User Profile Footer */}
-        <div className="relative z-10 border-t border-sidebar-border/70 p-3">
+        {/* Sidebar Controls & User Profile Footer */}
+        <div className="relative z-10 border-t border-sidebar-border/70 p-3 space-y-2">
+          {!isSidebarCollapsed ? (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Opsi</span>
+              <div className="flex items-center gap-1.5">
+                <NotificationBell />
+                <ThemeToggle />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 pb-1">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-sidebar-accent transition-colors">
@@ -288,11 +325,11 @@ const SharedLayout = () => {
       {/* MAIN VIEW AREA */}
       {/* ========================================================================= */}
       <div className={cn('transition-[padding-left] duration-200', isSidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-72')}>
-        {/* Top Navbar Header */}
-        <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/70 print:hidden">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        {/* Top Navbar Header (Mobile Only) */}
+        <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/70 print:hidden lg:hidden">
+          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
             {/* Mobile Left: Menu Drawer Trigger & Logo */}
-            <div className="flex items-center gap-2.5 lg:hidden">
+            <div className="flex items-center gap-2.5">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -311,60 +348,16 @@ const SharedLayout = () => {
               </Link>
             </div>
 
-            {/* Desktop Center Space */}
-            <div className="hidden min-w-0 flex-1 lg:block" />
-
-            {/* Top Right Actions */}
+            {/* Mobile Right Actions */}
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-9 rounded-xl border-border/80 bg-muted/40 hover:bg-muted px-3 text-xs font-semibold gap-2 shadow-2xs" 
-                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
-              >
-                <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="hidden sm:inline">Cari...</span>
-                <kbd className="hidden sm:inline-block rounded-md bg-background px-1.5 py-0.5 text-[10px] font-mono font-bold text-muted-foreground border border-border">⌘K</kbd>
-              </Button>
-
               <ThemeToggle />
               <NotificationBell />
-
-              {/* User Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted/60 border border-border hover:bg-muted">
-                    <CircleUser className="h-5 w-5 text-foreground" />
-                    <span className="sr-only">Buka menu akun</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52 rounded-2xl border border-border/80 p-1.5 shadow-2xl backdrop-blur-xl bg-popover/95">
-                  <DropdownMenuLabel className="px-2.5 py-2">
-                    <p className="text-xs font-bold text-foreground truncate">{user?.user_metadata?.full_name || 'Admin Workspace'}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-1.5">
-                    <Link to="/profile"><User className="mr-2 h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-medium">Profil</span></Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-1.5">
-                    <Link to="/settings"><Settings className="mr-2 h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-medium">Pengaturan</span></Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-1.5">
-                    <Link to="/automation"><Wand2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-medium">Otomatisasi AI</span></Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="rounded-xl cursor-pointer py-1.5 text-rose-600 focus:text-rose-600 focus:bg-rose-500/10">
-                    <LogOut className="mr-2 h-3.5 w-3.5" /><span className="text-xs font-semibold">Keluar</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </header>
 
         {/* Main Content Router View */}
-        <main className="min-h-[calc(100vh-4rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-8">
+        <main className="min-h-[calc(100vh-4rem)] lg:min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-8">
           <Outlet />
         </main>
       </div>
