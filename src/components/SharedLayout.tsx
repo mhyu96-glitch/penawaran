@@ -166,14 +166,15 @@ const SharedLayout = () => {
         <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
 
         {/* Sidebar Header & Brand */}
-        <div className={cn('relative z-10 border-b border-sidebar-border/70 pb-3.5 pt-4 transition-all', isSidebarCollapsed ? 'px-2' : 'px-4')}>
-          <div className="flex items-center justify-between">
+        <div className={cn('relative z-10 border-b border-sidebar-border/70 pb-3.5 pt-4 transition-all', isSidebarCollapsed ? 'px-2 flex flex-col items-center gap-2.5' : 'px-4')}>
+          <div className={cn('flex items-center', isSidebarCollapsed ? 'justify-center' : 'justify-between w-full')}>
             <Link 
               to="/dashboard" 
               className={cn(
                 'group flex items-center gap-3 transition-transform duration-150 active:scale-95 min-w-0',
-                isSidebarCollapsed && 'mx-auto justify-center'
+                isSidebarCollapsed && 'justify-center'
               )}
+              title="Dashboard"
             >
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 via-emerald-600 to-teal-800 text-white shadow-md shadow-teal-700/30 ring-1 ring-white/25 transition-all duration-200 group-hover:scale-105 group-hover:shadow-teal-700/50">
                 <FileText className="h-5 w-5 drop-shadow-xs" />
@@ -197,19 +198,32 @@ const SharedLayout = () => {
               )}
             </Link>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={cn(
-                'h-8 w-8 rounded-xl text-muted-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors',
-                isSidebarCollapsed && 'hidden'
-              )}
-              title={isSidebarCollapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar'}
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
+            {!isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="h-8 w-8 rounded-xl text-muted-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors shrink-0"
+                title="Ciutkan Sidebar"
+                aria-label="Ciutkan Sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            )}
           </div>
+
+          {isSidebarCollapsed && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="h-8 w-8 rounded-xl border-sidebar-border/80 bg-sidebar-accent/60 hover:bg-sidebar-accent text-teal-500 dark:text-teal-400 hover:text-teal-300 shadow-2xs transition-all duration-150 active:scale-95"
+              title="Buka / Perluas Sidebar"
+              aria-label="Perluas Sidebar"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {/* Sidebar Search Trigger Button */}
