@@ -939,89 +939,99 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <Table className="w-full min-w-[700px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80 hover:bg-transparent">
-                        <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">Beli</TableHead>
-                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Barang / Deskripsi</TableHead>
-                        <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Qty</TableHead>
-                        <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Jual</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Beli (HPP)</TableHead>
-                        <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Total Belanja</TableHead>
-                        <TableHead className="w-[120px] text-center font-bold text-xs uppercase text-muted-foreground">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {procurementItems.map((item) => {
-                        const isPurchased = !!purchasedItemIds[item.id];
-                        const isEditing = editingItemId === item.id;
-                        const itemQty = Number(item.quantity) || 1;
-                        const itemCost = Number(item.cost_price) || 0;
-                        const itemPrice = Number(item.unit_price) || 0;
-                        const totalItemCost = itemQty * itemCost;
-                        const itemMargin = (itemPrice - itemCost) * itemQty;
+                <>
+                  {/* MOBILE VIEW: Interactive Touch Cards (block on mobile, hidden on desktop) */}
+                  <div className="block sm:hidden divide-y divide-border/60">
+                    {procurementItems.map((item) => {
+                      const isPurchased = !!purchasedItemIds[item.id];
+                      const isEditing = editingItemId === item.id;
+                      const itemQty = Number(item.quantity) || 1;
+                      const itemCost = Number(item.cost_price) || 0;
+                      const itemPrice = Number(item.unit_price) || 0;
+                      const totalItemCost = itemQty * itemCost;
+                      const itemMargin = (itemPrice - itemCost) * itemQty;
 
-                        return (
-                          <TableRow 
-                            key={item.id} 
-                            className={cn(
-                              "transition-colors group",
-                              isPurchased ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "hover:bg-muted/30"
-                            )}
-                          >
-                            {/* Checkbox Sudah Dibeli */}
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center">
-                                <Checkbox
-                                  checked={isPurchased}
-                                  onCheckedChange={() => handleTogglePurchased(item.id)}
-                                  className="h-5 w-5 rounded-md border-border data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
-                                  title={isPurchased ? "Tandai belum dibeli" : "Tandai sudah dibeli"}
-                                />
-                              </div>
-                            </TableCell>
-
-                            {/* Nama & Deskripsi Barang */}
-                            <TableCell className="py-3.5">
-                              <div>
-                                <span className={cn("font-bold text-xs sm:text-sm block text-foreground", isPurchased && "line-through text-muted-foreground")}>
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={cn(
+                            "p-3.5 space-y-2.5 transition-colors",
+                            isPurchased ? "bg-emerald-500/5" : "hover:bg-muted/30"
+                          )}
+                        >
+                          {/* Card Top: Checkbox, Name, Status */}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <Checkbox
+                                checked={isPurchased}
+                                onCheckedChange={() => handleTogglePurchased(item.id)}
+                                className="h-5 w-5 rounded-md border-border data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer mt-0.5 shrink-0"
+                                title={isPurchased ? "Tandai belum dibeli" : "Tandai sudah dibeli"}
+                              />
+                              <div className="min-w-0">
+                                <span className={cn(
+                                  "font-bold text-xs sm:text-sm block leading-snug break-words",
+                                  isPurchased ? "line-through text-muted-foreground" : "text-foreground"
+                                )}>
                                   {item.description || 'Item Tanpa Nama'}
                                 </span>
-                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-                                  <span>Penawaran: {item.quote_number}</span>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
+                                  <span>{item.quote_number}</span>
                                   {itemCost > 0 && itemPrice > itemCost && (
                                     <>
                                       <span>•</span>
-                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                                         Profit: {formatCurrency(itemMargin)}
                                       </span>
                                     </>
                                   )}
                                 </div>
                               </div>
-                            </TableCell>
+                            </div>
 
-                            {/* Qty & Satuan */}
-                            <TableCell className="text-center font-bold text-xs sm:text-sm text-foreground">
-                              {item.quantity} <span className="text-[11px] font-normal text-muted-foreground">{item.unit || 'unit'}</span>
-                            </TableCell>
+                            {/* Status Badge */}
+                            <div className="shrink-0">
+                              {isPurchased ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 px-2 py-0.5">
+                                  <CheckCircle2 className="h-2.5 w-2.5" /> Terbeli
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] font-semibold gap-1 px-2 py-0.5">
+                                  <Circle className="h-2 w-2" /> Rencana
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
 
-                            {/* Harga Jual ke Klien */}
-                            <TableCell className="text-right text-xs sm:text-sm font-semibold text-muted-foreground tabular-nums">
-                              {formatCurrency(itemPrice)}
-                            </TableCell>
+                          {/* Card Middle: 3-Column Financial Grid */}
+                          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs">
+                            {/* Qty */}
+                            <div className="text-center border-r border-border/60 pr-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Qty</span>
+                              <span className="font-extrabold text-foreground text-xs mt-0.5 block">
+                                {item.quantity} <span className="text-[10px] font-normal text-muted-foreground">{item.unit || 'unit'}</span>
+                              </span>
+                            </div>
 
-                            {/* Harga Beli / HPP (Bisa diedit langsung inline) */}
-                            <TableCell className="text-right">
+                            {/* Harga Jual */}
+                            <div className="text-center border-r border-border/60 px-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Harga Jual</span>
+                              <span className="font-semibold text-muted-foreground text-xs mt-0.5 block tabular-nums">
+                                {formatCurrency(itemPrice)}
+                              </span>
+                            </div>
+
+                            {/* Harga Beli (HPP) / Edit Inline */}
+                            <div className="text-center pl-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">HPP Beli</span>
                               {isEditing ? (
-                                <div className="relative flex items-center justify-end gap-1.5">
+                                <div className="flex items-center justify-center gap-1 mt-1">
                                   <Input
                                     type="text"
                                     inputMode="numeric"
                                     value={formatNumberWithDots(editingCostPrice)}
                                     onChange={(e) => setEditingCostPrice(String(parseDotsToNumber(e.target.value)))}
-                                    className="h-8 w-28 text-right font-bold text-xs rounded-lg tabular-nums"
+                                    className="h-7 w-20 text-center font-bold text-[11px] rounded-lg tabular-nums p-1"
                                     autoFocus
                                     placeholder="0"
                                     onKeyDown={(e) => {
@@ -1034,58 +1044,197 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                                     variant="ghost"
                                     onClick={() => handleSaveCostPrice(item.id, item.quote_id)}
                                     disabled={isSavingCost}
-                                    className="h-8 w-8 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25"
+                                    className="h-7 w-7 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 shrink-0"
                                     title="Simpan"
                                   >
-                                    <Check className="h-4 w-4" />
+                                    <Check className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => setEditingItemId(null)}
-                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted"
+                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-muted shrink-0"
                                     title="Batal"
                                   >
-                                    <X className="h-4 w-4" />
+                                    <X className="h-3 w-3" />
                                   </Button>
                                 </div>
                               ) : (
                                 <div 
                                   onClick={() => handleStartEditCost(item)}
-                                  className="group/cost inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-2 py-1 hover:bg-muted/60 transition-colors"
+                                  className="inline-flex items-center justify-center gap-1 cursor-pointer rounded-lg px-1.5 py-0.5 hover:bg-muted/80 mt-0.5"
                                   title="Klik untuk sesuaikan harga beli"
                                 >
-                                  <span className="font-bold text-xs sm:text-sm text-foreground tabular-nums">
+                                  <span className="font-bold text-foreground text-xs tabular-nums">
                                     {formatCurrency(itemCost)}
                                   </span>
-                                  <Edit3 className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/cost:text-primary transition-colors" />
+                                  <Edit3 className="h-3 w-3 text-primary shrink-0" />
                                 </div>
                               )}
-                            </TableCell>
+                            </div>
+                          </div>
 
-                            {/* Total Biaya Belanja (Qty x HPP) */}
-                            <TableCell className="text-right font-black text-xs sm:text-sm text-foreground tabular-nums">
+                          {/* Card Bottom: Total Modal Belanja */}
+                          <div className="flex items-center justify-between text-xs px-1">
+                            <span className="text-[11px] text-muted-foreground">Total Modal Belanja ({item.quantity} {item.unit || 'unit'}):</span>
+                            <span className="font-black text-foreground tabular-nums">
                               {formatCurrency(totalItemCost)}
-                            </TableCell>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                            {/* Status Badge */}
-                            <TableCell className="text-center">
-                              {isPurchased ? (
-                                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
-                                  <CheckCircle2 className="h-3 w-3" /> Terbeli
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[11px] font-semibold gap-1 px-2 py-0.5">
-                                  <Circle className="h-2.5 w-2.5" /> Rencana
-                                </Badge>
+                  {/* DESKTOP VIEW: Full Scrollable Table (hidden on mobile, table on desktop) */}
+                  <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <Table className="w-full min-w-[700px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80 hover:bg-transparent">
+                          <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">Beli</TableHead>
+                          <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Barang / Deskripsi</TableHead>
+                          <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Qty</TableHead>
+                          <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Jual</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Harga Beli (HPP)</TableHead>
+                          <TableHead className="w-[140px] text-right font-bold text-xs uppercase text-muted-foreground">Total Belanja</TableHead>
+                          <TableHead className="w-[120px] text-center font-bold text-xs uppercase text-muted-foreground">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {procurementItems.map((item) => {
+                          const isPurchased = !!purchasedItemIds[item.id];
+                          const isEditing = editingItemId === item.id;
+                          const itemQty = Number(item.quantity) || 1;
+                          const itemCost = Number(item.cost_price) || 0;
+                          const itemPrice = Number(item.unit_price) || 0;
+                          const totalItemCost = itemQty * itemCost;
+                          const itemMargin = (itemPrice - itemCost) * itemQty;
+
+                          return (
+                            <TableRow 
+                              key={item.id} 
+                              className={cn(
+                                "transition-colors group",
+                                isPurchased ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "hover:bg-muted/30"
                               )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                            >
+                              {/* Checkbox Sudah Dibeli */}
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center">
+                                  <Checkbox
+                                    checked={isPurchased}
+                                    onCheckedChange={() => handleTogglePurchased(item.id)}
+                                    className="h-5 w-5 rounded-md border-border data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
+                                    title={isPurchased ? "Tandai belum dibeli" : "Tandai sudah dibeli"}
+                                  />
+                                </div>
+                              </TableCell>
+
+                              {/* Nama & Deskripsi Barang */}
+                              <TableCell className="py-3.5">
+                                <div>
+                                  <span className={cn("font-bold text-xs sm:text-sm block text-foreground", isPurchased && "line-through text-muted-foreground")}>
+                                    {item.description || 'Item Tanpa Nama'}
+                                  </span>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                                    <span>Penawaran: {item.quote_number}</span>
+                                    {itemCost > 0 && itemPrice > itemCost && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                          Profit: {formatCurrency(itemMargin)}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+
+                              {/* Qty & Satuan */}
+                              <TableCell className="text-center font-bold text-xs sm:text-sm text-foreground">
+                                {item.quantity} <span className="text-[11px] font-normal text-muted-foreground">{item.unit || 'unit'}</span>
+                              </TableCell>
+
+                              {/* Harga Jual ke Klien */}
+                              <TableCell className="text-right text-xs sm:text-sm font-semibold text-muted-foreground tabular-nums">
+                                {formatCurrency(itemPrice)}
+                              </TableCell>
+
+                              {/* Harga Beli / HPP (Bisa diedit langsung inline) */}
+                              <TableCell className="text-right">
+                                {isEditing ? (
+                                  <div className="relative flex items-center justify-end gap-1.5">
+                                    <Input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={formatNumberWithDots(editingCostPrice)}
+                                      onChange={(e) => setEditingCostPrice(String(parseDotsToNumber(e.target.value)))}
+                                      className="h-8 w-28 text-right font-bold text-xs rounded-lg tabular-nums"
+                                      autoFocus
+                                      placeholder="0"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveCostPrice(item.id, item.quote_id);
+                                        if (e.key === 'Escape') setEditingItemId(null);
+                                      }}
+                                    />
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleSaveCostPrice(item.id, item.quote_id)}
+                                      disabled={isSavingCost}
+                                      className="h-8 w-8 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25"
+                                      title="Simpan"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => setEditingItemId(null)}
+                                      className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted"
+                                      title="Batal"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div 
+                                    onClick={() => handleStartEditCost(item)}
+                                    className="group/cost inline-flex items-center gap-1.5 cursor-pointer rounded-lg px-2 py-1 hover:bg-muted/60 transition-colors"
+                                    title="Klik untuk sesuaikan harga beli"
+                                  >
+                                    <span className="font-bold text-xs sm:text-sm text-foreground tabular-nums">
+                                      {formatCurrency(itemCost)}
+                                    </span>
+                                    <Edit3 className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/cost:text-primary transition-colors" />
+                                  </div>
+                                )}
+                              </TableCell>
+
+                              {/* Total Biaya Belanja (Qty x HPP) */}
+                              <TableCell className="text-right font-black text-xs sm:text-sm text-foreground tabular-nums">
+                                {formatCurrency(totalItemCost)}
+                              </TableCell>
+
+                              {/* Status Badge */}
+                              <TableCell className="text-center">
+                                {isPurchased ? (
+                                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
+                                    <CheckCircle2 className="h-3 w-3" /> Terbeli
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[11px] font-semibold gap-1 px-2 py-0.5">
+                                    <Circle className="h-2.5 w-2.5" /> Rencana
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
 
               {/* Bottom Summary Bar */}
@@ -1200,71 +1349,127 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <Table className="w-full min-w-[650px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="w-[120px] font-bold text-xs uppercase text-muted-foreground">Tanggal</TableHead>
-                        <TableHead className="w-[180px] font-bold text-xs uppercase text-muted-foreground">Kategori</TableHead>
-                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Deskripsi Biaya</TableHead>
-                        <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Jumlah (Rp)</TableHead>
-                        <TableHead className="w-[80px] text-center font-bold text-xs uppercase text-muted-foreground">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {expenses.map((expense) => {
-                        const matchedCat = EXPENSE_CATEGORIES.find(c => c.value === expense.category) || {
-                          icon: Wrench,
-                          color: 'text-muted-foreground bg-muted border-border',
-                          label: expense.category || 'Lain-lain'
-                        };
-                        const IconComp = matchedCat.icon;
+                <>
+                  {/* MOBILE VIEW: Interactive Expense Cards */}
+                  <div className="block sm:hidden divide-y divide-border/60">
+                    {expenses.map((expense) => {
+                      const matchedCat = EXPENSE_CATEGORIES.find(c => c.value === expense.category) || {
+                        icon: Wrench,
+                        color: 'text-muted-foreground bg-muted border-border',
+                        label: expense.category || 'Lain-lain'
+                      };
+                      const IconComp = matchedCat.icon;
 
-                        return (
-                          <TableRow key={expense.id} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                              {safeFormat(expense.expense_date, 'd MMM yyyy')}
-                            </TableCell>
-
-                            <TableCell>
-                              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border", matchedCat.color)}>
-                                <IconComp className="h-3 w-3" />
-                                {matchedCat.label}
-                              </span>
-                            </TableCell>
-
-                            <TableCell className="py-3">
-                              <span className="font-bold text-xs sm:text-sm block text-foreground">
+                      return (
+                        <div key={expense.id} className="p-3.5 space-y-2 hover:bg-muted/30 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", matchedCat.color)}>
+                                  <IconComp className="h-2.5 w-2.5" />
+                                  {matchedCat.label}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-semibold">
+                                  {safeFormat(expense.expense_date, 'd MMM yyyy')}
+                                </span>
+                              </div>
+                              <span className="font-bold text-xs sm:text-sm block text-foreground leading-snug">
                                 {expense.description}
                               </span>
                               {expense.notes && (
-                                <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+                                <p className="text-[10px] text-muted-foreground italic">
                                   Catatan: {expense.notes}
                                 </p>
                               )}
-                            </TableCell>
+                            </div>
 
-                            <TableCell className="text-right font-black text-xs sm:text-sm text-rose-600 dark:text-rose-400 tabular-nums">
-                              {formatCurrency(expense.amount)}
-                            </TableCell>
-
-                            <TableCell className="text-center">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-black text-xs sm:text-sm text-rose-600 dark:text-rose-400 tabular-nums">
+                                {formatCurrency(expense.amount)}
+                              </span>
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => handleDeleteExpense(expense.id)}
-                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                 title="Hapus Biaya"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* DESKTOP VIEW: Full Scrollable Table */}
+                  <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <Table className="w-full min-w-[650px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="w-[120px] font-bold text-xs uppercase text-muted-foreground">Tanggal</TableHead>
+                          <TableHead className="w-[180px] font-bold text-xs uppercase text-muted-foreground">Kategori</TableHead>
+                          <TableHead className="font-bold text-xs uppercase text-muted-foreground">Deskripsi Biaya</TableHead>
+                          <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Jumlah (Rp)</TableHead>
+                          <TableHead className="w-[80px] text-center font-bold text-xs uppercase text-muted-foreground">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {expenses.map((expense) => {
+                          const matchedCat = EXPENSE_CATEGORIES.find(c => c.value === expense.category) || {
+                            icon: Wrench,
+                            color: 'text-muted-foreground bg-muted border-border',
+                            label: expense.category || 'Lain-lain'
+                          };
+                          const IconComp = matchedCat.icon;
+
+                          return (
+                            <TableRow key={expense.id} className="hover:bg-muted/30 transition-colors">
+                              <TableCell className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                                {safeFormat(expense.expense_date, 'd MMM yyyy')}
+                              </TableCell>
+
+                              <TableCell>
+                                <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border", matchedCat.color)}>
+                                  <IconComp className="h-3 w-3" />
+                                  {matchedCat.label}
+                                </span>
+                              </TableCell>
+
+                              <TableCell className="py-3">
+                                <span className="font-bold text-xs sm:text-sm block text-foreground">
+                                  {expense.description}
+                                </span>
+                                {expense.notes && (
+                                  <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+                                    Catatan: {expense.notes}
+                                  </p>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-right font-black text-xs sm:text-sm text-rose-600 dark:text-rose-400 tabular-nums">
+                                {formatCurrency(expense.amount)}
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteExpense(expense.id)}
+                                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  title="Hapus Biaya"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
 
               {/* Total Akomodasi Footer Bar */}
