@@ -828,12 +828,12 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
       <Tabs defaultValue="procurement" className="space-y-4 sm:space-y-5">
         {/* Responsive Swipeable Tabs Header on Mobile */}
         <div className="overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <TabsList className="inline-flex w-full min-w-max xl:min-w-0 xl:grid xl:grid-cols-6 h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
+          <TabsList className="inline-flex w-full min-w-max xl:min-w-0 xl:grid xl:grid-cols-6 h-auto p-1 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1">
             <TabsTrigger 
               value="procurement" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Belanja (BOM)</span>
               {procurementItems.length > 0 && (
                 <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
@@ -844,9 +844,9 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
             <TabsTrigger 
               value="accommodation" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <Car className="h-4 w-4 shrink-0" />
+              <Car className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Akomodasi & Upah</span>
               {expenses.length > 0 && (
                 <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
@@ -857,17 +857,17 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
             <TabsTrigger 
               value="report" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <PieChart className="h-4 w-4 shrink-0" />
+              <PieChart className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Laba Rugi</span>
             </TabsTrigger>
 
             <TabsTrigger 
               value="tasks" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <ListTodo className="h-4 w-4 shrink-0" />
+              <ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Tugas</span>
               {tasks.length > 0 && (
                 <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
@@ -878,17 +878,17 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
             <TabsTrigger 
               value="time" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <Clock className="h-4 w-4 shrink-0" />
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Jam Kerja</span>
             </TabsTrigger>
 
             <TabsTrigger 
               value="documents" 
-              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all focus-visible:ring-0 focus-visible:ring-offset-0 outline-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <Layers className="h-4 w-4 shrink-0" />
+              <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span>Dokumentasi</span>
               {docPhotos.length > 0 && (
                 <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
