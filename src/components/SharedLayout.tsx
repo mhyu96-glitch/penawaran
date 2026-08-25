@@ -380,14 +380,14 @@ const SharedLayout = () => {
       {/* 5-COLUMN PERFECT GRID BOTTOM NAVIGATION (MOBILE PWA) - ZERO OVERLAP */}
       {/* ========================================================================= */}
       <nav 
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center h-[calc(4.25rem+env(safe-area-inset-bottom))] border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-2xl print:hidden lg:hidden" 
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center h-[calc(4.25rem+env(safe-area-inset-bottom))] border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-2xl print:hidden lg:hidden select-none [-webkit-tap-highlight-color:transparent]" 
         aria-label="Navigasi Bawah Mobile"
       >
         {/* Column 1: Home */}
         <Link
           to="/dashboard"
           className={cn(
-            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none',
+            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             isActive('/dashboard', true) 
               ? 'text-teal-500 dark:text-teal-400' 
               : 'text-muted-foreground hover:text-foreground'
@@ -406,7 +406,7 @@ const SharedLayout = () => {
         <Link
           to="/quotes"
           className={cn(
-            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none',
+            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             isActive('/quotes') 
               ? 'text-sky-500 dark:text-sky-400' 
               : 'text-muted-foreground hover:text-foreground'
@@ -425,7 +425,7 @@ const SharedLayout = () => {
         <div className="flex items-center justify-center">
           <button
             onClick={() => setIsQuickActionOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 via-emerald-500 to-teal-700 text-white shadow-lg shadow-teal-500/40 ring-2 ring-white/25 active:scale-90 transition-transform select-none"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 via-emerald-500 to-teal-700 text-white shadow-lg shadow-teal-500/40 ring-2 ring-white/25 active:scale-90 transition-transform select-none outline-none focus:outline-none focus-visible:ring-0"
             title="Tambah Cepat (+)"
             aria-label="Aksi Cepat"
           >
@@ -437,7 +437,7 @@ const SharedLayout = () => {
         <Link
           to="/invoices"
           className={cn(
-            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none',
+            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             isActive('/invoices') 
               ? 'text-emerald-500 dark:text-emerald-400' 
               : 'text-muted-foreground hover:text-foreground'
@@ -456,16 +456,16 @@ const SharedLayout = () => {
         <button
           onClick={() => setIsMenuDrawerOpen(true)}
           className={cn(
-            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none',
+            'flex flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold transition-all active:scale-95 select-none outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             ['/clients', '/projects', '/calendar', '/expenses', '/items', '/reports', '/automation', '/settings'].some(p => location.pathname.startsWith(p))
-              ? 'text-indigo-500 dark:text-indigo-400'
+              ? 'text-indigo-500 dark:text-indigo-400' 
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <div className={cn(
             'flex h-7 w-12 items-center justify-center rounded-full transition-all',
             ['/clients', '/projects', '/calendar', '/expenses', '/items', '/reports', '/automation', '/settings'].some(p => location.pathname.startsWith(p))
-              ? 'bg-indigo-500/15 ring-1 ring-indigo-500/30'
+              ? 'bg-indigo-500/15 ring-1 ring-indigo-500/30' 
               : ''
           )}>
             <Grid className="h-4 w-4" />

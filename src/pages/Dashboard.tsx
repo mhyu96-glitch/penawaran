@@ -505,25 +505,25 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3.5 py-4 sm:px-6 lg:px-8 lg:py-6 pb-28 sm:pb-8">
       {/* Executive Command Banner */}
-      <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-xs">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
+        <div className="relative z-10 flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5 sm:space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 px-3 py-1 text-xs font-semibold">
-                <Crown className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> Executive Workspace
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">
+                <Crown className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500" /> Executive Workspace
               </Badge>
-              <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 border border-emerald-500/20">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium text-emerald-600 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Sistem Aktif
               </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">
               Business Command Center
             </h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
               Monitor kesehatan finansial, proyeksi omset, dan workflow komersial Anda secara akurat dan real-time.
             </p>
           </div>
@@ -531,8 +531,8 @@ const Dashboard = () => {
           <div className="flex items-center gap-3 shrink-0">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 bg-background text-foreground border-border hover:bg-accent">
-                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                <Button variant="outline" className="h-9 sm:h-10 text-xs sm:text-sm font-semibold rounded-xl bg-background text-foreground border-border hover:bg-accent">
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                   {date?.from ? (date.to ? `${safeFormat(date.from.toISOString(), "dd MMM")} - ${safeFormat(date.to.toISOString(), "dd MMM")}` : safeFormat(date.from.toISOString(), "dd MMM")) : 'Pilih Periode'}
                 </Button>
               </PopoverTrigger>
@@ -544,100 +544,100 @@ const Dashboard = () => {
         </div>
       </section>
 
-      {/* 4 Primary KPI Cards */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* 4 Primary KPI Cards - 2 Columns on Mobile */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* KPI 1: Business Health */}
         <Card className={cn(
-          "relative overflow-hidden transition-all duration-200 border shadow-xs",
+          "relative overflow-hidden transition-all duration-200 border rounded-2xl shadow-xs",
           businessScore >= 75 ? "bg-emerald-500/5 border-emerald-500/20" :
           businessScore >= 50 ? "bg-amber-500/5 border-amber-500/20" :
           "bg-rose-500/5 border-rose-500/20"
         )}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kesehatan Bisnis</span>
-              <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl border",
+          <CardContent className="p-3.5 sm:p-5">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Kesehatan Bisnis</span>
+              <div className={cn("flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl border shrink-0",
                 businessScore >= 75 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" :
                 businessScore >= 50 ? "bg-amber-500/10 border-amber-500/30 text-amber-600" :
                 "bg-rose-500/10 border-rose-500/30 text-rose-600"
               )}>
-                {performanceTrend === 'up' ? <TrendingUp className="h-4 w-4" /> :
-                 performanceTrend === 'down' ? <TrendingDown className="h-4 w-4" /> :
-                 <Activity className="h-4 w-4" />}
+                {performanceTrend === 'up' ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
+                 performanceTrend === 'down' ? <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
+                 <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
               </div>
             </div>
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-3xl font-extrabold text-foreground">{businessScore}<span className="text-sm font-normal text-muted-foreground">/100</span></h3>
-              <Badge className={cn("text-xs font-bold px-2.5 py-0.5 border",
+            <div className="flex items-baseline justify-between gap-1 flex-wrap">
+              <h3 className="text-lg sm:text-3xl font-extrabold text-foreground tabular-nums">{businessScore}<span className="text-xs sm:text-sm font-normal text-muted-foreground">/100</span></h3>
+              <Badge className={cn("text-[9px] sm:text-xs font-bold px-1.5 py-0.2 sm:px-2.5 sm:py-0.5 border",
                 businessScore >= 75 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
                 businessScore >= 50 ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
                 "bg-rose-500/10 text-rose-600 border-rose-500/20"
               )}>
-                {businessScore >= 75 ? 'Optimal' : businessScore >= 50 ? 'Stabil' : 'Perlu Perhatian'}
+                {businessScore >= 75 ? 'Optimal' : businessScore >= 50 ? 'Stabil' : 'Perhatian'}
               </Badge>
             </div>
-            <Progress value={businessScore} className="h-2 mt-3" />
-            <p className="mt-2 text-[11px] text-muted-foreground font-medium">Berdasarkan rasio konversi & piutang aktif</p>
+            <Progress value={businessScore} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
+            <p className="mt-1.5 text-[10px] text-muted-foreground font-medium truncate hidden sm:block">Berdasarkan konversi & piutang aktif</p>
           </CardContent>
         </Card>
 
         {/* KPI 2: Revenue */}
-        <Card className="relative overflow-hidden border border-primary/20 bg-primary/5 shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">Pendapatan Periode Ini</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/30 text-primary">
-                <DollarSign className="h-4 w-4" />
+        <Card className="relative overflow-hidden border border-primary/20 bg-primary/5 rounded-2xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-5">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary truncate">Pendapatan</span>
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/30 text-primary shrink-0">
+                <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <h3 className="text-2xl font-extrabold text-foreground tracking-tight">{formatCurrency(totalRevenue)}</h3>
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <span className={cn("inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md border text-xs",
+            <h3 className="text-base sm:text-2xl font-extrabold text-foreground tracking-tight tabular-nums truncate">{formatCurrency(totalRevenue)}</h3>
+            <div className="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs gap-1">
+              <span className={cn("inline-flex items-center gap-0.5 sm:gap-1 font-bold px-1.5 py-0.5 rounded-md border text-[9px] sm:text-xs",
                 periodComparison.revChange >= 0 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-rose-500/10 text-rose-600 border-rose-500/20"
               )}>
-                {periodComparison.revChange >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                {periodComparison.revChange >= 0 ? `+${periodComparison.revChange}%` : `${periodComparison.revChange}%`} vs lalu
+                {periodComparison.revChange >= 0 ? <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <ArrowDownRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+                {periodComparison.revChange >= 0 ? `+${periodComparison.revChange}%` : `${periodComparison.revChange}%`}
               </span>
-              <span className="text-muted-foreground font-medium">{payments.length > 0 ? 'Data Pembayaran' : 'Faktur Lunas'}</span>
+              <span className="text-muted-foreground font-medium truncate">{payments.length > 0 ? 'Kas Masuk' : 'Faktur Lunas'}</span>
             </div>
           </CardContent>
         </Card>
 
         {/* KPI 3: Profit Margin */}
-        <Card className="relative overflow-hidden border border-purple-500/20 bg-purple-500/5 shadow-xs">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Margin Keuntungan</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400">
-                <BarChart3 className="h-4 w-4" />
+        <Card className="relative overflow-hidden border border-purple-500/20 bg-purple-500/5 rounded-2xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-5">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 truncate">Margin Keuntungan</span>
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400 shrink-0">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-2xl font-extrabold text-foreground tracking-tight">{profitMarginPercent.toFixed(1)}%</h3>
-              <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20 text-xs font-bold">
-                Laba: {formatCurrency(netProfit)}
+            <div className="flex items-baseline justify-between gap-1 flex-wrap">
+              <h3 className="text-base sm:text-2xl font-extrabold text-foreground tracking-tight tabular-nums">{profitMarginPercent.toFixed(1)}%</h3>
+              <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20 text-[9px] sm:text-xs font-bold px-1.5 py-0.2">
+                Laba {compactNumber.format(netProfit)}
               </Badge>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <span className={cn("inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md border text-xs",
+            <div className="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs gap-1">
+              <span className={cn("inline-flex items-center gap-0.5 sm:gap-1 font-bold px-1.5 py-0.5 rounded-md border text-[9px] sm:text-xs",
                 periodComparison.profitChange >= 0 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-rose-500/10 text-rose-600 border-rose-500/20"
               )}>
-                {periodComparison.profitChange >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                {periodComparison.profitChange >= 0 ? `+${periodComparison.profitChange}%` : `${periodComparison.profitChange}%`} vs lalu
+                {periodComparison.profitChange >= 0 ? <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <ArrowDownRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+                {periodComparison.profitChange >= 0 ? `+${periodComparison.profitChange}%` : `${periodComparison.profitChange}%`}
               </span>
-              <span className="text-muted-foreground font-medium">Laba Bersih</span>
+              <span className="text-muted-foreground font-medium truncate">Laba Bersih</span>
             </div>
           </CardContent>
         </Card>
 
         {/* KPI 4: Revenue Target */}
-        <Card className="relative overflow-hidden border border-amber-500/20 bg-amber-500/5 shadow-xs">
-          <CardContent className="p-5">
+        <Card className="relative overflow-hidden border border-amber-500/20 bg-amber-500/5 rounded-2xl shadow-xs">
+          <CardContent className="p-3.5 sm:p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Target Achievement</span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">Target Omset</span>
               {!isEditingGoal ? (
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:bg-amber-500/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
-                  <Pencil className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="sm" className="h-6 w-6 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:bg-amber-500/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
+                  <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </Button>
               ) : (
                 <div className="flex items-center gap-1">
@@ -645,19 +645,19 @@ const Dashboard = () => {
                     type="number"
                     value={tempGoal}
                     onChange={(e) => setTempGoal(e.target.value)}
-                    className="h-7 w-24 text-xs font-semibold p-1 bg-background"
-                    placeholder="Target Rp"
+                    className="h-6 w-16 sm:h-7 sm:w-24 text-[10px] sm:text-xs font-semibold p-1 bg-background"
+                    placeholder="Target"
                   />
-                  <Button size="sm" className="h-7 px-2 text-xs" onClick={updateGoal}>
-                    <Check className="h-3.5 w-3.5" />
+                  <Button size="sm" className="h-6 px-1.5 sm:h-7 sm:px-2 text-[10px] sm:text-xs" onClick={updateGoal}>
+                    <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </Button>
                 </div>
               )}
             </div>
-            <h3 className="text-2xl font-extrabold text-foreground">{goalProgress.toFixed(0)}%</h3>
-            <Progress value={goalProgress} className="h-2 mt-3" />
-            <div className="flex justify-between text-xs text-muted-foreground mt-2 font-semibold">
-              <span>Capaian: {compactNumber.format(totalRevenue)}</span>
+            <h3 className="text-base sm:text-2xl font-extrabold text-foreground tabular-nums">{goalProgress.toFixed(0)}%</h3>
+            <Progress value={goalProgress} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
+            <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 font-semibold">
+              <span>{compactNumber.format(totalRevenue)}</span>
               <span>Target: {compactNumber.format(revenueGoal)}</span>
             </div>
           </CardContent>
