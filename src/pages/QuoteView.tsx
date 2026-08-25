@@ -275,7 +275,8 @@ const QuoteView = () => {
   const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
-    await generatePdf(quoteRef.current, `Penawaran-${quote.quote_number || quote.id}.pdf`);
+    // Export only the quotation card as a clean 1-page PDF
+    await generatePdf(quoteRef.current, `Penawaran-${quote.quote_number || quote.id}.pdf`, { format: 'a4', continuous: true });
     setIsGeneratingPDF(false);
   };
 
@@ -326,9 +327,9 @@ const QuoteView = () => {
       />
 
       {/* ========================================================================= */}
-      {/* HEADER ACTION TOOLBAR */}
+      {/* HEADER ACTION TOOLBAR (EXCLUDED FROM PRINT & PDF) */}
       {/* ========================================================================= */}
-      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden no-pdf">
         <Button asChild variant="outline" className="rounded-xl h-11 px-4 text-xs font-bold self-start sm:self-auto border-border/80 hover:bg-muted">
           <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
         </Button>
@@ -379,9 +380,9 @@ const QuoteView = () => {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
+          <Button onClick={handleSaveAsPDF} disabled={isGeneratingPDF} variant="outline" className="rounded-xl h-11 px-4 text-xs font-bold border-border/80 hover:bg-muted">
             <Download className="mr-1.5 h-4 w-4 text-primary" />
-            {isGeneratingPDF ? 'Membuat...' : 'PDF'}
+            {isGeneratingPDF ? 'Membuat PDF...' : 'PDF 1 Halaman'}
           </Button>
 
           <Button onClick={() => window.print()} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
@@ -391,75 +392,75 @@ const QuoteView = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* MAIN FULL-WIDTH QUOTATION DOCUMENT CARD */}
+      {/* MAIN SINGLE-PAGE QUOTATION DOCUMENT CARD (THE ONLY PART PRINTED & EXPORTED) */}
       {/* ========================================================================= */}
       <div className="mx-auto max-w-5xl">
-        <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none">
+        <Card ref={quoteRef} className="document-print-root overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm print:shadow-none print:border-none print:rounded-none">
           {/* Letterhead Header */}
-          <CardHeader className="p-6 sm:p-8 border-b border-border/70 bg-muted/20">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-              <div className="min-w-0 space-y-2">
+          <CardHeader className="p-5 sm:p-7 border-b border-border/70 bg-muted/20">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="min-w-0 space-y-1.5">
                 {profile?.company_logo_url ? (
-                  <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 object-contain" />
+                  <img src={profile.company_logo_url} alt="Company Logo" className="mb-2 max-h-14 object-contain" />
                 ) : (
                   <div className="flex items-center gap-2.5">
-                    <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-lg">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-base">
                       {quote.from_company.slice(0, 1) || 'P'}
                     </div>
-                    <h1 className="text-xl sm:text-2xl font-black leading-tight text-foreground tracking-tight">
+                    <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight">
                       {quote.from_company}
                     </h1>
                   </div>
                 )}
-                <div className="text-xs text-muted-foreground space-y-0.5">
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
                   <p>{quote.from_address}</p>
                   {quote.from_website && <p className="text-primary font-medium">{quote.from_website}</p>}
                 </div>
               </div>
 
-              <div className="shrink-0 text-left sm:text-right space-y-2">
-                <div className="inline-block px-3 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 text-xs font-black tracking-wider uppercase">
+              <div className="shrink-0 text-left sm:text-right space-y-1.5">
+                <div className="inline-block px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] font-black tracking-wider uppercase">
                   SURAT PENAWARAN
                 </div>
                 <div>
-                  <Badge variant={getStatusVariant(quote.status)} className="text-xs font-bold">
+                  <Badge variant={getStatusVariant(quote.status)} className="text-[10px] font-bold">
                     {quote.status || 'Draf'}
                   </Badge>
                 </div>
-                <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+                <div className="text-[11px] text-muted-foreground space-y-0.5 pt-0.5">
                   <p><strong>No:</strong> {quote.quote_number}</p>
-                  <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'PPP')}</p>
+                  <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'd MMMM yyyy')}</p>
                 </div>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="p-6 sm:p-8 space-y-8">
+          <CardContent className="p-5 sm:p-7 space-y-5">
             {/* Bill To & Subject Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-5 rounded-2xl bg-muted/20 border border-border/70">
-              <div className="space-y-1">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ditujukan Kepada:</h3>
-                <p className="font-black text-base text-foreground">{quote.to_client}</p>
-                <p className="text-xs text-muted-foreground">{quote.to_address}</p>
-                {quote.to_phone && <p className="text-xs text-muted-foreground">{quote.to_phone}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/70 text-xs">
+              <div className="space-y-0.5">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ditujukan Kepada:</h3>
+                <p className="font-black text-sm text-foreground">{quote.to_client}</p>
+                <p className="text-[11px] text-muted-foreground">{quote.to_address}</p>
+                {quote.to_phone && <p className="text-[11px] text-muted-foreground">{quote.to_phone}</p>}
               </div>
 
-              <div className="sm:text-right space-y-1 sm:border-l sm:border-border/70 sm:pl-6">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Perihal / Proyek:</h3>
-                <p className="font-extrabold text-base text-foreground">{quote.title || '-'}</p>
-                <div className="pt-2 text-xs text-muted-foreground">
+              <div className="sm:text-right space-y-0.5 sm:border-l sm:border-border/70 sm:pl-4">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Perihal / Proyek:</h3>
+                <p className="font-extrabold text-sm text-foreground">{quote.title || '-'}</p>
+                <div className="pt-1 text-[11px] text-muted-foreground">
                   <span>Berlaku Hingga: </span>
-                  <strong className="text-foreground">{safeFormat(quote.valid_until, 'PPP')}</strong>
+                  <strong className="text-foreground">{safeFormat(quote.valid_until, 'd MMMM yyyy')}</strong>
                 </div>
               </div>
             </div>
             
             {/* Document Items Table */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="space-y-1.5">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Rincian Barang & Jasa
               </h4>
-              <div className="rounded-2xl border border-border/80 overflow-hidden">
+              <div className="rounded-2xl border border-border/80 overflow-hidden text-xs">
                 <DocumentItemsTable 
                   items={quote.quote_items} 
                   config={{
@@ -472,8 +473,8 @@ const QuoteView = () => {
             </div>
 
             {/* Calculations Breakdown */}
-            <div className="flex justify-end pt-2">
-              <div className="w-full sm:w-80 rounded-2xl bg-muted/20 p-5 border border-border/80 space-y-2.5 text-xs">
+            <div className="flex justify-end pt-1">
+              <div className="w-full sm:w-72 rounded-2xl bg-muted/20 p-4 border border-border/80 space-y-2 text-xs">
                 <div className="flex justify-between font-medium text-muted-foreground">
                   <span>Subtotal:</span>
                   <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
@@ -493,9 +494,9 @@ const QuoteView = () => {
                   </div>
                 )}
 
-                <Separator className="my-2 border-border/60" />
+                <Separator className="my-1.5 border-border/60" />
 
-                <div className="flex justify-between text-sm sm:text-base font-black text-foreground">
+                <div className="flex justify-between text-xs sm:text-sm font-black text-foreground">
                   <span>Total Penawaran:</span>
                   <span className="text-primary tabular-nums">{formatCurrency(total)}</span>
                 </div>
@@ -504,23 +505,23 @@ const QuoteView = () => {
 
             {/* Terms and Conditions */}
             {quote.terms && (
-              <div className="p-5 rounded-2xl bg-muted/20 border border-border/80 space-y-1.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-primary" /> Syarat & Ketentuan:
+              <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-1">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Syarat & Ketentuan:
                 </h3>
-                <p className="whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed font-sans">{quote.terms}</p>
+                <p className="whitespace-pre-wrap text-[11px] text-muted-foreground leading-relaxed font-sans">{quote.terms}</p>
               </div>
             )}
 
             {/* Attachments */}
             {quote.attachments && quote.attachments.length > 0 && (
-              <div className="space-y-3 no-pdf">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Lampiran Berkas:</h3>
+              <div className="space-y-2 no-pdf print:hidden">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Lampiran Berkas:</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {quote.attachments.map((attachment, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border border-border/80 rounded-2xl bg-muted/20 hover:bg-muted/40 transition-colors">
+                    <div key={index} className="flex items-center justify-between p-2.5 border border-border/80 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
                       <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-primary hover:underline truncate">
-                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate">{attachment.name}</span>
                       </a>
                     </div>
@@ -531,17 +532,17 @@ const QuoteView = () => {
           </CardContent>
 
           {profile?.custom_footer && (
-            <CardFooter className="p-6 sm:p-8 pt-4 border-t border-border/70 bg-muted/20 text-center">
-              <p className="text-xs text-muted-foreground text-center w-full whitespace-pre-wrap leading-relaxed">{profile.custom_footer}</p>
+            <CardFooter className="p-4 sm:p-5 pt-3 border-t border-border/70 bg-muted/20 text-center">
+              <p className="text-[11px] text-muted-foreground text-center w-full whitespace-pre-wrap leading-relaxed">{profile.custom_footer}</p>
             </CardFooter>
           )}
         </Card>
       </div>
 
       {/* ========================================================================= */}
-      {/* BOTTOM SECTION: FULL-WIDTH PROFIT ANALYSIS & DOCUMENT TIMELINE */}
+      {/* BOTTOM SECTION: PROFIT ANALYSIS & DOCUMENT TIMELINE (EXCLUDED FROM PRINT/PDF) */}
       {/* ========================================================================= */}
-      <div className="mx-auto max-w-5xl space-y-6 pt-2 print:hidden">
+      <div className="mx-auto max-w-5xl space-y-6 pt-2 print:hidden no-pdf">
         {/* 1. Analisis Keuntungan Full-Width */}
         <ProfitAnalysisCard 
           items={quote.quote_items} 
@@ -565,6 +566,65 @@ const QuoteView = () => {
           <DocumentTimeline docId={id!} type="quote" />
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* DEDICATED PRINT STYLES - 1 SINGLE CLEAN A4 PAGE */}
+      {/* ========================================================================= */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+          body {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          body * {
+            visibility: hidden;
+          }
+          .document-print-root, .document-print-root * {
+            visibility: visible;
+          }
+          .document-print-root {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+          }
+          .document-print-root .bg-card,
+          .document-print-root .bg-muted\\/20,
+          .document-print-root .bg-muted\\/35 {
+            background-color: #f8fafc !important;
+          }
+          .document-print-root .text-foreground {
+            color: #0f172a !important;
+          }
+          .document-print-root .text-muted-foreground {
+            color: #475569 !important;
+          }
+          .document-print-root .border-border\\/80,
+          .document-print-root .border-border\\/70,
+          .document-print-root .border-border\\/60 {
+            border-color: #e2e8f0 !important;
+          }
+          .print\\:hidden, .no-pdf {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
