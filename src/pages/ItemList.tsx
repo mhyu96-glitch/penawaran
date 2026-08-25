@@ -151,124 +151,125 @@ const ItemList = () => {
   }, [items, searchQuery, filterType]);
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* ========================================================================= */}
       {/* HERO BANNER & HEADER */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-5 sm:p-7 shadow-xs">
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-4 sm:p-7 shadow-xl">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 inline-flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20 inline-flex items-center gap-1.5">
                 <Package className="h-3.5 w-3.5" /> Master Katalog Produk & Jasa
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60">
-                {items.length} Item Tersimpan
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60">
+                {items.length} Item
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
               Pustaka Barang & Jasa
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl hidden sm:block">
               Simpan daftar inventaris barang, kontrol sisa stok, modal beli (HPP), dan standar harga jual untuk mempercepat pembuatan penawaran & faktur.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <Button 
+              size="sm"
               onClick={() => handleOpenForm()}
-              className="rounded-xl font-bold h-11 px-5 text-xs gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
+              className="rounded-xl font-bold h-10 px-4 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
             >
-              <PlusCircle className="h-4 w-4" /> Tambah Item Baru
+              <PlusCircle className="h-3.5 w-3.5" /> Tambah Item Baru
             </Button>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 4 KPI SUMMARY CARDS */}
+      {/* 4 KPI SUMMARY CARDS - 2 COLUMNS ON MOBILE */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Master Item */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Item Katalog</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
-              <Boxes className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Item</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+              <Boxes className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {stats.totalItems} <span className="text-xs font-normal text-muted-foreground">Item</span>
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Siap dipakai di Penawaran</span>
           </div>
         </Card>
 
         {/* Card 2: Stok Menipis */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stok Menipis (≤5)</p>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Stok Tipis (≤5)</p>
             <div className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-xl border",
+              "flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl border",
               stats.lowStockCount > 0 
                 ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400" 
                 : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
             )}>
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
             <h3 className={cn(
-              "text-xl sm:text-2xl font-black tracking-tight tabular-nums",
+              "text-base sm:text-2xl font-black tracking-tight tabular-nums",
               stats.lowStockCount > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"
             )}>
               {stats.lowStockCount} <span className="text-xs font-normal text-muted-foreground">Barang</span>
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>{stats.lowStockCount > 0 ? 'Perlu Restock Segera' : 'Semua Stok Aman'}</span>
           </div>
         </Card>
 
         {/* Card 3: Nilai Stok Persediaan */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Nilai Inventaris Stok</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <Coins className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Nilai Inventaris</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Coins className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
               {formatCurrency(stats.totalStockValue)}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Total Nilai Modal Gudang</span>
           </div>
         </Card>
 
         {/* Card 4: Jasa & Layanan */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Jasa & Layanan</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
-              <Wrench className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Jasa & Layanan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500">
+              <Wrench className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {stats.serviceCount} <span className="text-xs font-normal text-muted-foreground">Layanan</span>
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Tanpa batas stok (Tenaga Kerja)</span>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
+            <span>Tanpa Kontrol Stok Gudang</span>
           </div>
         </Card>
       </div>

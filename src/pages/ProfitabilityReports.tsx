@@ -231,64 +231,65 @@ const ProfitabilityReports = () => {
   }, [reportData.clients, clientsSearch]);
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* ========================================================================= */}
       {/* HERO COMMAND HEADER */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-5 sm:p-7 shadow-xs">
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-4 sm:p-7 shadow-xl">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
-                <Receipt className="h-3.5 w-3.5" /> Sumber Data: Faktur Tagihan Penjualan (Invoices)
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+                <Receipt className="h-3.5 w-3.5" /> Sumber Data: Faktur Tagihan
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60">
-                {invoices.length} Faktur Tagihan
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60">
+                {invoices.length} Faktur
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
               Laporan Laba & Margin Penjualan
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl hidden sm:block">
               Laporan keuntungan riil dan persentase margin berdasarkan seluruh faktur tagihan yang diterbitkan kepada klien.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <Button 
+              size="sm"
               onClick={fetchInvoices} 
               variant="outline" 
-              className="rounded-xl font-bold text-xs h-11 gap-2 border-border/80 hover:bg-muted"
+              className="rounded-xl font-bold text-xs h-10 gap-1.5 border-border/80 hover:bg-muted"
               title="Refresh Data"
             >
-              <RefreshCw className={cn("h-4 w-4 text-emerald-500", loading && "animate-spin")} />
-              <span>Perbarui Data</span>
+              <RefreshCw className={cn("h-3.5 w-3.5 text-emerald-500", loading && "animate-spin")} />
+              <span>Perbarui</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 4 KPI SUMMARY CARDS */}
+      {/* 4 KPI SUMMARY CARDS - 2 COLUMNS ON MOBILE */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Nilai Faktur */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Penjualan Faktur</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
-              <Receipt className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Penjualan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(reportData.grandRevenue)}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Modal HPP: {formatCurrency(reportData.grandCost)}</span>
             {reportData.paidRevenue > 0 && (
               <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lunas: {formatCurrency(reportData.paidRevenue)}</span>
@@ -297,57 +298,57 @@ const ProfitabilityReports = () => {
         </Card>
 
         {/* Card 2: Total Estimasi Laba */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total Estimasi Laba</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-              <TrendingUp className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total Laba</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
               {formatCurrency(reportData.grandProfit)}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2 hidden sm:flex items-center justify-between">
             <span>Rata-rata Margin:</span>
             <span>{reportData.overallMargin.toFixed(1)}%</span>
           </div>
         </Card>
 
         {/* Card 3: Top Good */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Barang Terbanyak Terjual</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-              <Package className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Barang</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+              <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-foreground truncate" title={reportData.topGood}>
+            <h3 className="text-xs sm:text-lg font-black tracking-tight text-foreground truncate" title={reportData.topGood}>
               {reportData.topGood}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Total {reportData.goods.length} Jenis Barang</span>
           </div>
         </Card>
 
         {/* Card 4: Top Service */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Jasa Terbanyak Ditagihkan</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
-              <Wrench className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Jasa / Layanan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
+              <Wrench className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-foreground truncate" title={reportData.topService}>
+            <h3 className="text-xs sm:text-lg font-black tracking-tight text-foreground truncate" title={reportData.topService}>
               {reportData.topService}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Total {reportData.services.length} Layanan Jasa</span>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
+            <span>Total {reportData.services.length} Layanan</span>
           </div>
         </Card>
       </div>

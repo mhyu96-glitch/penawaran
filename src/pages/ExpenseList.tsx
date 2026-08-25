@@ -213,123 +213,125 @@ const ExpenseList = () => {
   const isFilterActive = !!searchQuery || !!dateRange || categoryFilter !== 'all';
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* ========================================================================= */}
       {/* HERO BANNER & HEADER */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-5 sm:p-7 shadow-xs">
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-4 sm:p-7 shadow-xl">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-rose-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 inline-flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 inline-flex items-center gap-1.5">
                 <Wallet className="h-3.5 w-3.5" /> Buku Kas & Operasional
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
               Pengeluaran Bisnis
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
               Catat, kelompokkan, dan pantau seluruh pengeluaran operasional & belanja proyek secara akurat.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             {filteredExpenses.length > 0 && (
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={handleExportCSV}
-                className="rounded-xl font-bold h-11 text-xs gap-2 border-border/80 hover:bg-muted"
+                className="rounded-xl font-bold h-10 text-xs gap-1.5 border-border/80 hover:bg-muted px-3"
               >
-                <Download className="h-4 w-4" /> Ekspor CSV
+                <Download className="h-3.5 w-3.5" /> Ekspor CSV
               </Button>
             )}
             <Button 
+              size="sm"
               onClick={() => handleOpenForm()}
-              className="rounded-xl font-bold h-11 px-5 text-xs gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
+              className="rounded-xl font-bold h-10 px-4 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs grow sm:grow-0"
             >
-              <PlusCircle className="h-4 w-4" /> Tambah Pengeluaran
+              <PlusCircle className="h-3.5 w-3.5" /> Tambah Pengeluaran
             </Button>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* KPI METRIC CARDS */}
+      {/* KPI METRIC CARDS - 2 COLUMNS ON MOBILE */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Pengeluaran */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Pengeluaran</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
-              <TrendingDown className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Beban</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums truncate">
               {formatCurrency(stats.totalFiltered)}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Dari {stats.totalCount} transaksi</span>
             {isFilterActive && <span className="text-amber-500 font-bold">Hasil Filter</span>}
           </div>
         </Card>
 
         {/* Card 2: Bulan Ini */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Bulan Ini</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-              <CalendarIcon className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Bulan Ini</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+              <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(stats.thisMonthTotal)}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Bulan {format(new Date(), 'MMMM yyyy')}</span>
           </div>
         </Card>
 
         {/* Card 3: Kategori Terbesar */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Kategori Terbesar</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500">
-              <Tag className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Kategori</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500">
+              <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-lg sm:text-xl font-black tracking-tight text-foreground truncate">
+            <h3 className="text-sm sm:text-xl font-black tracking-tight text-foreground truncate">
               {stats.topCatName}
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Total:</span>
             <span className="font-bold text-foreground">{formatCurrency(stats.topCatAmount)}</span>
           </div>
         </Card>
 
         {/* Card 4: Total Semua Transaksi */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Catatan</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500">
-              <Receipt className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Catatan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {expenses.length} <span className="text-xs font-normal text-muted-foreground">Catatan</span>
             </h3>
           </div>
-          <div className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
-            <span>Akumulasi Keseluruhan</span>
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
+            <span>Akumulasi Total</span>
             <span className="font-bold text-foreground">{formatCurrency(stats.totalAll)}</span>
           </div>
         </Card>

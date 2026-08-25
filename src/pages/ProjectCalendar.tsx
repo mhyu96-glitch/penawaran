@@ -324,49 +324,49 @@ const ProjectCalendar = () => {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* ========================================================================= */}
       {/* HERO COMMAND BANNER & MONTH NAVIGATION */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-slate-900 via-slate-900/90 to-teal-950/40 p-6 sm:p-8 shadow-xl">
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-slate-900 via-slate-900/90 to-teal-950/40 p-4 sm:p-7 shadow-xl">
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-teal-500/15 blur-3xl" />
         <div className="pointer-events-none absolute left-1/3 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 max-w-xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 px-3 py-1 text-xs font-bold text-teal-400 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 px-2.5 py-0.5 text-[11px] font-bold text-teal-400 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-400 animate-pulse" />
                 Kalender Kerja & Jatuh Tempo
               </div>
-              <span className="rounded-full bg-slate-800/90 border border-border/70 px-2.5 py-0.5 text-[11px] font-bold text-slate-300">
+              <span className="rounded-full bg-slate-800/90 border border-border/70 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-300">
                 {events.length} Agenda Bulan Ini
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
               Jadwal & Agenda Proyek
             </h1>
 
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            <p className="text-slate-300/80 text-xs sm:text-sm leading-relaxed hidden sm:block">
               Pantau jadwal pengiriman surat penawaran, tanggal jatuh tempo faktur pembayaran, dan progres awal proyek secara terpusat.
             </p>
           </div>
 
           {/* Stepper & Controls */}
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
               onClick={fetchEvents} 
               variant="outline" 
               size="icon"
-              className="h-10 w-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-border/80 shadow-xs active:scale-95"
+              className="h-10 w-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-border/80 shadow-xs active:scale-95 shrink-0"
               title="Perbarui Data"
             >
-              <RefreshCw className={cn("h-4 w-4 text-teal-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5 text-teal-400", loading && "animate-spin")} />
             </Button>
 
             {/* Month Stepper */}
-            <div className="flex items-center bg-slate-900/90 border border-border/80 rounded-2xl p-1 shadow-md">
+            <div className="flex items-center bg-slate-900/90 border border-border/80 rounded-2xl p-1 shadow-md grow sm:grow-0 justify-between">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -376,7 +376,7 @@ const ProjectCalendar = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="px-3 font-bold text-xs sm:text-sm text-white min-w-[130px] text-center capitalize">
+              <span className="px-2 font-bold text-xs sm:text-sm text-white min-w-[110px] sm:min-w-[130px] text-center capitalize">
                 {format(currentDate, 'MMMM yyyy', { locale: localeId })}
               </span>
               <Button 
@@ -392,7 +392,7 @@ const ProjectCalendar = () => {
 
             <Button 
               onClick={goToToday} 
-              className="h-10 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold px-3.5 shadow-md text-xs active:scale-95"
+              className="h-10 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold px-3.5 shadow-md text-xs active:scale-95 shrink-0"
             >
               Hari Ini
             </Button>
@@ -401,83 +401,82 @@ const ProjectCalendar = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* 4 STAT KPI METRIC CARDS */}
+      {/* 4 STAT KPI METRIC CARDS - 2 COLUMNS ON MOBILE */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Jatuh Tempo */}
-        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Jatuh Tempo Bulan Ini</p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
-              <AlertTriangle className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Tempo Bulan Ini</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums truncate">
               {formatCurrency(monthStats.overdueInvoicesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[11px] text-rose-700/80 dark:text-rose-300 font-semibold border-t border-rose-500/20 pt-2 flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-rose-700/80 dark:text-rose-300 font-semibold border-t border-rose-500/20 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
             <span>{monthStats.overdueInvoicesCount} Faktur Menunggu Pembayaran</span>
           </p>
         </Card>
 
         {/* Card 2: Faktur Lunas */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Faktur Lunas Bulan Ini</p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Lunas Bulan Ini</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
               {formatCurrency(monthStats.paidInvoicesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-semibold border-t border-emerald-500/20 pt-2 flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-semibold border-t border-emerald-500/20 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>{monthStats.paidInvoicesCount} Faktur Berhasil Diterima</span>
           </p>
         </Card>
 
         {/* Card 3: Penawaran Aktif */}
-        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Penawaran Aktif</p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
-              <FileText className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Penawaran Aktif</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums truncate">
               {formatCurrency(monthStats.quotesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-300 font-semibold border-t border-amber-500/20 pt-2 flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-amber-700/80 dark:text-amber-300 font-semibold border-t border-amber-500/20 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             <span>{monthStats.quotesCount} Penawaran Terjadwal</span>
           </p>
         </Card>
 
         {/* Card 4: Proyek Berjalan */}
-        <Card className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Proyek Sedang Berjalan</p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
-              <FolderKanban className="h-4 w-4" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Proyek Berjalan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <FolderKanban className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">{monthStats.ongoingProjectsCount}</h3>
-            <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full border border-teal-500/20">
-              Aktif
-            </span>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
+              {allOngoingProjects.length}
+            </h3>
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
-            <span>Progres operasional proyek</span>
+          <p className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-semibold border-t border-border/60 pt-2 hidden sm:flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            <span>{monthStats.activeProjectsCount} dibuat bulan ini</span>
           </p>
         </Card>
       </div>

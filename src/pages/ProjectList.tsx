@@ -274,134 +274,185 @@ const ProjectList = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 text-white p-6 sm:p-8 shadow-2xl">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
+      {/* Executive Command Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/80 text-white p-4 sm:p-7 shadow-xl">
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-amber-500/15 blur-3xl" />
         <div className="pointer-events-none absolute left-1/4 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-semibold text-amber-300 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                 Manajemen Proyek & Analisis Laba
               </div>
-              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
+              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-300">
                 {summary.total} Proyek Terdaftar
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               Proyek Saya
             </h1>
-            <p className="text-slate-300/90 text-sm leading-relaxed max-w-xl">
+
+            <p className="text-slate-300/80 text-xs sm:text-sm leading-relaxed max-w-xl font-medium hidden sm:block">
               Pantau progres tugas, lacak pendapatan vs biaya pengeluaran, dan optimalkan profitabilitas proyek Anda secara real-time.
             </p>
           </div>
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
               onClick={fetchProjects} 
               variant="outline" 
-              size="lg"
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs"
               title="Refresh Data Proyek"
             >
-              <RefreshCw className={cn("h-4 w-4 text-amber-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5 text-amber-400", loading && "animate-spin")} />
             </Button>
+
             <div className="flex items-center bg-slate-900/80 border border-slate-700/80 rounded-xl p-1 shadow-md">
-              <button onClick={() => setViewMode('timeline')} className={cn("p-2 rounded-lg text-xs font-semibold transition-all", viewMode === 'timeline' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}>
+              <button 
+                onClick={() => setViewMode('timeline')} 
+                className={cn("p-1.5 rounded-lg text-xs font-semibold transition-all", viewMode === 'timeline' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}
+                title="Tampilan Timeline"
+              >
                 <Clock className="h-4 w-4" />
               </button>
-              <button onClick={() => setViewMode('list')} className={cn("p-2 rounded-lg text-xs font-semibold transition-all", viewMode === 'list' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}>
+              <button 
+                onClick={() => setViewMode('list')} 
+                className={cn("p-1.5 rounded-lg text-xs font-semibold transition-all", viewMode === 'list' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}
+                title="Tampilan List"
+              >
                 <List className="h-4 w-4" />
               </button>
-              <button onClick={() => setViewMode('kanban')} className={cn("p-2 rounded-lg text-xs font-semibold transition-all", viewMode === 'kanban' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}>
+              <button 
+                onClick={() => setViewMode('kanban')} 
+                className={cn("p-1.5 rounded-lg text-xs font-semibold transition-all", viewMode === 'kanban' ? "bg-amber-500/20 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white")}
+                title="Tampilan Kanban Board"
+              >
                 <LayoutGrid className="h-4 w-4" />
               </button>
             </div>
-            <Button onClick={() => handleOpenForm()} size="lg" className="h-11 rounded-xl bg-gradient-to-r from-amber-600 via-emerald-600 to-amber-700 hover:from-amber-500 hover:to-emerald-500 text-white font-bold shadow-lg shadow-amber-950/50 hover:shadow-amber-900/60 border border-amber-400/20 transition-all active:scale-95 px-5">
-              <PlusCircle className="mr-2 h-4 w-4 stroke-[2.5]" />
+
+            <Button 
+              onClick={() => handleOpenForm()} 
+              size="sm" 
+              className="h-10 rounded-xl bg-gradient-to-r from-amber-600 via-emerald-600 to-amber-700 hover:from-amber-500 hover:to-emerald-500 text-white font-bold shadow-lg shadow-amber-950/50 border border-amber-400/20 transition-all active:scale-95 px-4 text-xs grow sm:grow-0"
+            >
+              <PlusCircle className="mr-1.5 h-4 w-4 stroke-[2.5]" />
               Buat Proyek Baru
             </Button>
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+
+      {/* 4 Stat KPI Metric Cards - 2 Columns on Mobile, 4 Columns on Desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        {/* Card 1: Proyek Aktif */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Proyek Aktif</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <FolderKanban className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Proyek Aktif</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
+              <FolderKanban className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{summary.active}</h3>
-            <span className="text-xs font-semibold text-muted-foreground">dari {summary.total} total</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground">{summary.active}</h3>
+            <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">dari {summary.total} total</span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             <span>{summary.completed} proyek telah selesai</span>
           </div>
         </Card>
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+
+        {/* Card 2: Pendapatan Proyek */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pendapatan Proyek</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <Receipt className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Pendapatan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shadow-2xs">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-foreground truncate">{formatCurrency(summary.revenue)}</h3>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
+              {formatCurrency(summary.revenue)}
+            </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-            <span>Dari invoice & penawaran diterima</span>
+            <span>Dari invoice & penawaran</span>
           </div>
         </Card>
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+
+        {/* Card 3: Total Biaya & HPP */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Biaya & HPP</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <Wallet className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Biaya</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 shadow-2xs">
+              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-foreground truncate">{formatCurrency(summary.cost)}</h3>
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
+              {formatCurrency(summary.cost)}
+            </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            <span>Biaya modal + pengeluaran proyek</span>
+            <span>Biaya modal + pengeluaran</span>
           </div>
         </Card>
-        <Card className={cn("relative overflow-hidden rounded-2xl p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group", summary.profit >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5")}>
+
+        {/* Card 4: Laba Bersih Proyek */}
+        <Card className={cn(
+          "rounded-2xl p-3.5 sm:p-5 shadow-xs",
+          summary.profit >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"
+        )}>
           <div className="flex items-center justify-between">
-            <p className={cn("text-xs font-bold uppercase tracking-wider", summary.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>Laba Bersih Proyek</p>
-            <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl shadow-2xs", summary.profit >= 0 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400")}>
-              <DollarSign className="h-5 w-5" />
+            <p className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider", summary.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+              Laba Bersih
+            </p>
+            <div className={cn("flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs", summary.profit >= 0 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400")}>
+              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className={cn("text-2xl font-black tracking-tight truncate", summary.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>{formatCurrency(summary.profit)}</h3>
+          <div className="mt-2">
+            <h3 className={cn("text-base sm:text-2xl font-black tracking-tight truncate tabular-nums", summary.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+              {formatCurrency(summary.profit)}
+            </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2">
             <span className={cn("h-1.5 w-1.5 rounded-full", summary.profit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
             <span className={summary.profit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}>
-              {summary.revenue > 0 ? `${((summary.profit / summary.revenue) * 100).toFixed(1)}% Margin Profit Bersih` : 'Estimasi laba proyek'}
+              {summary.revenue > 0 ? `${((summary.profit / summary.revenue) * 100).toFixed(1)}% Margin` : 'Estimasi laba'}
             </span>
           </div>
         </Card>
       </div>
+
+      {/* Main Container Card */}
       <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-        <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <CardHeader className="p-3.5 sm:p-6 border-b border-border/70 bg-muted/20 space-y-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
-              <Input placeholder="Cari nama proyek atau klien..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 pl-10 pr-9 rounded-xl bg-background border-border/80 focus-visible:ring-primary/20 text-xs sm:text-sm" />
+              <Input 
+                placeholder="Cari nama proyek atau klien..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="h-10 pl-10 pr-9 rounded-xl bg-background border-border/80 focus-visible:ring-primary/20 text-xs sm:text-sm font-medium" 
+              />
               {searchTerm && (
                 <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 self-start md:self-auto overflow-x-auto max-w-full">
+            
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 { key: 'all', label: 'Semua', count: summary.total },
                 { key: 'Ongoing', label: 'Berjalan', count: summary.active, badgeColor: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
@@ -409,9 +460,23 @@ const ProjectList = () => {
               ].map(tab => {
                 const isActive = statusFilter === tab.key;
                 return (
-                  <button key={tab.key} onClick={() => setStatusFilter(tab.key as any)} className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none", isActive ? "bg-background text-foreground shadow-xs border border-border/70" : "text-muted-foreground hover:text-foreground hover:bg-background/40")}>
+                  <button 
+                    key={tab.key} 
+                    onClick={() => setStatusFilter(tab.key as any)} 
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap select-none border shrink-0", 
+                      isActive 
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs" 
+                        : "bg-muted/30 hover:bg-muted text-muted-foreground border-border/70"
+                    )}
+                  >
                     <span>{tab.label}</span>
-                    <span className={cn("px-1.5 py-0.2 rounded-full text-[10px] font-extrabold", isActive ? "bg-primary/10 text-primary" : (tab.badgeColor || "bg-muted text-muted-foreground"))}>{tab.count}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[10px] font-black", 
+                      isActive ? "bg-white/20 text-white" : (tab.badgeColor || "bg-muted text-muted-foreground")
+                    )}>
+                      {tab.count}
+                    </span>
                   </button>
                 );
               })}

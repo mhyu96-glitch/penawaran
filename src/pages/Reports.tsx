@@ -357,44 +357,44 @@ const Reports = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6" id="report-page">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8" id="report-page">
       {/* Executive Command Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/80 text-white p-6 sm:p-8 shadow-2xl print:hidden">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/80 text-white p-4 sm:p-7 shadow-xl print:hidden">
         {/* Ambient Glow */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="pointer-events-none absolute left-1/4 -bottom-16 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Laporan Finansial 360° Bisnis
               </div>
-              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
-                {invoices.length} Faktur • {quotes.length} Penawaran • {expenses.length} Beban
+              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-300">
+                {invoices.length} Faktur • {quotes.length} Penawaran
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               Laporan Keuangan Komprehensif
             </h1>
 
-            <p className="text-slate-300/90 text-sm leading-relaxed max-w-xl">
+            <p className="text-slate-300/80 text-xs sm:text-sm leading-relaxed max-w-xl font-medium hidden sm:block">
               Rekapitulasi lengkap seluruh perputaran nilai bisnis: Total tagihan invoice, realisasi pelunasan, piutang tertahan, penawaran harga, biaya modal (HPP), dan laba bersih.
             </p>
           </div>
 
           {/* Date Picker & Action Controls */}
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
               onClick={fetchAllData} 
               variant="outline" 
-              size="lg"
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs"
               title="Refresh Laporan"
             >
-              <RefreshCw className={cn("h-4 w-4 text-emerald-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5 text-emerald-400", loading && "animate-spin")} />
             </Button>
 
             {/* Custom Date Range Picker */}
@@ -403,21 +403,22 @@ const Reports = () => {
                 <Button 
                   id="date" 
                   variant="outline" 
+                  size="sm"
                   className={cn(
-                    "h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md px-3.5 text-xs font-semibold gap-2",
+                    "h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md px-3 text-xs font-semibold gap-1.5 grow sm:grow-0",
                     !date && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>
+                  <CalendarIcon className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate max-w-[150px] sm:max-w-none">
                     {date?.from ? (
                       date.to ? (
-                        `${format(date.from, "d MMM yyyy", { locale: localeId })} - ${format(date.to, "d MMM yyyy", { locale: localeId })}`
+                        `${format(date.from, "d MMM", { locale: localeId })} - ${format(date.to, "d MMM yyyy", { locale: localeId })}`
                       ) : (
                         format(date.from, "d MMM yyyy", { locale: localeId })
                       )
                     ) : (
-                      "Semua Waktu (Akumulasi Total)"
+                      "Semua Waktu"
                     )}
                   </span>
                 </Button>
@@ -445,10 +446,11 @@ const Reports = () => {
 
             <Button 
               variant="outline" 
+              size="sm"
               onClick={() => window.print()}
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-4 font-bold text-xs"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 font-bold text-xs"
             >
-              <Printer className="mr-2 h-4 w-4 text-sky-400" /> Cetak / PDF
+              <Printer className="mr-1.5 h-3.5 w-3.5 text-sky-400" /> Cetak / PDF
             </Button>
           </div>
         </div>
@@ -462,44 +464,44 @@ const Reports = () => {
         </p>
       </div>
 
-        {/* 4 Primary Financial KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Primary Financial KPI Cards - 2 Columns on Mobile, 4 Columns on Desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Nilai Seluruh Tagihan (Total Invoiced) */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Nilai Tagihan</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-2xs">
-              <Receipt className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Tagihan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-2xs">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(metrics.totalInvoicedAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {metrics.filteredInvoices.length} Faktur Diterbitkan
+              {metrics.filteredInvoices.length} Faktur
             </span>
             <span className="font-bold text-foreground">{metrics.paidCount} Lunas / {metrics.unpaidCount} Pending</span>
           </div>
         </Card>
 
         {/* Card 2: Realisasi Kas Masuk (Paid Invoices / Pelunasan) */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Realisasi Kas Masuk</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
-              <DollarSign className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Kas Masuk (Lunas)</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
               {formatCurrency(metrics.realizedRevenue)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Pelunasan Berhasil
@@ -509,41 +511,41 @@ const Reports = () => {
         </Card>
 
         {/* Card 3: Piutang Usaha & Tunggakan */}
-        <Card className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Piutang & Tunggakan</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 shadow-2xs">
-              <AlertTriangle className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Piutang & Tunggakan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 shadow-2xs">
+              <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate tabular-nums">
               {formatCurrency(metrics.unpaidInvoicesAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-rose-700/80 dark:text-rose-300 font-bold border-t border-rose-500/20 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-rose-700/80 dark:text-rose-300 font-bold border-t border-rose-500/20 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-              {metrics.overdueCount} Jatuh Tempo ({formatCurrency(metrics.overdueInvoicesAmount)})
+              {metrics.overdueCount} Jatuh Tempo
             </span>
             <span>{metrics.unpaidCount} Faktur</span>
           </div>
         </Card>
 
         {/* Card 4: Nilai Pipeline Penawaran */}
-        <Card className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pipeline Penawaran</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-2xs">
-              <FileText className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pipeline Penawaran</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-2xs">
+              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-amber-600 dark:text-amber-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 truncate tabular-nums">
               {formatCurrency(metrics.totalQuotesAmount)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-amber-700/80 dark:text-amber-300 font-bold border-t border-amber-500/20 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-amber-700/80 dark:text-amber-300 font-bold border-t border-amber-500/20 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               Goal: {formatCurrency(metrics.acceptedQuotesAmount)}
