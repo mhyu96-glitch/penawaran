@@ -279,6 +279,23 @@ const QuoteView = () => {
     setIsGeneratingPDF(false);
   };
 
+  const handlePrint = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+    }
+
+    const handleAfterPrint = () => {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      }
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+    window.print();
+  };
+
   const handleDeleteQuote = async () => {
     if (!id) return;
     const { error } = await supabase.from('quotes').delete().match({ id });
@@ -384,7 +401,7 @@ const QuoteView = () => {
             {isGeneratingPDF ? 'Membuat PDF...' : 'PDF 1 Halaman'}
           </Button>
 
-          <Button onClick={() => window.print()} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
+          <Button onClick={handlePrint} variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
             <Printer className="mr-1.5 h-4 w-4" /> Cetak
           </Button>
         </div>

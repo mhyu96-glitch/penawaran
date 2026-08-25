@@ -458,9 +458,14 @@ body {
    ============================================ */
 
 @media print {
-  body {
-    background: white;
-    color: black;
+  html,
+  body,
+  #root {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    background-attachment: scroll !important;
+    color: #0f172a !important;
   }
   
   .glass-light,
@@ -469,9 +474,10 @@ body {
   .glass-ultra,
   .glass-container,
   .glass-card-interactive {
-    background: white;
-    border: 1px solid #ddd;
-    box-shadow: none;
+    background: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
   }
 }
 
