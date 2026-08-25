@@ -286,11 +286,61 @@ const ProjectDetail = () => {
     }
   };
 
-  // Flatten all procurement items from linked quotes
+// Helper untuk mendeteksi item pembatas / header section
+const isHeaderOrDivider = (item: { description?: string | null; quantity?: number; unit_price?: number; cost_price?: number }) => {
+  const desc = (item.description || '').trim().toLowerCase();
+  const qty = Number(item.quantity) || 0;
+  const price = Number(item.unit_price) || 0;
+  const cost = Number(item.cost_price) || 0;
+
+  // Qty 0 atau bernilai 0 tanpa harga
+  if (qty <= 0) return true;
+  if (price === 0 && cost === 0) return true;
+
+  // Format pembatas simbolik: ---, ===, [header], ***
+  if (/^[-=_*~#]{2,}/.test(desc) || /^\[.*\]$/.test(desc)) return true;
+
+  // Kata kunci pembatas / header
+  const headerKeywords = [
+    'item utama', 'material utama', 'daftar barang', 'daftar material',
+    'peralatan', 'perangkat', 'pembatas', 'header', 'kategori',
+    'rincian barang', 'rincian jasa', 'sub total', 'subtotal', 'section'
+  ];
+  if (headerKeywords.some(kw => desc === kw || desc === `${kw}:` || desc === `[${kw}]` || desc.startsWith(`${kw} `))) {
+    if (price === 0 || qty <= 0) return true;
+  }
+
+  return false;
+};
+
+// Helper untuk mendeteksi item jasa / upah (tidak masuk ke belanja barang fisik BOM)
+const isServiceItem = (item: { description?: string | null; unit?: string | null }) => {
+  const desc = (item.description || '').trim().toLowerCase();
+  const unit = (item.unit || '').trim().toLowerCase();
+
+  // Satuan berjenis jasa
+  if (['jasa', 'srv', 'service', 'titik pasang', 'titik'].includes(unit)) return true;
+
+  // Kata kunci jasa
+  const serviceKeywords = [
+    'jasa pasang', 'jasa instalasi', 'jasa pemasangan', 'jasa setting',
+    'jasa konfigurasi', 'jasa tarik kabel', 'jasa penarikan', 'jasa borongan',
+    'jasa maintenance', 'jasa perbaikan', 'jasa servis', 'jasa service',
+    'ongkos pasang', 'ongkos kerja', 'biaya pasang', 'biaya instalasi',
+    'biaya setting', 'upah kerja', 'upah teknisi', 'instalasi & setting',
+    'instalasi cctv', 'tarik kabel', 'setting nvr', 'setting dvr', 'setting cctv'
+  ];
+
+  return serviceKeywords.some(kw => desc.startsWith(kw) || desc.includes(` ${kw}`) || desc === kw) || desc.startsWith('jasa ');
+};
+
+  // Flatten all procurement items from linked quotes, filtering out headers and services
   const procurementItems = useMemo(() => {
     const list: (QuoteItem & { quote_number: string })[] = [];
     quotes.forEach(q => {
       (q.quote_items || []).forEach(item => {
+        if (isHeaderOrDivider(item) || isServiceItem(item)) return;
+
         list.push({
           ...item,
           quote_number: q.quote_number
@@ -393,10 +443,12 @@ const ProjectDetail = () => {
       ? allInvoicesTotal 
       : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
 
-    // Biaya modal barang (HPP)
+    // Biaya modal barang fisik (HPP BOM) - excluding pembatas & jasa
     const costOfGoodsSold = quotes
       .filter(q => q.status === 'Diterima' || q.status === 'accepted')
-      .reduce((sum, q) => sum + (q.quote_items || []).reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
+      .reduce((sum, q) => sum + (q.quote_items || [])
+        .filter(item => !isHeaderOrDivider(item) && !isServiceItem(item))
+        .reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
 
     // Total pengeluaran operasional (bensin, makan, gaji teknisi, dll)
     const totalOperationalExpenses = expenseBreakdown.totalOperational;
