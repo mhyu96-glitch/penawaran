@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban, MoreVertical } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FileText, Send, FolderKanban, MoreVertical, CheckCircle2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -254,6 +254,22 @@ const QuoteView = () => {
     }
   };
 
+  const handleAcceptQuote = async () => {
+    if (!id || !quote) return;
+    try {
+      const { error } = await supabase.from('quotes').update({ status: 'Diterima' }).eq('id', id);
+      if (error) {
+        showError(`Gagal memperbarui status: ${error.message}`);
+      } else {
+        showSuccess('Penawaran berhasil ditandai Diterima!');
+        setQuote({ ...quote, status: 'Diterima' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      showError('Terjadi kesalahan saat memperbarui status.');
+    }
+  };
+
   const handleSaveAsPDF = async () => {
     if (!quoteRef.current || !quote) return;
     setIsGeneratingPDF(true);
@@ -289,6 +305,8 @@ const QuoteView = () => {
     return null;
   }
 
+  const isAccepted = quote.status === 'Diterima' || quote.status === 'accepted';
+
   return (
     <div className="min-h-screen bg-background px-2 py-3 text-foreground sm:p-8">
         <SendDocumentDialog
@@ -310,11 +328,22 @@ const QuoteView = () => {
                 <Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link>
             </Button>
             <div className="flex items-center gap-2">
-                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} size="sm" className="h-10 bg-green-600 hover:bg-green-700">
-                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Buat Faktur'}
-                </Button>
+                {!isAccepted ? (
+                    <Button onClick={handleAcceptQuote} size="sm" className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" /> Terima
+                    </Button>
+                ) : (
+                    <>
+                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} size="sm" className="h-10 bg-green-600 hover:bg-green-700">
+                            <Receipt className="mr-1.5 h-4 w-4" /> {isCreatingInvoice ? 'Membuat...' : 'Faktur'}
+                        </Button>
+                        <Button onClick={handleCreateProject} size="sm" className="h-10 bg-amber-600 hover:bg-amber-700 text-white">
+                            <FolderKanban className="mr-1.5 h-4 w-4" /> Proyek
+                        </Button>
+                    </>
+                )}
                 <Button onClick={() => setIsSendDialogOpen(true)} size="sm" className="h-10">
-                    <Send className="mr-2 h-4 w-4" /> Kirim
+                    <Send className="mr-1.5 h-4 w-4" /> Kirim
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -324,9 +353,9 @@ const QuoteView = () => {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        {quote.status === 'Diterima' && (
-                            <DropdownMenuItem onClick={handleCreateProject}>
-                                <FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek
+                        {!isAccepted && (
+                            <DropdownMenuItem onClick={handleAcceptQuote} className="text-emerald-600 font-semibold">
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Tandai Diterima
                             </DropdownMenuItem>
                         )}
                         <DropdownMenuItem asChild><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></DropdownMenuItem>
@@ -341,15 +370,23 @@ const QuoteView = () => {
         <div className="mx-auto mb-6 hidden max-w-7xl flex-col items-center justify-between gap-4 print:hidden md:flex md:flex-row">
             <Button asChild variant="outline" className="self-start md:self-auto"><Link to="/quotes"><ArrowLeft className="mr-2 h-4 w-4" /> Kembali</Link></Button>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
-                <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="bg-green-600 hover:bg-green-700 text-white">
-                    <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
-                </Button>
+                {!isAccepted ? (
+                    <Button onClick={handleAcceptQuote} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Tandai Diterima
+                    </Button>
+                ) : (
+                    <>
+                        <Button onClick={handleCreateInvoice} disabled={isCreatingInvoice} className="bg-green-600 hover:bg-green-700 text-white font-bold">
+                            <Receipt className="mr-2 h-4 w-4" /> {isCreatingInvoice ? 'Membuat Faktur...' : 'Buat Faktur'}
+                        </Button>
+                        <Button onClick={handleCreateProject} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">
+                            <FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek
+                        </Button>
+                    </>
+                )}
                 <Button onClick={() => setIsSendDialogOpen(true)} variant="default">
                     <Send className="mr-2 h-4 w-4" /> Kirim
                 </Button>
-                {quote.status === 'Diterima' && (
-                    <Button onClick={handleCreateProject} variant="outline" className="border-primary/30 text-primary hover:bg-accent"><FolderKanban className="mr-2 h-4 w-4" /> Buat Proyek</Button>
-                )}
                 <Button asChild variant="outline"><Link to={`/quote/edit/${id}`}><Pencil className="mr-2 h-4 w-4" /> Edit</Link></Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</Button></AlertDialogTrigger>

@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { 
   PlusCircle, Eye, Pencil, Trash2, FileText, Search, Receipt, 
   TrendingUp, Send, FileEdit, ArrowUpRight, CheckCircle2, RefreshCw,
-  Calendar as CalendarIcon, Clock, Sparkles, X, ChevronRight, Check
+  Calendar as CalendarIcon, Clock, Sparkles, X, ChevronRight, Check, FolderKanban
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -38,6 +38,8 @@ type Quote = {
   to_client: string;
   created_at: string;
   status: string;
+  title?: string;
+  client_id?: string;
   discount_amount?: number;
   tax_amount?: number;
   quote_items?: QuoteItem[];
@@ -64,6 +66,8 @@ const QuoteListSimple = () => {
           to_client, 
           created_at, 
           status,
+          title,
+          client_id,
           discount_amount,
           tax_amount,
           quote_items(quantity, unit_price)
@@ -90,6 +94,25 @@ const QuoteListSimple = () => {
       sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0) || 0;
     const afterDiscount = subtotal - (Number(quote.discount_amount) || 0);
     return afterDiscount + (Number(quote.tax_amount) || 0);
+  };
+
+  const handleAcceptQuote = async (quote: Quote) => {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .update({ status: 'Diterima' })
+        .eq('id', quote.id);
+
+      if (error) {
+        showError(`Gagal memperbarui status: ${error.message}`);
+      } else {
+        showSuccess(`Penawaran ${quote.quote_number || ''} berhasil diterima!`);
+        setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, status: 'Diterima' } : q));
+      }
+    } catch (err: any) {
+      console.error('Accept quote error:', err);
+      showError('Terjadi kesalahan saat menandai penawaran diterima.');
+    }
   };
 
   const handleCreateInvoice = async (quote: Quote) => {
@@ -134,6 +157,37 @@ const QuoteListSimple = () => {
     } catch (err) {
       console.error('Create invoice error:', err);
       showError('Terjadi kesalahan saat membuat faktur.');
+    }
+  };
+
+  const handleCreateProject = async (quote: Quote) => {
+    if (!user) return;
+
+    try {
+      const total = calculateQuoteTotal(quote);
+      const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+          user_id: user.id,
+          client_id: quote.client_id || null,
+          name: quote.title || `Proyek ${quote.quote_number || 'Penawaran'}`,
+          description: `Dibuat dari penawaran ${quote.quote_number || ''}`,
+          status: 'Ongoing',
+          budget: total
+        })
+        .select()
+        .single();
+
+      if (error) {
+        showError(`Gagal membuat proyek: ${error.message}`);
+      } else {
+        await supabase.from('quotes').update({ project_id: newProject.id }).eq('id', quote.id);
+        showSuccess('Proyek berhasil dibuat!');
+        navigate(`/project/${newProject.id}`);
+      }
+    } catch (err: any) {
+      console.error('Create project error:', err);
+      showError('Terjadi kesalahan saat membuat proyek.');
     }
   };
 
@@ -514,21 +568,50 @@ const QuoteListSimple = () => {
                         </div>
 
                         {/* Quick Action Buttons */}
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                          {quote.status?.toLowerCase() !== 'diterima' && quote.status?.toLowerCase() !== 'accepted' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleAcceptQuote(quote)}
+                              className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-bold gap-1"
+                              title="Tandai Penawaran Diterima"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Terima</span>
+                            </Button>
+                          )}
+
+                          {(quote.status?.toLowerCase() === 'diterima' || quote.status?.toLowerCase() === 'accepted') && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCreateInvoice(quote)}
+                                className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-bold gap-1"
+                                title="Buat Faktur"
+                              >
+                                <Receipt className="h-3.5 w-3.5" />
+                                <span>Faktur</span>
+                              </Button>
+
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCreateProject(quote)}
+                                className="h-8 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-bold gap-1"
+                                title="Buat Proyek"
+                              >
+                                <FolderKanban className="h-3.5 w-3.5" />
+                                <span>Proyek</span>
+                              </Button>
+                            </>
+                          )}
+
                           <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground">
                             <Link to={`/quote/${quote.id}`} title="Lihat">
                               <Eye className="h-4 w-4" />
                             </Link>
-                          </Button>
-
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleCreateInvoice(quote)}
-                            className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            title="Konversi Faktur"
-                          >
-                            <Receipt className="h-4 w-4" />
                           </Button>
 
                           <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground">
@@ -575,7 +658,7 @@ const QuoteListSimple = () => {
                       <TableHead className="w-[200px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Nominal Total</TableHead>
                       <TableHead className="w-[140px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Status</TableHead>
                       <TableHead className="w-[150px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Tanggal Buat</TableHead>
-                      <TableHead className="w-[180px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Aksi</TableHead>
+                      <TableHead className="w-[220px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/60">
@@ -640,12 +723,50 @@ const QuoteListSimple = () => {
 
                           {/* Aksi */}
                           <TableCell className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {/* Tombol Terima Penawaran jika belum diterima */}
+                              {quote.status?.toLowerCase() !== 'diterima' && quote.status?.toLowerCase() !== 'accepted' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleAcceptQuote(quote)}
+                                  className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold text-xs gap-1 transition-all"
+                                  title="Tandai Penawaran Diterima"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Terima</span>
+                                </Button>
+                              )}
+
+                              {/* Tombol Buat Faktur & Buat Proyek jika penawaran DITERIMA */}
+                              {(quote.status?.toLowerCase() === 'diterima' || quote.status?.toLowerCase() === 'accepted') && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleCreateInvoice(quote)} 
+                                    className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold text-xs gap-1 transition-all" 
+                                    title="Buat Faktur Tagihan"
+                                  >
+                                    <Receipt className="h-3.5 w-3.5" />
+                                    <span>Faktur</span>
+                                  </Button>
+
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleCreateProject(quote)} 
+                                    className="h-8 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 font-bold text-xs gap-1 transition-all" 
+                                    title="Buat Proyek Baru"
+                                  >
+                                    <FolderKanban className="h-3.5 w-3.5" />
+                                    <span>Proyek</span>
+                                  </Button>
+                                </>
+                              )}
+
                               <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" title="Lihat">
                                 <Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link>
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleCreateInvoice(quote)} className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" title="Konversi Jadi Faktur">
-                                <Receipt className="h-4 w-4" />
                               </Button>
                               <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" title="Edit">
                                 <Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link>
