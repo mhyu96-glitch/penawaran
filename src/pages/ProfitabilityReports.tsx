@@ -440,79 +440,147 @@ const ProfitabilityReports = () => {
                   Belum ada catatan barang fisik pada faktur tagihan.
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <Table className="w-full min-w-[620px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
-                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Barang / Deskripsi</TableHead>
-                        <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Terjual</TableHead>
-                        <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan</TableHead>
-                        <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Modal Beli (HPP)</TableHead>
-                        <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Laba Kotor</TableHead>
-                        <TableHead className="w-[130px] text-center font-bold text-xs uppercase text-muted-foreground">Margin (%)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {filteredGoods.map((good, i) => {
-                        const margin = good.totalRevenue > 0 ? (good.totalProfit / good.totalRevenue) * 100 : 0;
+                <>
+                  {/* MOBILE CARDS VIEW: Goods Profitability */}
+                  <div className="block sm:hidden divide-y divide-border/60">
+                    {filteredGoods.map((good, i) => {
+                      const margin = good.totalRevenue > 0 ? (good.totalProfit / good.totalRevenue) * 100 : 0;
 
-                        return (
-                          <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="text-center font-bold text-xs text-muted-foreground">
-                              {i + 1}
-                            </TableCell>
-
-                            <TableCell className="py-3.5">
-                              <span className="font-bold text-xs sm:text-sm block text-foreground">
+                      return (
+                        <div key={i} className="p-3.5 space-y-2.5 hover:bg-muted/30 transition-colors">
+                          {/* Card Top: Title & Margin Badge */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                              <span className="font-bold text-xs sm:text-sm text-foreground block leading-snug">
                                 {good.description}
                               </span>
                               {good.hasMissingHpp && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-semibold mt-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-semibold">
                                   <AlertCircle className="h-2.5 w-2.5" /> HPP belum diisi di faktur
                                 </span>
                               )}
-                            </TableCell>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-extrabold px-2 py-0.5 rounded-full border shrink-0",
+                              margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" :
+                              margin > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25" :
+                              "bg-rose-500/10 text-rose-600 border-rose-500/25"
+                            )}>
+                              Margin {margin.toFixed(1)}%
+                            </span>
+                          </div>
 
-                            <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
-                              {good.totalQuantity} <span className="text-[11px] font-normal text-muted-foreground">unit</span>
-                            </TableCell>
+                          {/* Card Middle: 3-column stats */}
+                          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs">
+                            <div className="text-center border-r border-border/60 pr-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Terjual</span>
+                              <span className="font-extrabold text-foreground text-xs mt-0.5 block">
+                                {good.totalQuantity} <span className="text-[10px] font-normal text-muted-foreground">unit</span>
+                              </span>
+                            </div>
 
-                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
-                              {formatCurrency(good.totalRevenue)}
-                            </TableCell>
+                            <div className="text-center border-r border-border/60 px-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Penjualan</span>
+                              <span className="font-semibold text-muted-foreground text-xs mt-0.5 block tabular-nums">
+                                {formatCurrency(good.totalRevenue)}
+                              </span>
+                            </div>
 
-                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
-                              {good.totalCost > 0 ? (
-                                formatCurrency(good.totalCost)
-                              ) : (
-                                <span className="text-xs text-muted-foreground italic">Rp 0</span>
-                              )}
-                            </TableCell>
+                            <div className="text-center pl-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Modal (HPP)</span>
+                              <span className="font-semibold text-foreground text-xs mt-0.5 block tabular-nums">
+                                {good.totalCost > 0 ? formatCurrency(good.totalCost) : <span className="italic text-muted-foreground">Rp 0</span>}
+                              </span>
+                            </div>
+                          </div>
 
-                            <TableCell className="text-right font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {/* Card Bottom: Laba Kotor */}
+                          <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+                            <span className="text-[11px] text-muted-foreground font-medium">Estimasi Laba Kotor:</span>
+                            <span className="font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
                               {formatCurrency(good.totalProfit)}
-                            </TableCell>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                            <TableCell className="text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <span className={cn(
-                                  "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border",
-                                  margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" :
-                                  margin > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25" :
-                                  "bg-rose-500/10 text-rose-600 border-rose-500/25"
-                                )}>
-                                  {margin.toFixed(1)}%
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <Table className="w-full min-w-[620px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
+                          <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Barang / Deskripsi</TableHead>
+                          <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Terjual</TableHead>
+                          <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan</TableHead>
+                          <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Modal Beli (HPP)</TableHead>
+                          <TableHead className="w-[160px] text-right font-bold text-xs uppercase text-muted-foreground">Laba Kotor</TableHead>
+                          <TableHead className="w-[130px] text-center font-bold text-xs uppercase text-muted-foreground">Margin (%)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {filteredGoods.map((good, i) => {
+                          const margin = good.totalRevenue > 0 ? (good.totalProfit / good.totalRevenue) * 100 : 0;
+
+                          return (
+                            <TableRow key={i} className="hover:bg-muted/30 transition-colors">
+                              <TableCell className="text-center font-bold text-xs text-muted-foreground">
+                                {i + 1}
+                              </TableCell>
+
+                              <TableCell className="py-3.5">
+                                <span className="font-bold text-xs sm:text-sm block text-foreground">
+                                  {good.description}
                                 </span>
-                                <Progress value={Math.min(margin, 100)} className="h-1.5 w-14 rounded-full" />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                                {good.hasMissingHpp && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-semibold mt-0.5">
+                                    <AlertCircle className="h-2.5 w-2.5" /> HPP belum diisi di faktur
+                                  </span>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
+                                {good.totalQuantity} <span className="text-[11px] font-normal text-muted-foreground">unit</span>
+                              </TableCell>
+
+                              <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
+                                {formatCurrency(good.totalRevenue)}
+                              </TableCell>
+
+                              <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
+                                {good.totalCost > 0 ? (
+                                  formatCurrency(good.totalCost)
+                                ) : (
+                                  <span className="text-xs text-muted-foreground italic">Rp 0</span>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-right font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {formatCurrency(good.totalProfit)}
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={cn(
+                                    "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border",
+                                    margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" :
+                                    margin > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25" :
+                                    "bg-rose-500/10 text-rose-600 border-rose-500/25"
+                                  )}>
+                                    {margin.toFixed(1)}%
+                                  </span>
+                                  <Progress value={Math.min(margin, 100)} className="h-1.5 w-14 rounded-full" />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -563,54 +631,110 @@ const ProfitabilityReports = () => {
                   Belum ada catatan layanan jasa pada faktur tagihan.
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <Table className="w-full min-w-[620px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
-                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Jasa / Layanan</TableHead>
-                        <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Volume</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan Jasa</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Modal Langsung</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Pendapatan Bersih Jasa</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {filteredServices.map((service, i) => (
-                        <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                          <TableCell className="text-center font-bold text-xs text-muted-foreground">
-                            {i + 1}
-                          </TableCell>
-
-                          <TableCell className="py-3.5">
-                            <span className="font-bold text-xs sm:text-sm block text-foreground">
+                <>
+                  {/* MOBILE CARDS VIEW: Services Profitability */}
+                  <div className="block sm:hidden divide-y divide-border/60">
+                    {filteredServices.map((service, i) => (
+                      <div key={i} className="p-3.5 space-y-2.5 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-0.5">
+                            <span className="font-bold text-xs sm:text-sm text-foreground block leading-snug">
                               {service.description}
                             </span>
-                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold inline-flex items-center gap-1 mt-0.5">
+                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold inline-flex items-center gap-1">
                               <Wrench className="h-2.5 w-2.5" /> Jasa & Tenaga Kerja
                             </span>
-                          </TableCell>
+                          </div>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25 shrink-0">
+                            {service.totalQuantity} Sesi
+                          </span>
+                        </div>
 
-                          <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
-                            {service.totalQuantity} <span className="text-[11px] font-normal text-muted-foreground">titik/sesi</span>
-                          </TableCell>
+                        {/* 3-column stats */}
+                        <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs">
+                          <div className="text-center border-r border-border/60 pr-1">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Volume</span>
+                            <span className="font-extrabold text-foreground text-xs mt-0.5 block">
+                              {service.totalQuantity} <span className="text-[10px] font-normal text-muted-foreground">titik/sesi</span>
+                            </span>
+                          </div>
 
-                          <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
-                            {formatCurrency(service.totalRevenue)}
-                          </TableCell>
+                          <div className="text-center border-r border-border/60 px-1">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Penjualan</span>
+                            <span className="font-semibold text-muted-foreground text-xs mt-0.5 block tabular-nums">
+                              {formatCurrency(service.totalRevenue)}
+                            </span>
+                          </div>
 
-                          <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
-                            {service.totalCost > 0 ? formatCurrency(service.totalCost) : <span className="text-xs text-muted-foreground italic">Rp 0 (Upah Lapangan)</span>}
-                          </TableCell>
+                          <div className="text-center pl-1">
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Modal Langsung</span>
+                            <span className="font-semibold text-foreground text-xs mt-0.5 block tabular-nums">
+                              {service.totalCost > 0 ? formatCurrency(service.totalCost) : <span className="italic text-muted-foreground">Rp 0</span>}
+                            </span>
+                          </div>
+                        </div>
 
-                          <TableCell className="text-right font-black text-xs sm:text-sm text-sky-600 dark:text-sky-400 tabular-nums">
+                        {/* Bottom: Pendapatan Bersih Jasa */}
+                        <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+                          <span className="text-[11px] text-muted-foreground font-medium">Pendapatan Bersih Jasa:</span>
+                          <span className="font-black text-xs sm:text-sm text-sky-600 dark:text-sky-400 tabular-nums">
                             {formatCurrency(service.totalProfit)}
-                          </TableCell>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <Table className="w-full min-w-[620px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
+                          <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Jasa / Layanan</TableHead>
+                          <TableHead className="w-[100px] text-center font-bold text-xs uppercase text-muted-foreground">Volume</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan Jasa</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Modal Langsung</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Pendapatan Bersih Jasa</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {filteredServices.map((service, i) => (
+                          <TableRow key={i} className="hover:bg-muted/30 transition-colors">
+                            <TableCell className="text-center font-bold text-xs text-muted-foreground">
+                              {i + 1}
+                            </TableCell>
+
+                            <TableCell className="py-3.5">
+                              <span className="font-bold text-xs sm:text-sm block text-foreground">
+                                {service.description}
+                              </span>
+                              <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold inline-flex items-center gap-1 mt-0.5">
+                                <Wrench className="h-2.5 w-2.5" /> Jasa & Tenaga Kerja
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
+                              {service.totalQuantity} <span className="text-[11px] font-normal text-muted-foreground">titik/sesi</span>
+                            </TableCell>
+
+                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
+                              {formatCurrency(service.totalRevenue)}
+                            </TableCell>
+
+                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
+                              {service.totalCost > 0 ? formatCurrency(service.totalCost) : <span className="text-xs text-muted-foreground italic">Rp 0 (Upah Lapangan)</span>}
+                            </TableCell>
+
+                            <TableCell className="text-right font-black text-xs sm:text-sm text-sky-600 dark:text-sky-400 tabular-nums">
+                              {formatCurrency(service.totalProfit)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -661,71 +785,135 @@ const ProfitabilityReports = () => {
                   Belum ada data faktur klien.
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <Table className="w-full min-w-[620px]">
-                    <TableHeader className="bg-muted/40">
-                      <TableRow className="border-b border-border/80">
-                        <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
-                        <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Klien</TableHead>
-                        <TableHead className="w-[140px] text-center font-bold text-xs uppercase text-muted-foreground">Jumlah Faktur</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Modal (HPP)</TableHead>
-                        <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Laba Kotor</TableHead>
-                        <TableHead className="w-[130px] text-center font-bold text-xs uppercase text-muted-foreground">Margin (%)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/60">
-                      {filteredClients.map((client, i) => {
-                        const margin = client.totalRevenue > 0 ? (client.totalProfit / client.totalRevenue) * 100 : 0;
+                <>
+                  {/* MOBILE CARDS VIEW: Clients Profitability */}
+                  <div className="block sm:hidden divide-y divide-border/60">
+                    {filteredClients.map((client, i) => {
+                      const margin = client.totalRevenue > 0 ? (client.totalProfit / client.totalRevenue) * 100 : 0;
 
-                        return (
-                          <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="text-center font-bold text-xs text-muted-foreground">
-                              {i + 1}
-                            </TableCell>
-
-                            <TableCell className="py-3.5">
-                              <span className="font-bold text-xs sm:text-sm block text-foreground">
+                      return (
+                        <div key={i} className="p-3.5 space-y-2.5 hover:bg-muted/30 transition-colors">
+                          {/* Card Top: Client Name & Margin */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                              <span className="font-bold text-xs sm:text-sm text-foreground block leading-snug">
                                 {client.name}
                               </span>
-                              <span className="text-[10px] text-muted-foreground font-normal">
+                              <span className="text-[10px] text-muted-foreground font-normal block">
                                 {client.paidCount} dari {client.invoiceCount} Faktur Lunas
                               </span>
-                            </TableCell>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-extrabold px-2 py-0.5 rounded-full border shrink-0",
+                              margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" : "bg-rose-500/10 text-rose-600 border-rose-500/25"
+                            )}>
+                              Margin {margin.toFixed(1)}%
+                            </span>
+                          </div>
 
-                            <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
-                              {client.invoiceCount} <span className="text-[11px] font-normal text-muted-foreground">Faktur</span>
-                            </TableCell>
+                          {/* 3-column stats */}
+                          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs">
+                            <div className="text-center border-r border-border/60 pr-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Faktur</span>
+                              <span className="font-extrabold text-foreground text-xs mt-0.5 block">
+                                {client.invoiceCount} <span className="text-[10px] font-normal text-muted-foreground">Faktur</span>
+                              </span>
+                            </div>
 
-                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
-                              {formatCurrency(client.totalRevenue)}
-                            </TableCell>
+                            <div className="text-center border-r border-border/60 px-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Total Omzet</span>
+                              <span className="font-semibold text-muted-foreground text-xs mt-0.5 block tabular-nums">
+                                {formatCurrency(client.totalRevenue)}
+                              </span>
+                            </div>
 
-                            <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
-                              {formatCurrency(client.totalCost)}
-                            </TableCell>
+                            <div className="text-center pl-1">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Total Modal</span>
+                              <span className="font-semibold text-foreground text-xs mt-0.5 block tabular-nums">
+                                {formatCurrency(client.totalCost)}
+                              </span>
+                            </div>
+                          </div>
 
-                            <TableCell className="text-right font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {/* Bottom: Total Laba Kotor */}
+                          <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+                            <span className="text-[11px] text-muted-foreground font-medium">Total Laba Kotor:</span>
+                            <span className="font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
                               {formatCurrency(client.totalProfit)}
-                            </TableCell>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                            <TableCell className="text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <span className={cn(
-                                  "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border",
-                                  margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" : "bg-rose-500/10 text-rose-600 border-rose-500/25"
-                                )}>
-                                  {margin.toFixed(1)}%
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden sm:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <Table className="w-full min-w-[620px]">
+                      <TableHeader className="bg-muted/40">
+                        <TableRow className="border-b border-border/80">
+                          <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
+                          <TableHead className="font-bold text-xs uppercase text-muted-foreground">Nama Klien</TableHead>
+                          <TableHead className="w-[140px] text-center font-bold text-xs uppercase text-muted-foreground">Jumlah Faktur</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Penjualan</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Modal (HPP)</TableHead>
+                          <TableHead className="w-[180px] text-right font-bold text-xs uppercase text-muted-foreground">Total Laba Kotor</TableHead>
+                          <TableHead className="w-[130px] text-center font-bold text-xs uppercase text-muted-foreground">Margin (%)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/60">
+                        {filteredClients.map((client, i) => {
+                          const margin = client.totalRevenue > 0 ? (client.totalProfit / client.totalRevenue) * 100 : 0;
+
+                          return (
+                            <TableRow key={i} className="hover:bg-muted/30 transition-colors">
+                              <TableCell className="text-center font-bold text-xs text-muted-foreground">
+                                {i + 1}
+                              </TableCell>
+
+                              <TableCell className="py-3.5">
+                                <span className="font-bold text-xs sm:text-sm block text-foreground">
+                                  {client.name}
                                 </span>
-                                <Progress value={Math.min(margin, 100)} className="h-1.5 w-14 rounded-full" />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                                <span className="text-[10px] text-muted-foreground font-normal">
+                                  {client.paidCount} dari {client.invoiceCount} Faktur Lunas
+                                </span>
+                              </TableCell>
+
+                              <TableCell className="text-center font-black text-xs sm:text-sm text-foreground">
+                                {client.invoiceCount} <span className="text-[11px] font-normal text-muted-foreground">Faktur</span>
+                              </TableCell>
+
+                              <TableCell className="text-right font-semibold text-xs sm:text-sm text-muted-foreground tabular-nums">
+                                {formatCurrency(client.totalRevenue)}
+                              </TableCell>
+
+                              <TableCell className="text-right font-semibold text-xs sm:text-sm text-foreground tabular-nums">
+                                {formatCurrency(client.totalCost)}
+                              </TableCell>
+
+                              <TableCell className="text-right font-black text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {formatCurrency(client.totalProfit)}
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={cn(
+                                    "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border",
+                                    margin >= 30 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" : "bg-rose-500/10 text-rose-600 border-rose-500/25"
+                                  )}>
+                                    {margin.toFixed(1)}%
+                                  </span>
+                                  <Progress value={Math.min(margin, 100)} className="h-1.5 w-14 rounded-full" />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
