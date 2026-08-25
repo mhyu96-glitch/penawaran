@@ -391,7 +391,7 @@ const InvoiceList = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8">
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialog.open} onOpenChange={closePaymentDialog}>
         <DialogContent className="rounded-2xl border border-border/80 shadow-2xl">
@@ -416,61 +416,61 @@ const InvoiceList = () => {
       </Dialog>
 
       {/* Executive Command Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-6 sm:p-8 shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-4 sm:p-7 shadow-xl">
         {/* Ambient Glow Effects */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="pointer-events-none absolute left-1/4 -bottom-16 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Manajemen Faktur & Penagihan
               </div>
-              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
+              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-300">
                 {stats.totalCount} Faktur Terbit
               </span>
             </div>
             
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               Daftar Faktur Saya
             </h1>
             
-            <p className="text-slate-300/90 text-sm leading-relaxed max-w-xl">
+            <p className="text-slate-300/80 text-xs sm:text-sm leading-relaxed max-w-xl font-medium hidden sm:block">
               Kelola penagihan pembayaran, pantau status pelunasan, lacak riwayat lihat klien, dan cetak faktur resmi dengan mudah.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
               onClick={fetchInvoices} 
               variant="outline" 
-              size="lg"
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs"
               title="Refresh Data Faktur"
             >
-              <RefreshCw className={cn("h-4 w-4 text-emerald-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5 text-emerald-400", loading && "animate-spin")} />
             </Button>
 
             {filteredInvoices.length > 0 && (
               <Button 
                 variant="outline" 
-                size="lg" 
+                size="sm" 
                 onClick={handleExportCSV} 
-                className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
+                className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs font-semibold"
               >
-                <Download className="mr-2 h-4 w-4 text-slate-300" /> Ekspor CSV
+                <Download className="mr-1.5 h-3.5 w-3.5 text-slate-300" /> Ekspor CSV
               </Button>
             )}
 
             <Button 
               asChild 
-              size="lg" 
-              className="h-11 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 border border-emerald-400/20 transition-all active:scale-95 px-5"
+              size="sm" 
+              className="h-10 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-lg shadow-emerald-950/50 border border-emerald-400/20 transition-all active:scale-95 px-4 text-xs grow sm:grow-0"
             >
               <Link to="/invoice/new">
-                <PlusCircle className="mr-2 h-4 w-4 stroke-[2.5]" />
+                <PlusCircle className="mr-1.5 h-4 w-4 stroke-[2.5]" />
                 Buat Faktur Baru
               </Link>
             </Button>
@@ -478,90 +478,90 @@ const InvoiceList = () => {
         </div>
       </div>
 
-      {/* 4 Stat KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Stat KPI Metric Cards - 2 Columns on Mobile, 4 Columns on Desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Faktur */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Faktur</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <Receipt className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Faktur</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-2xs">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{stats.totalCount}</h3>
-            <span className="text-xs font-semibold text-muted-foreground">dokumen tagihan</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground">{stats.totalCount}</h3>
+            <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">dokumen</span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
             <span>Semua histori faktur</span>
           </div>
         </Card>
 
         {/* Card 2: Nilai Tagihan Total */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Nilai Tagihan</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <TrendingUp className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Nilai Tagihan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
               {formatCurrency(stats.grandTotalValue)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-medium border-t border-emerald-500/20 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-medium border-t border-emerald-500/20 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span>Total akumulasi piutang & lunas</span>
+            <span>Piutang & lunas</span>
           </div>
         </Card>
 
         {/* Card 3: Faktur Lunas */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Faktur Lunas</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <CheckCircle2 className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Faktur Lunas</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{stats.totalLunas}</h3>
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-              Terbayar penuh
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground">{stats.totalLunas}</h3>
+            <span className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
+              Lunas
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>Kas telah diterima</span>
           </div>
         </Card>
 
         {/* Card 4: Terkirim / Pending */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Terkirim / Pending</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform shadow-2xs">
-              <Clock className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Pending / Tempo</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold tracking-tight text-foreground">{stats.totalTerkirim}</h3>
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-              Menunggu bayar
+          <div className="mt-2 flex items-baseline justify-between">
+            <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground">{stats.totalTerkirim}</h3>
+            <span className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">
+              {stats.totalOverdue > 0 ? `${stats.totalOverdue} Tempo` : 'Pending'}
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            <span>{stats.totalOverdue > 0 ? `${stats.totalOverdue} faktur jatuh tempo` : 'Semua belum jatuh tempo'}</span>
+            <span>{stats.totalOverdue > 0 ? `${stats.totalOverdue} jatuh tempo` : 'Belum tempo'}</span>
           </div>
         </Card>
       </div>
 
-      {/* Main Table Card */}
+      {/* Main Container Card */}
       <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-        <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <CardHeader className="p-3.5 sm:p-6 border-b border-border/70 bg-muted/20 space-y-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search Input Bar */}
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
@@ -569,7 +569,7 @@ const InvoiceList = () => {
                 placeholder="Cari nomor faktur atau nama klien..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 pl-10 pr-9 rounded-xl bg-background border-border/80 focus-visible:ring-primary/20 text-xs sm:text-sm"
+                className="h-10 pl-10 pr-9 rounded-xl bg-background border-border/80 focus-visible:ring-primary/20 text-xs sm:text-sm font-medium"
               />
               {searchTerm && (
                 <button 
@@ -581,8 +581,8 @@ const InvoiceList = () => {
               )}
             </div>
 
-            {/* Filter Tabs Segmented Control */}
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 self-start md:self-auto overflow-x-auto max-w-full">
+            {/* Filter Tabs Segmented Control with Smooth Swiping */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 { key: 'all', label: 'Semua', count: stats.totalCount },
                 { key: 'terkirim', label: 'Terkirim', count: stats.totalTerkirim, badgeColor: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' },
@@ -595,16 +595,16 @@ const InvoiceList = () => {
                     key={tab.key}
                     onClick={() => setStatusFilter(tab.key)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none",
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap select-none border shrink-0",
                       isActive
-                        ? "bg-background text-foreground shadow-xs border border-border/70"
-                        : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-muted/30 hover:bg-muted text-muted-foreground border-border/70"
                     )}
                   >
                     <span>{tab.label}</span>
                     <span className={cn(
-                      "px-1.5 py-0.2 rounded-full text-[10px] font-extrabold",
-                      isActive ? "bg-primary/10 text-primary" : (tab.badgeColor || "bg-muted text-muted-foreground")
+                      "px-1.5 py-0.2 rounded-full text-[10px] font-black",
+                      isActive ? "bg-white/20 text-white" : (tab.badgeColor || "bg-muted text-muted-foreground")
                     )}>
                       {tab.count}
                     </span>
