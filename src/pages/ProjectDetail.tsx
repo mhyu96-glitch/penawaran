@@ -284,7 +284,22 @@ const ProjectDetail = () => {
 
       if (projectRes.data) setProject(projectRes.data as ProjectDetails);
       if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
-      if (invoicesRes.data) setInvoices(invoicesRes.data as Invoice[]);
+      if (invoicesRes.data) {
+        const invList = invoicesRes.data as Invoice[];
+        setInvoices(invList);
+
+        const invIds = invList.map(inv => inv.id);
+        if (invIds.length > 0) {
+          const { data: pData } = await supabase
+            .from('payments')
+            .select('*')
+            .in('invoice_id', invIds)
+            .order('payment_date', { ascending: false });
+          setPayments(pData || []);
+        } else {
+          setPayments([]);
+        }
+      }
       if (expensesRes.data) setExpenses(expensesRes.data as Expense[]);
       if (tasksRes.data) setTasks(tasksRes.data as Task[]);
       if (timeEntriesRes.data) setTimeEntries(timeEntriesRes.data as TimeEntry[]);
@@ -572,10 +587,22 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
       }, 0);
 
-    // Total pendapatan proyek
+    // Total pendapatan proyek (Nilai Kontrak)
     const totalRevenue = allInvoicesTotal > 0 
       ? allInvoicesTotal 
       : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
+
+    // Total Uang Masuk Riil dari Klien (DP + Termin + Pelunasan)
+    const settledPaymentsTotal = payments
+      .filter(p => p.status === 'Lunas')
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const invoiceDownPayments = invoices.reduce((sum, inv) => sum + (Number(inv.down_payment_amount) || 0), 0);
+    const actualCashIn = settledPaymentsTotal > 0 
+      ? settledPaymentsTotal 
+      : (paidRevenue > 0 ? paidRevenue : invoiceDownPayments);
+    
+    // Sisa Piutang yang belum dibayar klien
+    const unpaidReceivables = Math.max(0, totalRevenue - actualCashIn);
 
     // Biaya modal barang fisik (HPP BOM) - excluding pembatas & jasa
     const costOfGoodsSold = quotes
@@ -593,19 +620,26 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
     // Laba Bersih Riil
     const netProfit = totalRevenue - totalCosts;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    
+    // Arus Kas Bersih Proyek Saat Ini (Kas Masuk Riil - Pengeluaran Riil)
+    const netCashFlow = actualCashIn - totalCosts;
+
     const totalMinutes = timeEntries.reduce((sum, entry) => sum + entry.duration_minutes, 0);
 
     return { 
       totalRevenue, 
       paidRevenue, 
+      actualCashIn,
+      unpaidReceivables,
       costOfGoodsSold,
       totalOperationalExpenses,
       totalCosts, 
       netProfit, 
       profitMargin,
+      netCashFlow,
       totalHours: totalMinutes / 60 
     };
-  }, [invoices, quotes, expenseBreakdown, timeEntries, project]);
+  }, [invoices, payments, quotes, expenseBreakdown, timeEntries, project]);
 
   if (loading) {
     return (
@@ -1242,14 +1276,61 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         {/* TAB 3: AKUMULASI LAPORAN KEUANGAN PROYEK (FINANCIAL RECAP) */}
         {/* ========================================================================= */}
         <TabsContent value="report" className="space-y-6">
+          {/* Quick Cash Flow Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Kas Masuk (DP & Cicilan)</span>
+                <Landmark className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 tabular-nums">
+                {formatCurrency(financials.actualCashIn)}
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                {financials.totalRevenue > 0 ? `${((financials.actualCashIn / financials.totalRevenue) * 100).toFixed(0)}% dari nilai kontrak` : 'Dana masuk riil'}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-rose-500/30 bg-rose-500/5 p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Pengeluaran Riil (BOM + Ops)</span>
+                <Wallet className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              </div>
+              <h4 className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-2 tabular-nums">
+                {formatCurrency(financials.totalCosts)}
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                Biaya belanja material & operasional
+              </p>
+            </div>
+
+            <div className={cn(
+              "rounded-3xl border p-4 sm:p-5",
+              financials.netCashFlow >= 0 ? "border-sky-500/30 bg-sky-500/5" : "border-amber-500/30 bg-amber-500/5"
+            )}>
+              <div className="flex items-center justify-between">
+                <span className={cn("text-xs font-bold uppercase tracking-wider", financials.netCashFlow >= 0 ? "text-sky-700 dark:text-sky-400" : "text-amber-700 dark:text-amber-400")}>
+                  Saldo Kas Proyek Saat Ini
+                </span>
+                <DollarSign className={cn("h-4 w-4", financials.netCashFlow >= 0 ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")} />
+              </div>
+              <h4 className={cn("text-2xl font-black mt-2 tabular-nums", financials.netCashFlow >= 0 ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
+                {formatCurrency(financials.netCashFlow)}
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                {financials.netCashFlow >= 0 ? 'Sisa dana DP setelah dibelanjakan' : 'Perlu penambahan dana kas'}
+              </p>
+            </div>
+          </div>
+
           <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
             <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <PieChart className="h-5 w-5 text-emerald-500" />
-                Akumulasi Laporan Laba Rugi Proyek
+                Akumulasi Laporan Laba Rugi & Arus Kas Proyek
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Rekapitulasi lengkap pemasukan kontrak, belanja barang (HPP), biaya akomodasi, dan laba bersih riil.
+                Rekapitulasi lengkap pemasukan kontrak, uang muka (DP), belanja barang (HPP), biaya akomodasi, dan laba bersih riil.
               </CardDescription>
             </CardHeader>
 
@@ -1276,6 +1357,34 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                         {formatCurrency(financials.totalRevenue)}
                       </TableCell>
                     </TableRow>
+
+                    {/* 1.1 Kas Masuk (DP & Cicilan) */}
+                    <TableRow className="hover:bg-muted/20">
+                      <TableCell className="py-2.5 pl-8 flex items-center gap-2 text-foreground font-medium">
+                        <Landmark className="h-4 w-4 text-emerald-500" />
+                        <span>• Uang Masuk Riil dari Klien (DP & Pelunasan)</span>
+                      </TableCell>
+                      <TableCell className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
+                        {financials.totalRevenue > 0 ? `${((financials.actualCashIn / financials.totalRevenue) * 100).toFixed(0)}% Terbayar` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        {formatCurrency(financials.actualCashIn)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* 1.2 Sisa Piutang */}
+                    {financials.unpaidReceivables > 0 && (
+                      <TableRow className="hover:bg-muted/20">
+                        <TableCell className="py-2.5 pl-8 flex items-center gap-2 text-muted-foreground">
+                          <Clock className="h-4 w-4 text-amber-500" />
+                          <span>• Sisa Piutang Klien (Belum Lunas)</span>
+                        </TableCell>
+                        <TableCell className="text-amber-600 dark:text-amber-400 font-semibold text-xs">Menunggu Pelunasan</TableCell>
+                        <TableCell className="text-right font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                          {formatCurrency(financials.unpaidReceivables)}
+                        </TableCell>
+                      </TableRow>
+                    )}
 
                     {/* 2. HPP Barang */}
                     <TableRow className="hover:bg-muted/20">
