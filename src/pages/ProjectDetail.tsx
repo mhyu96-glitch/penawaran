@@ -825,76 +825,79 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
       </div>
 
       {/* Main Tabs Section */}
-      <Tabs defaultValue="procurement" className="space-y-5">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 w-full h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
-          <TabsTrigger 
-            value="procurement" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <ShoppingCart className="h-4 w-4 shrink-0" />
-            <span className="truncate">Belanja (BOM)</span>
-            {procurementItems.length > 0 && (
-              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
-                {procurementItems.length}
-              </span>
-            )}
-          </TabsTrigger>
+      <Tabs defaultValue="procurement" className="space-y-4 sm:space-y-5">
+        {/* Responsive Swipeable Tabs Header on Mobile */}
+        <div className="overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="inline-flex w-full min-w-max xl:min-w-0 xl:grid xl:grid-cols-6 h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
+            <TabsTrigger 
+              value="procurement" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <span>Belanja (BOM)</span>
+              {procurementItems.length > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
+                  {procurementItems.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="accommodation" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Car className="h-4 w-4 shrink-0" />
-            <span className="truncate">Akomodasi & Upah</span>
-            {expenses.length > 0 && (
-              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
-                {expenses.length}
-              </span>
-            )}
-          </TabsTrigger>
+            <TabsTrigger 
+              value="accommodation" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Car className="h-4 w-4 shrink-0" />
+              <span>Akomodasi & Upah</span>
+              {expenses.length > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
+                  {expenses.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="report" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <PieChart className="h-4 w-4 shrink-0" />
-            <span className="truncate">Laporan Laba Rugi</span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="report" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <PieChart className="h-4 w-4 shrink-0" />
+              <span>Laba Rugi</span>
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="tasks" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <ListTodo className="h-4 w-4 shrink-0" />
-            <span className="truncate">Tugas</span>
-            {tasks.length > 0 && (
-              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
-                {tasks.length}
-              </span>
-            )}
-          </TabsTrigger>
+            <TabsTrigger 
+              value="tasks" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <ListTodo className="h-4 w-4 shrink-0" />
+              <span>Tugas</span>
+              {tasks.length > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
+                  {tasks.length}
+                </span>
+              )}
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="time" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Clock className="h-4 w-4 shrink-0" />
-            <span className="truncate">Jam Kerja</span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="time" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Clock className="h-4 w-4 shrink-0" />
+              <span>Jam Kerja</span>
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="documents" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Layers className="h-4 w-4 shrink-0" />
-            <span className="truncate">Dokumentasi</span>
-            {docPhotos.length > 0 && (
-              <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0">
-                {docPhotos.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="documents" 
+              className="rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Layers className="h-4 w-4 shrink-0" />
+              <span>Dokumentasi</span>
+              {docPhotos.length > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-black leading-none shrink-0 ml-0.5">
+                  {docPhotos.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ========================================================================= */}
         {/* TAB 1: PENGADAAN & DAFTAR BARANG YANG DIBELI (BOM) */}
@@ -904,7 +907,7 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
             <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                     <PackageCheck className="h-5 w-5 text-primary" />
                     Daftar Belanja & Pengadaan Barang (BOM)
                   </CardTitle>
@@ -917,10 +920,10 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                 <div className="flex items-center gap-3 bg-background border border-border/80 rounded-2xl p-2.5 px-4 shrink-0 shadow-2xs">
                   <div className="text-right">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Progres Belanja</p>
-                    <p className="text-sm font-black text-foreground">{procurementStats.purchasedCount} dari {procurementStats.totalItems} Barang ({procurementStats.progressPercent.toFixed(0)}%)</p>
+                    <p className="text-xs sm:text-sm font-black text-foreground">{procurementStats.purchasedCount} dari {procurementStats.totalItems} Barang ({procurementStats.progressPercent.toFixed(0)}%)</p>
                   </div>
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                    <CheckCircle2 className="h-5 w-5" />
+                  <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
               </div>
@@ -936,8 +939,8 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="w-full">
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <Table className="w-full min-w-[700px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="border-b border-border/80 hover:bg-transparent">
                         <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">Beli</TableHead>
@@ -1197,8 +1200,8 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="w-full">
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <Table className="w-full min-w-[650px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="border-b border-border/80">
                         <TableHead className="w-[120px] font-bold text-xs uppercase text-muted-foreground">Tanggal</TableHead>
@@ -1346,8 +1349,8 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
 
             <CardContent className="p-4 sm:p-6 space-y-6">
               {/* Financial Breakdown Table */}
-              <div className="rounded-2xl border border-border/80 overflow-hidden">
-                <Table>
+              <div className="rounded-2xl border border-border/80 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <Table className="w-full min-w-[650px]">
                   <TableHeader className="bg-muted/40">
                     <TableRow className="border-b border-border/80">
                       <TableHead className="font-bold text-xs uppercase">Komponen Keuangan</TableHead>
