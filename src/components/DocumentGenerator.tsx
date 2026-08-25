@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, Plus } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, Plus, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
@@ -394,6 +394,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
+  const [downPaymentPercent, setDownPaymentPercent] = useState<string>('');
   const [terms, setTerms] = useState("");
   const [items, setItems] = useState<Item[]>([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -567,6 +568,55 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const subtotal = useMemo(() => calculateSubtotal(items), [items]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
+
+  // Initial calculation of percentage if downPaymentAmount is present
+  useEffect(() => {
+    if (total > 0 && downPaymentAmount > 0) {
+      const p = ((downPaymentAmount / total) * 100).toFixed(1);
+      setDownPaymentPercent(p.endsWith('.0') ? p.slice(0, -2) : p);
+    }
+  }, [total, downPaymentAmount]);
+
+  const handleDpPreset = (percent: number) => {
+    if (percent === 0) {
+      setDownPaymentPercent('');
+      setDownPaymentAmount(0);
+    } else {
+      setDownPaymentPercent(String(percent));
+      setDownPaymentAmount(Math.round((total * percent) / 100));
+    }
+  };
+
+  const handleDpPercentChange = (valStr: string) => {
+    setDownPaymentPercent(valStr);
+    const p = parseFloat(valStr);
+    if (!isNaN(p) && p >= 0 && p <= 100) {
+      setDownPaymentAmount(Math.round((total * p) / 100));
+    } else if (valStr === '') {
+      setDownPaymentAmount(0);
+    }
+  };
+
+  const handleDpAmountChange = (amountNum: number) => {
+    setDownPaymentAmount(amountNum);
+    if (total > 0 && amountNum > 0) {
+      const p = ((amountNum / total) * 100).toFixed(1);
+      setDownPaymentPercent(p.endsWith('.0') ? p.slice(0, -2) : p);
+    } else {
+      setDownPaymentPercent('');
+    }
+  };
+
+  const handleInsertDpTerms = () => {
+    if (downPaymentAmount <= 0) return;
+    const dpStr = formatCurrency(downPaymentAmount);
+    const balanceStr = formatCurrency(Math.max(0, total - downPaymentAmount));
+    const pStr = downPaymentPercent ? ` (${downPaymentPercent}%)` : '';
+    const dpClause = `Ketentuan Pembayaran:\n1. Uang Muka (DP${pStr}) sebesar ${dpStr} saat deal / konfirmasi pesanan.\n2. Pelunasan sebesar ${balanceStr} setelah pekerjaan selesai / serah terima.`;
+    
+    setTerms(prev => prev ? `${prev}\n\n${dpClause}` : dpClause);
+    showSuccess('Ketentuan DP berhasil ditambahkan ke Syarat & Ketentuan!');
+  };
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -886,13 +936,123 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </Accordion>
 
           <div className="flex justify-end">
-            <div className="w-full max-w-sm space-y-3.5 rounded-2xl border border-border/80 bg-muted/20 p-5 shadow-xs">
-              <div className="flex justify-between text-xs font-semibold"><span className="text-muted-foreground">Subtotal</span><span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span></div>
-              <div className="flex items-center justify-between gap-4"><span className="text-xs font-semibold text-muted-foreground">Diskon (Rp)</span><Input type="text" inputMode="numeric" className="h-10 w-36 rounded-xl text-right text-xs font-bold tabular-nums" value={formatNumberWithDots(discountAmount)} onChange={e => setDiscountAmount(parseDotsToNumber(e.target.value))} /></div>
-              <div className="flex items-center justify-between gap-4"><span className="text-xs font-semibold text-muted-foreground">Pajak (Rp)</span><Input type="text" inputMode="numeric" className="h-10 w-36 rounded-xl text-right text-xs font-bold tabular-nums" value={formatNumberWithDots(taxAmount)} onChange={e => setTaxAmount(parseDotsToNumber(e.target.value))} /></div>
+            <div className="w-full max-w-md space-y-3.5 rounded-3xl border border-border/80 bg-muted/20 p-5 shadow-xs">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs font-semibold text-muted-foreground">Diskon (Rp)</span>
+                <Input 
+                  type="text" 
+                  inputMode="numeric" 
+                  className="h-10 w-40 rounded-xl text-right text-xs font-bold tabular-nums" 
+                  value={formatNumberWithDots(discountAmount)} 
+                  onChange={e => setDiscountAmount(parseDotsToNumber(e.target.value))} 
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs font-semibold text-muted-foreground">Pajak (Rp)</span>
+                <Input 
+                  type="text" 
+                  inputMode="numeric" 
+                  className="h-10 w-40 rounded-xl text-right text-xs font-bold tabular-nums" 
+                  value={formatNumberWithDots(taxAmount)} 
+                  onChange={e => setTaxAmount(parseDotsToNumber(e.target.value))} 
+                />
+              </div>
               <Separator />
-              <div className="flex justify-between text-lg font-black"><span>Total Tagihan</span><span className="text-primary tabular-nums">{formatCurrency(total)}</span></div>
-              {docType === 'invoice' && (<div className="flex items-center justify-between gap-4 pt-1"><span className="text-xs font-semibold text-muted-foreground">Uang Muka (DP) (Rp)</span><Input type="text" inputMode="numeric" className="h-10 w-36 rounded-xl text-right text-xs font-bold tabular-nums" value={formatNumberWithDots(downPaymentAmount)} onChange={e => setDownPaymentAmount(parseDotsToNumber(e.target.value))} /></div>)}
+              <div className="flex justify-between text-lg font-black">
+                <span>Total {config.title}</span>
+                <span className="text-primary tabular-nums">{formatCurrency(total)}</span>
+              </div>
+
+              {/* Uang Muka (DP) Section - Available for both Invoice & Quote */}
+              <div className="pt-2 border-t border-border/60 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    Uang Muka (DP)
+                  </span>
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1">
+                    {[
+                      { label: '0%', val: 0 },
+                      { label: '30%', val: 30 },
+                      { label: '50%', val: 50 },
+                      { label: '70%', val: 70 },
+                    ].map(btn => (
+                      <button
+                        key={btn.label}
+                        type="button"
+                        onClick={() => handleDpPreset(btn.val)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all",
+                          (btn.val === 0 && downPaymentAmount === 0) || (downPaymentPercent === String(btn.val))
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                            : "bg-muted/40 hover:bg-muted text-muted-foreground border-border/80"
+                        )}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dual Input: Percentage and Nominal (Rp) */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative flex items-center">
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                      value={downPaymentPercent}
+                      onChange={e => handleDpPercentChange(e.target.value)}
+                      className="h-10 rounded-xl pr-8 text-xs font-bold text-right tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute right-3 text-xs font-bold text-muted-foreground select-none">%</span>
+                  </div>
+
+                  <div className="relative flex items-center">
+                    <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      className="h-10 rounded-xl pl-9 text-right text-xs font-bold tabular-nums"
+                      value={formatNumberWithDots(downPaymentAmount)}
+                      onChange={e => handleDpAmountChange(parseDotsToNumber(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Sisa Tagihan / Pelunasan Live Preview */}
+                {downPaymentAmount > 0 && (
+                  <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 space-y-1.5">
+                    <div className="flex justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      <span>DP Tercatat{downPaymentPercent ? ` (${downPaymentPercent}%)` : ''}:</span>
+                      <span className="tabular-nums font-black">{formatCurrency(downPaymentAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-foreground">
+                      <span className="text-muted-foreground">Sisa Pelunasan:</span>
+                      <span className="tabular-nums font-black text-rose-600 dark:text-rose-400">
+                        {formatCurrency(Math.max(0, total - downPaymentAmount))}
+                      </span>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleInsertDpTerms}
+                      className="w-full mt-1 h-7 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 rounded-lg"
+                    >
+                      + Tulis ke Syarat & Ketentuan
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <Separator />
