@@ -219,44 +219,44 @@ const ProfitLossReport = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6" id="report-page">
+    <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6 px-3 py-3 sm:px-6 lg:px-8 pb-28 sm:pb-8" id="report-page">
       {/* Executive Command Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 shadow-2xl print:hidden">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-4 sm:p-7 shadow-xl print:hidden">
         {/* Ambient Glow */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-indigo-500/15 blur-3xl" />
         <div className="pointer-events-none absolute left-1/4 -bottom-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-300 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
                 Laporan Rugi Laba Usaha Komprehensif
               </div>
-              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
+              <span className="rounded-full bg-slate-800/80 border border-slate-700/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-300">
                 {financials.netMargin.toFixed(1)}% Net Margin
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               Laporan Laba Rugi
             </h1>
 
-            <p className="text-slate-300/90 text-sm leading-relaxed max-w-xl">
+            <p className="text-slate-300/80 text-xs sm:text-sm leading-relaxed max-w-xl hidden sm:block">
               Hitung seluruh perputaran pendapatan usaha, alokasi HPP modal, beban operasional, dan laba bersih secara akurat.
             </p>
           </div>
 
           {/* Date Picker & Controls */}
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
               onClick={fetchData} 
               variant="outline" 
-              size="lg"
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs"
               title="Refresh Data"
             >
-              <RefreshCw className={cn("h-4 w-4 text-indigo-400", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5 text-indigo-400", loading && "animate-spin")} />
             </Button>
 
             <Popover>
@@ -264,21 +264,22 @@ const ProfitLossReport = () => {
                 <Button 
                   id="date" 
                   variant="outline" 
+                  size="sm"
                   className={cn(
-                    "h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md px-3.5 text-xs font-semibold gap-2",
+                    "h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md px-3 text-xs font-semibold gap-1.5 grow sm:grow-0",
                     !date && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="h-4 w-4 text-indigo-400 shrink-0" />
-                  <span>
+                  <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                  <span className="truncate max-w-[150px] sm:max-w-none">
                     {date?.from ? (
                       date.to ? (
-                        `${format(date.from, "d MMM yyyy", { locale: localeId })} - ${format(date.to, "d MMM yyyy", { locale: localeId })}`
+                        `${format(date.from, "d MMM", { locale: localeId })} - ${format(date.to, "d MMM yyyy", { locale: localeId })}`
                       ) : (
                         format(date.from, "d MMM yyyy", { locale: localeId })
                       )
                     ) : (
-                      "Semua Waktu (All Time)"
+                      "Semua Waktu"
                     )}
                   </span>
                 </Button>
@@ -306,17 +307,18 @@ const ProfitLossReport = () => {
 
             <Button 
               variant="outline" 
+              size="sm"
               onClick={() => window.print()}
-              className="h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-4 font-bold text-xs"
+              className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 font-bold text-xs"
             >
-              <Printer className="mr-2 h-4 w-4 text-sky-400" /> Cetak / PDF
+              <Printer className="mr-1.5 h-3.5 w-3.5 text-sky-400" /> Cetak / PDF
             </Button>
           </div>
         </div>
       </div>
 
       {/* Main Report Container */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Printable Title */}
         <div className="hidden print:block border-b border-slate-300 pb-4 mb-4">
           <h1 className="text-2xl font-black text-slate-900">Laporan Laba Rugi (Income Statement)</h1>
@@ -326,54 +328,66 @@ const ProfitLossReport = () => {
           </p>
         </div>
 
-      {/* Accounting Method Toggle Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/80 print:hidden">
+      {/* Accounting Method Toggle Bar - Responsive Grid on Mobile */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-card border border-border/80 shadow-xs print:hidden">
         <div className="space-y-0.5">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Mode Perhitungan Laporan</h4>
-          <p className="text-xs text-muted-foreground">Pilih untuk melihat seluruh potensi tagihan bisnis atau hanya kas lunas yang sudah masuk.</p>
+          <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Mode Perhitungan Laporan</h4>
+          <p className="text-xs text-muted-foreground hidden sm:block">Pilih untuk melihat seluruh potensi tagihan bisnis atau hanya kas lunas yang sudah masuk.</p>
         </div>
 
-        <div className="flex items-center gap-1 bg-background p-1 rounded-xl border border-border shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-auto shrink-0">
           <Button
-            variant={reportMethod === 'accrual' ? 'default' : 'ghost'}
+            variant={reportMethod === 'accrual' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setReportMethod('accrual')}
-            className="h-8 text-xs font-bold rounded-lg"
+            className={cn(
+              "h-auto py-2 px-3 text-xs font-bold rounded-xl justify-between flex-wrap gap-2 transition-all",
+              reportMethod === 'accrual' ? "bg-primary text-primary-foreground shadow-xs" : "bg-background border-border/80 text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Receipt className="mr-1.5 h-3.5 w-3.5" />
-            Basis Akrual (Semua Tagihan: {formatCurrency(financials.totalInvoicedRevenue)})
+            <span className="flex items-center gap-1.5">
+              <Receipt className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              <span>Basis Akrual (Tagihan)</span>
+            </span>
+            <span className="font-mono text-[11px] font-black">{formatCurrency(financials.totalInvoicedRevenue)}</span>
           </Button>
 
           <Button
-            variant={reportMethod === 'cash' ? 'default' : 'ghost'}
+            variant={reportMethod === 'cash' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setReportMethod('cash')}
-            className="h-8 text-xs font-bold rounded-lg"
+            className={cn(
+              "h-auto py-2 px-3 text-xs font-bold rounded-xl justify-between flex-wrap gap-2 transition-all",
+              reportMethod === 'cash' ? "bg-primary text-primary-foreground shadow-xs" : "bg-background border-border/80 text-muted-foreground hover:text-foreground"
+            )}
           >
-            <DollarSign className="mr-1.5 h-3.5 w-3.5" />
-            Basis Kas Lunas ({formatCurrency(financials.cashRevenue)})
+            <span className="flex items-center gap-1.5">
+              <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              <span>Basis Kas Lunas</span>
+            </span>
+            <span className="font-mono text-[11px] font-black">{formatCurrency(financials.cashRevenue)}</span>
           </Button>
         </div>
       </div>
 
-      {/* 4 KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 KPI Summary Cards - 2 Columns on Mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Pendapatan Usaha */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-              {reportMethod === 'accrual' ? 'Total Pendapatan Tagihan' : 'Kas Masuk Lunas'}
+            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider truncate">
+              {reportMethod === 'accrual' ? 'Pendapatan Tagihan' : 'Kas Masuk Lunas'}
             </p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
-              <DollarSign className="h-5 w-5" />
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs shrink-0">
+              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
               {formatCurrency(financials.revenue)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {financials.filteredInvoicesCount} Faktur
@@ -383,68 +397,68 @@ const ProfitLossReport = () => {
         </Card>
 
         {/* Card 2: HPP Modal */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Harga Pokok (HPP)</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
-              <ShoppingBag className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Harga Pokok (HPP)</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs shrink-0">
+              <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(financials.cogs)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             <span>Biaya dasar barang/jasa</span>
           </div>
         </Card>
 
         {/* Card 3: Laba Kotor */}
-        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Laba Kotor</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shadow-2xs">
-              <Layers className="h-5 w-5" />
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Laba Kotor</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shadow-2xs shrink-0">
+              <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground truncate">
+          <div className="mt-2">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(financials.grossProfit)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-            <span>{financials.grossMargin.toFixed(1)}% Gross Profit Margin</span>
+            <span>{financials.grossMargin.toFixed(1)}% Gross Margin</span>
           </div>
         </Card>
 
         {/* Card 4: Laba Bersih */}
         <Card className={cn(
-          "relative overflow-hidden rounded-2xl p-5 shadow-xs hover:shadow-md transition-all group",
-          financials.netProfit >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"
+          "rounded-2xl p-3.5 sm:p-5 shadow-xs transition-all",
+          financials.netProfit >= 0 ? "border border-emerald-500/30 bg-emerald-500/5" : "border border-rose-500/30 bg-rose-500/5"
         )}>
           <div className="flex items-center justify-between">
-            <p className={cn("text-xs font-bold uppercase tracking-wider", financials.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+            <p className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider", financials.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
               Laba Bersih Real
             </p>
             <div className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-xl shadow-2xs",
+              "flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs shrink-0",
               financials.netProfit >= 0 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400"
             )}>
-              {financials.netProfit >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+              {financials.netProfit >= 0 ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className={cn("text-2xl sm:text-3xl font-black tracking-tight truncate", financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+          <div className="mt-2">
+            <h3 className={cn("text-base sm:text-2xl font-black tracking-tight truncate tabular-nums", financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
               {formatCurrency(financials.netProfit)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2.5">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2">
             <span className={cn("h-1.5 w-1.5 rounded-full", financials.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
             <span className={financials.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}>
-              {financials.netMargin.toFixed(1)}% Net Profit Margin
+              {financials.netMargin.toFixed(1)}% Net Margin
             </span>
           </div>
         </Card>

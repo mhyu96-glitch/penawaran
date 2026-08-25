@@ -357,41 +357,43 @@ const ProfitabilityReports = () => {
       {/* MAIN FULL-WIDTH TABBED ANALYSIS */}
       {/* ========================================================================= */}
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-4">
-        {/* Full-width Responsive Tabs Header */}
-        <TabsList className="grid grid-cols-3 w-full h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
-          <TabsTrigger 
-            value="goods" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-2 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Package className="h-4 w-4 shrink-0" />
-            <span>📦 Barang Fisik</span>
-            <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none shrink-0">
-              {reportData.goods.length}
-            </span>
-          </TabsTrigger>
+        {/* Full-width Responsive Tabs Header - Smooth Scroll on Mobile */}
+        <div className="overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="inline-flex w-full min-w-max sm:min-w-0 sm:grid sm:grid-cols-3 h-auto p-1.5 rounded-2xl bg-card border border-border/80 shadow-2xs gap-1.5">
+            <TabsTrigger 
+              value="goods" 
+              className="rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Package className="h-4 w-4 shrink-0" />
+              <span>Barang Fisik</span>
+              <span className="rounded-full bg-background/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-black leading-none shrink-0 ml-1">
+                {reportData.goods.length}
+              </span>
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="services" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-2 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Wrench className="h-4 w-4 shrink-0" />
-            <span>🔧 Jasa & Layanan</span>
-            <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none shrink-0">
-              {reportData.services.length}
-            </span>
-          </TabsTrigger>
+            <TabsTrigger 
+              value="services" 
+              className="rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Wrench className="h-4 w-4 shrink-0" />
+              <span>Jasa & Layanan</span>
+              <span className="rounded-full bg-background/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-black leading-none shrink-0 ml-1">
+                {reportData.services.length}
+              </span>
+            </TabsTrigger>
 
-          <TabsTrigger 
-            value="clients" 
-            className="rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold gap-2 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground"
-          >
-            <Users className="h-4 w-4 shrink-0" />
-            <span>👥 Klien (Customers)</span>
-            <span className="rounded-full bg-background/20 px-2 py-0.5 text-[11px] font-black leading-none shrink-0">
-              {reportData.clients.length}
-            </span>
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="clients" 
+              className="rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold gap-1.5 justify-center transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Users className="h-4 w-4 shrink-0" />
+              <span>Klien Pelanggan</span>
+              <span className="rounded-full bg-background/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-black leading-none shrink-0 ml-1">
+                {reportData.clients.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ========================================================================= */}
         {/* TAB 1: PROFITABILITAS BARANG FISIK */}
@@ -438,8 +440,8 @@ const ProfitabilityReports = () => {
                   Belum ada catatan barang fisik pada faktur tagihan.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <Table className="w-full min-w-[620px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="border-b border-border/80">
                         <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
@@ -561,8 +563,8 @@ const ProfitabilityReports = () => {
                   Belum ada catatan layanan jasa pada faktur tagihan.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <Table className="w-full min-w-[620px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="border-b border-border/80">
                         <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
@@ -659,8 +661,8 @@ const ProfitabilityReports = () => {
                   Belum ada data faktur klien.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <Table className="w-full min-w-[620px]">
                     <TableHeader className="bg-muted/40">
                       <TableRow className="border-b border-border/80">
                         <TableHead className="w-[60px] text-center font-bold text-xs uppercase text-muted-foreground">#</TableHead>
