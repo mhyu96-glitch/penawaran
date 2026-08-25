@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { cn, safeFormat } from '@/lib/utils';
+import { SearchableClientSelect } from '@/components/SearchableClientSelect';
 
 interface RecurringInvoiceFormProps {
   isOpen: boolean;
@@ -37,7 +38,11 @@ const RecurringInvoiceForm = ({ isOpen, setIsOpen, onSave }: RecurringInvoiceFor
   useEffect(() => {
     const fetchClients = async () => {
       if (!user) return;
-      const { data } = await supabase.from('clients').select('*').eq('user_id', user.id);
+      const { data } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
       if (data) setClients(data);
     };
     if (isOpen) fetchClients();
@@ -109,10 +114,15 @@ const RecurringInvoiceForm = ({ isOpen, setIsOpen, onSave }: RecurringInvoiceFor
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Klien</Label>
-            <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih Klien" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-            </Select>
+            <div className="col-span-3">
+              <SearchableClientSelect
+                clients={clients}
+                value={clientId}
+                onValueChange={(val) => setClientId(val || '')}
+                placeholder="Cari & pilih nama klien..."
+                allowClear={false}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Frekuensi</Label>
