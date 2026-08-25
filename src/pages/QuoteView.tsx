@@ -392,11 +392,6 @@ const QuoteView = () => {
     }
   };
 
-  const subtotal = useMemo(() => calculateSubtotal(quote?.quote_items || []), [quote]);
-  const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
-  const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
-  const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
-
   if (loading) {
     return (
       <div className="container mx-auto p-4 sm:p-8 space-y-4 max-w-5xl">
