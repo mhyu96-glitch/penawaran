@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
 import { Item } from '@/pages/ItemList';
+import { formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 
 interface ItemFormProps {
   isOpen: boolean;
@@ -110,25 +111,33 @@ const ItemForm = ({ isOpen, setIsOpen, item, onSave }: ItemFormProps) => {
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="costPrice" className="text-right">Harga Modal</Label>
-            <Input
-              id="costPrice"
-              type="text"
-              inputMode="numeric"
-              value={costPrice}
-              onChange={(e) => handlePriceChange(setCostPrice, e.target.value)}
-              className="col-span-3"
-            />
+            <div className="col-span-3 relative flex items-center">
+              <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+              <Input
+                id="costPrice"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatNumberWithDots(costPrice)}
+                onChange={(e) => setCostPrice(String(parseDotsToNumber(e.target.value)))}
+                className="pl-9 font-bold tabular-nums"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="unitPrice" className="text-right">Harga Jual</Label>
-            <Input
-              id="unitPrice"
-              type="text"
-              inputMode="numeric"
-              value={unitPrice}
-              onChange={(e) => handlePriceChange(setUnitPrice, e.target.value)}
-              className="col-span-3"
-            />
+            <div className="col-span-3 relative flex items-center">
+              <span className="pointer-events-none absolute left-3 text-xs font-bold text-primary select-none">Rp</span>
+              <Input
+                id="unitPrice"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatNumberWithDots(unitPrice)}
+                onChange={(e) => setUnitPrice(String(parseDotsToNumber(e.target.value)))}
+                className="pl-9 font-bold tabular-nums text-foreground border-primary/40 focus-visible:ring-primary"
+              />
+            </div>
           </div>
           
           <div className="grid grid-cols-4 items-center gap-4">

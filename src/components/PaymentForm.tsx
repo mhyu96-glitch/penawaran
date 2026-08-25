@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { cn, safeFormat } from '@/lib/utils';
+import { cn, safeFormat, formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
@@ -108,8 +108,19 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="amount">Jumlah (IDR)</Label>
-            <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <Label htmlFor="amount">Jumlah Pembayaran (IDR)</Label>
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+              <Input 
+                id="amount" 
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatNumberWithDots(amount)} 
+                onChange={(e) => setAmount(String(parseDotsToNumber(e.target.value)))} 
+                className="pl-9 font-bold tabular-nums"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Tanggal Pembayaran</Label>

@@ -34,7 +34,8 @@ import {
 } from '@/components/ui/select';
 import { 
   formatCurrency, safeFormat, calculateSubtotal, calculateTotal, 
-  calculateItemTotal, getStatusVariant, cn 
+  calculateItemTotal, getStatusVariant, cn,
+  formatNumberWithDots, parseDotsToNumber
 } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
@@ -967,12 +968,13 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                             {/* Harga Beli / HPP (Bisa diedit langsung inline) */}
                             <TableCell className="text-right">
                               {isEditing ? (
-                                <div className="flex items-center justify-end gap-1.5">
+                                <div className="relative flex items-center justify-end gap-1.5">
                                   <Input
-                                    type="number"
-                                    value={editingCostPrice}
-                                    onChange={(e) => setEditingCostPrice(e.target.value)}
-                                    className="h-8 w-28 text-right font-bold text-xs rounded-lg"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatNumberWithDots(editingCostPrice)}
+                                    onChange={(e) => setEditingCostPrice(String(parseDotsToNumber(e.target.value)))}
+                                    className="h-8 w-28 text-right font-bold text-xs rounded-lg tabular-nums"
                                     autoFocus
                                     placeholder="0"
                                     onKeyDown={(e) => {
@@ -1850,14 +1852,18 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Jumlah (Rp)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={newExpenseAmount}
-                  onChange={(e) => setNewExpenseAmount(e.target.value)}
-                  className="rounded-xl h-10 text-xs font-bold"
-                  required
-                />
+                <div className="relative flex items-center">
+                  <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={formatNumberWithDots(newExpenseAmount)}
+                    onChange={(e) => setNewExpenseAmount(String(parseDotsToNumber(e.target.value)))}
+                    className="rounded-xl h-10 text-xs font-bold pl-9 tabular-nums"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">

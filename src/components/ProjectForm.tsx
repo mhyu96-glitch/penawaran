@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
 import { Client } from '@/pages/ClientList';
 import { SearchableClientSelect } from '@/components/SearchableClientSelect';
+import { formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 
 export type Project = {
   id: string;
@@ -133,7 +134,18 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
             </div>
             <div className="space-y-2">
                 <Label htmlFor="budget">Anggaran (IDR)</Label>
-                <Input id="budget" type="number" value={budget} onChange={(e) => setBudget(e.target.value)} />
+                <div className="relative flex items-center">
+                  <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                  <Input 
+                    id="budget" 
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={formatNumberWithDots(budget)} 
+                    onChange={(e) => setBudget(String(parseDotsToNumber(e.target.value)))} 
+                    className="pl-9 font-bold tabular-nums"
+                  />
+                </div>
             </div>
           </div>
           <div className="space-y-2">

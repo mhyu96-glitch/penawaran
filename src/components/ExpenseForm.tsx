@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { cn, safeFormat } from '@/lib/utils';
+import { cn, safeFormat, formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
@@ -111,7 +111,21 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave }: ExpenseFormProps) =
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2"><Label htmlFor="description">Deskripsi</Label><Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="amount">Jumlah (IDR)</Label><Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Jumlah (IDR)</Label>
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+              <Input 
+                id="amount" 
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatNumberWithDots(amount)} 
+                onChange={(e) => setAmount(String(parseDotsToNumber(e.target.value)))} 
+                className="pl-9 font-bold tabular-nums"
+              />
+            </div>
+          </div>
           <div className="space-y-2"><Label>Tanggal Pengeluaran</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !expenseDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{expenseDate ? safeFormat(expenseDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expenseDate} onSelect={setExpenseDate} initialFocus /></PopoverContent></Popover></div>
           <div className="space-y-2"><Label htmlFor="category">Kategori (Opsional)</Label><Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Contoh: Sewa, Alat, Pemasaran" /></div>
           <div className="space-y-2"><Label htmlFor="project">Proyek (Opsional)</Label><Select value={projectId} onValueChange={setProjectId}><SelectTrigger><SelectValue placeholder="Pilih proyek terkait" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>

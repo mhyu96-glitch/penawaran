@@ -78,3 +78,25 @@ export const isDateBeforeToday = (dateStr: string | null | undefined) => {
   const date = dateStr.includes('T') ? new Date(dateStr) : parseISO(dateStr);
   return isValid(date) && isBefore(startOfDay(date), startOfDay(new Date()));
 };
+
+// Dot Thousand Separator Helpers for IDR Nominals (e.g. 1.000.000)
+export const formatNumberWithDots = (val: number | string | null | undefined): string => {
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'number') {
+    if (isNaN(val)) return '';
+    return Math.round(val).toLocaleString('id-ID');
+  }
+  const cleanStr = String(val).replace(/\./g, '').replace(/,/g, '.');
+  const num = parseFloat(cleanStr);
+  if (isNaN(num)) return '';
+  return Math.round(num).toLocaleString('id-ID');
+};
+
+export const parseDotsToNumber = (val: string | number | null | undefined): number => {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/\./g, '').replace(/,/g, '.');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+};
+
