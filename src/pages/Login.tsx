@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 
 const Login = () => {
   const { session, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -104,8 +105,9 @@ const Login = () => {
         if (data.session || data.user) {
           setIsSuccess(true);
           showSuccess('Login berhasil! Mengalihkan ke Dashboard...');
-          // Don't navigate manually - let onAuthStateChange update the session context,
-          // then the `if (session && !authLoading)` check above will redirect naturally.
+          setTimeout(() => {
+            navigate('/dashboard', { replace: true });
+          }, 150);
         } else {
           triggerError('Tidak dapat memulai sesi. Silakan coba lagi.');
         }
