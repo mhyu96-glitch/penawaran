@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +16,6 @@ import { cn } from '@/lib/utils';
 const Login = () => {
   const { session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

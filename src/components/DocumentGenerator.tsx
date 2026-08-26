@@ -628,37 +628,56 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     setItems(newItems);
   };
 
+  const isInitialPristineBlank = (itemList: Item[]) => {
+    return (
+      itemList.length === 1 &&
+      itemList[0].description.trim() === '' &&
+      !itemList[0].unit &&
+      itemList[0].unit_price === 0 &&
+      itemList[0].cost_price === 0 &&
+      !itemList[0].is_store_unit &&
+      Number(itemList[0].quantity) === 1
+    );
+  };
+
   const addItem = () => {
-    setItems([...items, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+    setItems(prev => [...prev, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   };
 
   const addSectionHeader = () => {
-    setItems([...items, { uid: crypto.randomUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }]);
+    setItems(prev => {
+      const base = isInitialPristineBlank(prev) ? [] : prev;
+      return [...base, { uid: crypto.randomUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }];
+    });
   };
 
   const addPresetItem = (type: 'install' | 'transport' | 'accommodation' | 'tool' | 'store_hardware_header') => {
-    // Filter out initial empty item if it has no description
-    const validExisting = items.filter(i => i.description.trim() !== '');
+    setItems(prev => {
+      const base = isInitialPristineBlank(prev) ? [] : prev;
 
-    if (type === 'install') {
-      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Jasa Instalasi & Konfigurasi Teknis Perangkat", quantity: 1, unit: "Titik", unit_price: 150000, cost_price: 0 }]);
-    } else if (type === 'transport') {
-      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Biaya Transportasi, BBM & Operasional Lapangan", quantity: 1, unit: "Trip", unit_price: 250000, cost_price: 150000 }]);
-    } else if (type === 'accommodation') {
-      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Akomodasi Penginapan & Konsumsi Tim Lapangan", quantity: 1, unit: "Hari", unit_price: 200000, cost_price: 150000 }]);
-    } else if (type === 'tool') {
-      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Sewa Alat Kerja Bantu / Scaffolding / Tangga", quantity: 1, unit: "Set", unit_price: 100000, cost_price: 50000 }]);
-    } else if (type === 'store_hardware_header') {
-      setItems([
-        ...validExisting,
-        { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "Unit", unit_price: 0, cost_price: 0, is_store_unit: true }
-      ]);
-    }
+      if (type === 'install') {
+        return [...base, { uid: crypto.randomUUID(), description: "Jasa Instalasi & Konfigurasi Teknis Perangkat", quantity: 1, unit: "Titik", unit_price: 150000, cost_price: 0 }];
+      } else if (type === 'transport') {
+        return [...base, { uid: crypto.randomUUID(), description: "Biaya Transportasi, BBM & Operasional Lapangan", quantity: 1, unit: "Trip", unit_price: 250000, cost_price: 150000 }];
+      } else if (type === 'accommodation') {
+        return [...base, { uid: crypto.randomUUID(), description: "Akomodasi Penginapan & Konsumsi Tim Lapangan", quantity: 1, unit: "Hari", unit_price: 200000, cost_price: 150000 }];
+      } else if (type === 'tool') {
+        return [...base, { uid: crypto.randomUUID(), description: "Sewa Alat Kerja Bantu / Scaffolding / Tangga", quantity: 1, unit: "Set", unit_price: 100000, cost_price: 50000 }];
+      } else if (type === 'store_hardware_header') {
+        return [
+          ...base,
+          { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "Unit", unit_price: 0, cost_price: 0, is_store_unit: true }
+        ];
+      }
+      return base;
+    });
   };
 
   const removeItem = (index: number) => {
-    if (items.length > 1) setItems(items.filter((_, i) => i !== index));
-    else setItems([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+    setItems(prev => {
+      if (prev.length > 1) return prev.filter((_, i) => i !== index);
+      return [{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }];
+    });
   };
 
   const handleAddItemsFromLibrary = (libraryItems: any[]) => {
@@ -671,8 +690,10 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         unit_price: item.unit_price, 
         cost_price: item.cost_price || 0,
     }));
-    const existingItems = items.filter(item => item.description.trim() !== '');
-    setItems([...existingItems, ...newItems]);
+    setItems(prev => {
+      const base = isInitialPristineBlank(prev) ? [] : prev;
+      return [...base, ...newItems];
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -823,8 +844,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     }
 
     const itemsPayload = items
-        .filter(item => item.description)
-        .map(({ uid, id, created_at, ...item }: any) => ({
+        .filter(item => item.description && item.description.trim())
+        .map(({ uid, id, created_at, is_store_unit, ...item }: any) => ({
             ...item,
             [config.foreignKey]: currentDocId
         }));
