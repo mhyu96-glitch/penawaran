@@ -24,6 +24,7 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [rateLimitSeconds, setRateLimitSeconds] = useState<number>(0);
   
   // Animation Focus States for Mascot & Feedback
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -31,6 +32,27 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Rate limit countdown effect
+  React.useEffect(() => {
+    if (rateLimitSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitSeconds]);
+
+  // Clean stale storage helper
+  const handleClearAuthStorage = () => {
+    try {
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
+          localStorage.removeItem(k);
+        }
+      });
+      showSuccess('Cache sesi berhasil dibersihkan.');
+    } catch {}
+  };
 
   // If already authenticated and not loading, redirect to dashboard
   if (session && !authLoading) {
@@ -70,6 +92,11 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (rateLimitSeconds > 0) {
+      triggerError(`Harap tunggu ${rateLimitSeconds} detik sebelum mencoba login kembali.`);
+      return;
+    }
+
     if (!email || (!password && mode !== 'forgot')) {
       triggerError('Mohon lengkapi alamat email dan kata sandi.');
       return;
@@ -92,7 +119,9 @@ const Login = () => {
 
         if (error) {
           if (error.message.toLowerCase().includes('rate') || error.status === 429) {
-            triggerError('Terlalu banyak percobaan login. Mohon tunggu 1 menit lalu coba lagi.');
+            handleClearAuthStorage();
+            setRateLimitSeconds(60);
+            triggerError('Terlalu banyak permintaan (Rate Limit 429). Tunggu 60 detik.');
           } else if (error.message.toLowerCase().includes('invalid')) {
             triggerError('Email atau kata sandi yang Anda masukkan salah.');
           } else {
@@ -238,6 +267,28 @@ const Login = () => {
           </CardHeader>
 
           <CardContent className="px-6 pt-2 pb-4">
+            {rateLimitSeconds > 0 && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2 animate-pulse">
+                <div className="flex items-center gap-2 font-bold text-amber-400">
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  <span>Batas Keamanan Supabase (429 Rate Limit)</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Terlalu banyak percobaan request dalam waktu singkat. Supabase sedang mengamankan sistem. Mohon tunggu <strong className="text-amber-400">{rateLimitSeconds} detik</strong> tanpa reload agar limit terbuka kembali.
+                </p>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-slate-400">Cache sesi lama telah dibersihkan otomatis.</span>
+                  <button
+                    type="button"
+                    onClick={handleClearAuthStorage}
+                    className="text-[10px] font-bold text-teal-400 hover:text-teal-300 hover:underline"
+                  >
+                    Bersihkan Lagi
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Field 1: Email / Username */}
               <div className="space-y-1.5">

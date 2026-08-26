@@ -24,6 +24,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) {
           console.warn('Initial session check notice:', error.message);
+          if (error.status === 429 || error.message.toLowerCase().includes('rate') || error.message.toLowerCase().includes('refresh')) {
+            try {
+              Object.keys(localStorage).forEach((k) => {
+                if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
+                  localStorage.removeItem(k);
+                }
+              });
+            } catch {}
+          }
         }
         if (isMounted) {
           setSession(initialSession);
