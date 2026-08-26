@@ -191,18 +191,24 @@ const Automation = () => {
 
         {/* Card 2: Alur Kerja Aktif */}
         <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Status Aktif</p>
             <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </div>
+          </div>
           <div className="mt-2">
             <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {stats.active} <span className="text-xs font-normal text-muted-foreground">Siap Eksekusi</span>
             </h3>
           </div>
           <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
+            <span>Berjalan di latar belakang</span>
+          </div>
         </Card>
 
         {/* Card 3: Pemicu Penawaran */}
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Pemicu Surat</p>
             <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
