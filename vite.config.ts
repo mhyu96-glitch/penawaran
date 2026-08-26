@@ -13,43 +13,14 @@ export default defineConfig(() => ({
     dyadComponentTagger(),
     react(),
     VitePWA({
+      selfDestroying: true, // Unregisters any stale Service Worker and clears PWA cache automatically
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'placeholder.svg'],
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/api\//],
       },
-      manifest: {
-        name: 'QuoteApp - Manajemen Penawaran',
-        short_name: 'QuoteApp',
-        description: 'Aplikasi manajemen penawaran dan faktur profesional.',
-        theme_color: '#0f766e',
-        background_color: '#f8fafc',
-        display: 'standalone',
-        orientation: 'portrait',
-        icons: [
-          {
-            src: '/favicon.ico',
-            sizes: '64x64 32x32 24x24 16x16',
-            type: 'image/x-icon'
-          },
-          {
-            src: '/placeholder.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/placeholder.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          }
-        ]
-      }
     })
   ],
   resolve: {
