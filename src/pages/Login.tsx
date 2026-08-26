@@ -102,10 +102,12 @@ const Login = () => {
           return;
         }
 
-        if (data.session) {
+        if (data.session || data.user) {
           setIsSuccess(true);
           showSuccess('Login berhasil! Mengalihkan ke Dashboard...');
-          window.location.href = '/dashboard';
+          navigate('/dashboard', { replace: true });
+        } else {
+          triggerError('Tidak dapat memulai sesi. Silakan coba lagi.');
         }
       } else if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({
@@ -122,7 +124,7 @@ const Login = () => {
         if (data.session) {
           setIsSuccess(true);
           showSuccess('Pendaftaran berhasil! Mengalihkan ke Dashboard...');
-          window.location.href = '/dashboard';
+          navigate('/dashboard', { replace: true });
         } else {
           showSuccess('Pendaftaran berhasil! Silakan periksa email Anda untuk konfirmasi aktivasi.');
           setMode('login');

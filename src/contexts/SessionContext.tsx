@@ -18,44 +18,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Single source of auth truth via onAuthStateChange
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      if (!isMounted) return;
-
-      if (event === 'SIGNED_OUT' || !newSession) {
-        setSession(null);
-        setUser(null);
-        setLoading(false);
-        return;
+    // 1. Initial authoritative session retrieval
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('Initial session check notice:', error.message);
+        }
+        if (isMounted) {
+          setSession(initialSession);
+          setUser(initialSession?.user ?? null);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Initial session fetch error:', err);
+        if (isMounted) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
       }
+    };
 
-      setSession(newSession);
-      setUser(newSession.user);
-      setLoading(false);
-    });
+    initializeAuth();
 
-    // 2. Initial session check with automatic recovery from stale tokens
-    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
+    // 2. Continuous subscription to Supabase auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!isMounted) return;
-      if (error) {
-        console.warn('Auth session check error:', error.message);
-        try {
-          Object.keys(localStorage).forEach((key) => {
-            if (key.startsWith('sb-') || key.includes('supabase.auth.token')) {
-              localStorage.removeItem(key);
-            }
-          });
-        } catch {}
-        setSession(null);
-        setUser(null);
-      } else if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-      }
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
       setLoading(false);
-    }).catch((err) => {
-      console.warn('getSession catch:', err);
-      if (isMounted) setLoading(false);
     });
 
     return () => {
