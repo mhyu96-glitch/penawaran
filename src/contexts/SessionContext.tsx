@@ -18,27 +18,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Initial session check with error handling
-    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
-      if (!isMounted) return;
-      if (error) {
-        console.warn('Auth session error, clearing stale token:', error.message);
-        setSession(null);
-        setUser(null);
-      } else if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user ?? null);
-      }
-      setLoading(false);
-    }).catch(() => {
-      if (isMounted) setLoading(false);
-    });
-
-    // 2. Single reliable source of auth events
+    // 1. Single source of auth truth via onAuthStateChange
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!isMounted) return;
 
-      if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT' || !newSession) {
         setSession(null);
         setUser(null);
         setLoading(false);
@@ -46,8 +30,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setSession(newSession);
-      setUser(newSession?.user ?? null);
+      setUser(newSession.user);
       setLoading(false);
+    });
+
+    // 2. Initial session check with automatic recovery from stale tokens
+    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
+      if (!isMounted) return;
+      if (error) {
+        console.warn('Auth session check error:', error.message);
+        try {
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith('sb-') || key.includes('supabase.auth.token')) {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch {}
+        setSession(null);
+        setUser(null);
+      } else if (initialSession) {
+        setSession(initialSession);
+        setUser(initialSession.user);
+      }
+      setLoading(false);
+    }).catch((err) => {
+      console.warn('getSession catch:', err);
+      if (isMounted) setLoading(false);
     });
 
     return () => {

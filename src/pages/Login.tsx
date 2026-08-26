@@ -105,9 +105,7 @@ const Login = () => {
         if (data.session) {
           setIsSuccess(true);
           showSuccess('Login berhasil! Mengalihkan ke Dashboard...');
-          setTimeout(() => {
-            navigate('/dashboard', { replace: true });
-          }, 600);
+          navigate('/dashboard', { replace: true });
         }
       } else if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({
