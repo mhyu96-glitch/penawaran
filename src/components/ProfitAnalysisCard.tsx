@@ -32,8 +32,10 @@ const ProfitAnalysisCard = ({ items, discountAmount, type }: ProfitAnalysisCardP
     let totalRevenue = 0;
     let totalCost = 0;
 
-    // Filter out items with 0 quantity (Category Headers)
-    const activeItems = (items || []).filter(item => Number(item.quantity) > 0);
+    // Filter out items with 0 quantity (Category Headers) and non-revenue/non-cost store units
+    const activeItems = (items || []).filter(
+      item => Number(item.quantity) > 0 && (Number(item.unit_price) > 0 || Number(item.cost_price || 0) > 0)
+    );
 
     const groupedItems = activeItems.reduce<Map<string, ItemAnalysis>>((groups, item) => {
       const description = (item.description || '').trim();

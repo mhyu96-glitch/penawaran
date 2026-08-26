@@ -125,6 +125,11 @@ const SortableItemRow = ({
     if (isSectionHeader) return false;
     if (item.is_store_unit) return true;
     
+    // Any item with 0 unit_price & 0 cost_price is non-tagihan / store unit
+    if (Number(item.unit_price) === 0 && Number(item.cost_price || 0) === 0) {
+      return true;
+    }
+
     const desc = (item.description || '').toLowerCase();
     if (
       desc.includes('bawaan toko') || 
@@ -585,7 +590,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
       const fetchedItems = data[config.itemTable];
       if (fetchedItems && fetchedItems.length > 0) {
-        setItems(fetchedItems.map((item: any) => ({ ...item, uid: crypto.randomUUID() })));
+        setItems(fetchedItems.map((item: any) => ({
+          ...item,
+          uid: crypto.randomUUID(),
+          is_store_unit: Number(item.quantity) > 0 && Number(item.unit_price) === 0 && Number(item.cost_price || 0) === 0
+        })));
       }
       setLoading(false);
     };
@@ -972,11 +981,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
         </CardHeader>
         <CardContent className="space-y-6 px-4 py-6 sm:px-6 lg:space-y-8">
-          {/* Mode Selector: Reguler vs Jasa & Akomodasi Toko */}
-          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3 sm:p-4 space-y-2.5">
+          {/* Tipe Dokumen: Standar vs Subkon/Toko */}
+          <div className="space-y-2 rounded-2xl border border-border/80 bg-muted/20 p-3.5 sm:p-4">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Tipe / Mode Dokumen
+              <Label className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-primary" /> Mode Penawaran / Jenis Pekerjaan
               </Label>
               {docCategory === 'partner_service' && (
                 <span className="text-[11px] font-bold text-violet-500 flex items-center gap-1">
@@ -1358,12 +1367,15 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <Separator />
           
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="profit-analysis" className="border rounded-2xl px-4 bg-muted/20">
-                <AccordionTrigger className="font-bold text-sm text-primary py-4 hover:no-underline"><div className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Estimasi Profit & Analisis Margin (Live)</div></AccordionTrigger>
-                <AccordionContent className="pb-4"><ProfitAnalysisCard items={items} discountAmount={discountAmount} taxAmount={taxAmount} type={docType === 'quote' ? 'Penawaran' : 'Faktur'}/></AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          {/* Estimasi Profit & Analisis Margin - Disembunyikan pada mode Subkon / Tagihan Toko */}
+          {docCategory !== 'partner_service' && (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="profit-analysis" className="border rounded-2xl px-4 bg-muted/20">
+                  <AccordionTrigger className="font-bold text-sm text-primary py-4 hover:no-underline"><div className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Estimasi Profit & Analisis Margin (Live)</div></AccordionTrigger>
+                  <AccordionContent className="pb-4"><ProfitAnalysisCard items={items} discountAmount={discountAmount} taxAmount={taxAmount} type={docType === 'quote' ? 'Penawaran' : 'Faktur'}/></AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
 
           <div className="flex justify-end">
             <div className="w-full max-w-md space-y-3.5 rounded-3xl border border-border/80 bg-muted/20 p-5 shadow-xs">

@@ -51,6 +51,11 @@ export const calculateTotal = (subtotal: number, discount: number, tax: number) 
   return subtotal - (Number(discount) || 0) + (Number(tax) || 0);
 };
 
+export const getCleanTerms = (terms?: string | null): string => {
+  if (!terms) return '';
+  return terms.replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim();
+};
+
 // Status Helper
 export const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
   const s = status || '';

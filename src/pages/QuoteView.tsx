@@ -36,7 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant, cn, formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant, cn, formatNumberWithDots, parseDotsToNumber, getCleanTerms } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
@@ -151,6 +151,17 @@ const QuoteView = () => {
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
+
+  const isPartnerService = useMemo(() => {
+    if (!quote) return false;
+    const termsStr = quote.terms || '';
+    if (termsStr.includes('[CATEGORY:partner_service]')) return true;
+    const titleStr = (quote.title || '').toLowerCase();
+    if (titleStr.includes('jasa') || titleStr.includes('toko') || titleStr.includes('subcon') || titleStr.includes('sub kon')) return true;
+    return false;
+  }, [quote]);
+
+  const cleanTerms = useMemo(() => getCleanTerms(quote?.terms), [quote?.terms]);
 
   const handleOpenCreateInvoiceDialog = () => {
     const defaultDp = Math.round(total * 0.5);
@@ -650,15 +661,12 @@ const QuoteView = () => {
               <div className="min-w-0 space-y-1.5">
                 {profile?.company_logo_url ? (
                   <img src={profile.company_logo_url} alt="Company Logo" className="mb-2 max-h-14 object-contain" />
+                ) : quote.from_company ? (
+                  <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight print:text-2xl print:text-black">
+                    {quote.from_company}
+                  </h1>
                 ) : (
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-base print:hidden">
-                      {quote.from_company.slice(0, 1) || 'P'}
-                    </div>
-                    <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight print:text-2xl print:text-black">
-                      {quote.from_company}
-                    </h1>
-                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground">Profil Usaha</span>
                 )}
                 <div className="text-[11px] text-muted-foreground space-y-0.5 print:text-slate-600">
                   <p>{quote.from_address}</p>
@@ -667,8 +675,11 @@ const QuoteView = () => {
               </div>
 
               <div className="shrink-0 text-left sm:text-right space-y-1.5">
-                <div className="inline-block px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] font-black tracking-wider uppercase print:border-slate-800 print:bg-slate-100 print:text-slate-900">
-                  SURAT PENAWARAN
+                <div className={cn(
+                  "inline-block px-2.5 py-0.5 rounded-lg text-[11px] font-black tracking-wider uppercase print:border-slate-800 print:bg-slate-100 print:text-slate-900",
+                  isPartnerService ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20" : "bg-primary/10 text-primary border border-primary/20"
+                )}>
+                  {isPartnerService ? 'PENAWARAN JASA & SUBKON' : 'SURAT PENAWARAN'}
                 </div>
                 <div className="print:hidden">
                   <Badge variant={getStatusVariant(quote.status)} className="text-[10px] font-bold">
@@ -677,7 +688,7 @@ const QuoteView = () => {
                 </div>
                 <div className="text-[11px] text-muted-foreground space-y-0.5 pt-0.5 print:text-slate-700">
                   <p><strong>No:</strong> {quote.quote_number}</p>
-                  <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'd MMMM yyyy')}</p>
+                  <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date || (quote as any).created_at, 'd MMMM yyyy')}</p>
                 </div>
               </div>
             </div>
@@ -687,7 +698,9 @@ const QuoteView = () => {
             {/* Bill To & Subject Details */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/20 border border-border/70 text-xs print:bg-slate-50 print:border-slate-300 print:rounded-xl">
               <div className="space-y-0.5">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-500">Ditujukan Kepada:</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-500">
+                  {isPartnerService ? 'Toko / Mitra Penerima:' : 'Ditujukan Kepada:'}
+                </h3>
                 <p className="font-black text-sm text-foreground print:text-black">{quote.to_client}</p>
                 <p className="text-[11px] text-muted-foreground print:text-slate-600">{quote.to_address}</p>
                 {quote.to_phone && <p className="text-[11px] text-muted-foreground print:text-slate-600">{quote.to_phone}</p>}
@@ -695,19 +708,26 @@ const QuoteView = () => {
 
               <div className="sm:text-right space-y-0.5 sm:border-l sm:border-border/70 sm:pl-4 print:border-slate-300">
                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-500">Perihal / Proyek:</h3>
-                <p className="font-extrabold text-sm text-foreground print:text-black">{quote.title || '-'}</p>
+                <p className="font-extrabold text-sm text-foreground print:text-black">{quote.title || (isPartnerService ? 'Jasa Instalasi & Akomodasi Lapangan' : '-')}</p>
                 <div className="pt-1 text-[11px] text-muted-foreground print:text-slate-600">
                   <span>Berlaku Hingga: </span>
-                  <strong className="text-foreground print:text-black">{safeFormat(quote.valid_until, 'd MMMM yyyy')}</strong>
+                  <strong className="text-foreground print:text-black">{quote.valid_until ? safeFormat(quote.valid_until, 'd MMMM yyyy') : 'Sesuai Kesepakatan Proyek'}</strong>
                 </div>
               </div>
             </div>
             
             {/* Document Items Table */}
             <div className="space-y-1">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-700">
-                Rincian Barang & Jasa
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-slate-700">
+                  {isPartnerService ? 'Rincian Perangkat Toko & Jasa Teknis' : 'Rincian Barang & Jasa'}
+                </h4>
+                {isPartnerService && (
+                  <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 print:hidden">
+                    📦 Unit toko bersifat non-tagihan (disediakan mitra toko)
+                  </span>
+                )}
+              </div>
               <div className="rounded-2xl border border-border/80 overflow-hidden text-xs print:border-slate-300 print:rounded-xl">
                 <DocumentItemsTable 
                   items={quote.quote_items} 
@@ -752,14 +772,14 @@ const QuoteView = () => {
             </div>
 
             {/* Terms and Conditions */}
-            {quote.terms && (
+            {cleanTerms ? (
               <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-1 print:bg-slate-50 print:border-slate-300 print:rounded-xl">
                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5 print:text-slate-800">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary print:text-slate-800" /> Syarat & Ketentuan:
                 </h3>
-                <p className="whitespace-pre-wrap text-[11px] text-muted-foreground leading-relaxed font-sans print:text-slate-700">{quote.terms}</p>
+                <p className="whitespace-pre-wrap text-[11px] text-muted-foreground leading-relaxed font-sans print:text-slate-700">{cleanTerms}</p>
               </div>
-            )}
+            ) : null}
 
             {/* Survey Photos & Field Documentation Attachments */}
             {quote.attachments && quote.attachments.length > 0 && (
@@ -770,7 +790,7 @@ const QuoteView = () => {
 
                 {/* Survey Photo Grid */}
                 {quote.attachments.some(att => (att as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(att.name.split('.').pop()?.toLowerCase() || '') || att.url.startsWith('data:image/')) && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {quote.attachments.map((attachment: any, index) => {
                       const isImg = attachment.type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(attachment.name.split('.').pop()?.toLowerCase() || '') || attachment.url.startsWith('data:image/');
                       if (!isImg) return null;
@@ -779,9 +799,9 @@ const QuoteView = () => {
                         <div 
                           key={index}
                           onClick={() => setActivePhotoPreview({ url: attachment.url, title: attachment.caption || attachment.name })}
-                          className="group relative rounded-xl border border-border/80 bg-muted/10 overflow-hidden shadow-2xs cursor-pointer hover:border-primary/50 transition-all print:border-slate-300 print:bg-slate-50"
+                          className="group relative rounded-xl border border-border/80 bg-muted/10 overflow-hidden shadow-2xs cursor-pointer hover:border-primary/50 transition-all print:border-slate-300 print:bg-slate-50 flex flex-col"
                         >
-                          <div className="aspect-video sm:aspect-square w-full overflow-hidden bg-black/20 relative">
+                          <div className="aspect-[4/3] w-full overflow-hidden bg-black/20 relative shrink-0">
                             <img 
                               src={attachment.url} 
                               alt={attachment.caption || attachment.name} 
@@ -793,8 +813,8 @@ const QuoteView = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="p-1.5 space-y-0.5 bg-background/80 print:bg-white border-t border-border/60 print:border-slate-200">
-                            <p className="font-bold text-[10px] text-foreground print:text-slate-900 truncate">
+                          <div className="p-2 space-y-0.5 bg-background/90 print:bg-white border-t border-border/60 print:border-slate-200 grow flex flex-col justify-center">
+                            <p className="font-bold text-[10.5px] text-foreground print:text-slate-900 leading-snug break-words whitespace-normal">
                               {attachment.caption || attachment.name}
                             </p>
                           </div>
@@ -838,13 +858,15 @@ const QuoteView = () => {
       {/* BOTTOM SECTION: PROFIT ANALYSIS & DOCUMENT TIMELINE (EXCLUDED FROM PRINT/PDF) */}
       {/* ========================================================================= */}
       <div className="mx-auto max-w-5xl space-y-6 pt-2 print:hidden no-pdf">
-        {/* 1. Analisis Keuntungan Full-Width */}
-        <ProfitAnalysisCard 
-          items={quote.quote_items} 
-          discountAmount={quote.discount_amount} 
-          taxAmount={quote.tax_amount} 
-          type="Penawaran"
-        />
+        {/* 1. Analisis Keuntungan Full-Width - Disembunyikan untuk mode Subkon / Tagihan Toko */}
+        {!isPartnerService && (
+          <ProfitAnalysisCard 
+            items={quote.quote_items} 
+            discountAmount={quote.discount_amount} 
+            taxAmount={quote.tax_amount} 
+            type="Penawaran"
+          />
+        )}
         
         {/* 2. Riwayat Dokumen Full-Width */}
         <div className="rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-sm">

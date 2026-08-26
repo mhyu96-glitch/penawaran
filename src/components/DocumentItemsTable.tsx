@@ -26,6 +26,11 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
   const isStoreUnitItem = (item: DocumentItem, index: number, allItems: DocumentItem[]) => {
     if (Number(item.quantity) === 0) return false;
     
+    // Any item with 0 unit_price is non-tagihan (store-provided / free / included)
+    if (Number(item.unit_price) === 0) {
+      return true;
+    }
+
     const desc = (item.description || '').toLowerCase();
     if (
       desc.includes('bawaan toko') || 
@@ -92,7 +97,14 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase print:text-slate-500">#{itemCounter}</span>
-                  <p className="whitespace-pre-wrap text-xs font-bold leading-snug text-foreground print:text-slate-900">{item.description}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {isStoreUnit && (
+                      <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground border border-border/80 print:bg-slate-100 print:text-slate-700 print:border-slate-300">
+                        Unit Toko
+                      </span>
+                    )}
+                    <p className="whitespace-pre-wrap text-xs font-bold leading-snug text-foreground print:text-slate-900">{item.description}</p>
+                  </div>
                 </div>
                 <p className="shrink-0 text-right text-xs font-black text-foreground tabular-nums print:text-slate-900">
                   {isStoreUnit ? '-' : formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
@@ -147,10 +159,10 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
                 if (isHeader) {
                   return (
-                    <tr key={index} className="section-header-row bg-muted/30 font-bold border-y border-border/80 print:bg-slate-100 print:border-slate-300">
-                      <td colSpan={totalColumns} className="py-2 px-3 text-foreground tracking-wide font-black uppercase text-[11px] print:bg-slate-100 print:text-slate-900">
-                        <span className="inline-flex items-center gap-1.5 text-primary print:text-slate-900">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary print:bg-slate-700" />
+                    <tr key={index} className="section-header-row bg-muted/40 font-bold border-y border-border/80 print:bg-slate-100 print:border-slate-300">
+                      <td colSpan={totalColumns} className="py-2 px-3 text-foreground tracking-wide font-black uppercase text-[10px] print:bg-slate-100 print:text-slate-900">
+                        <span className="inline-flex items-center gap-1.5 text-foreground print:text-slate-900">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary/70 print:bg-slate-700" />
                           {item.description.replace(/^[-=_*~#\s]+/, '')}
                         </span>
                       </td>
@@ -162,16 +174,25 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
                 return (
                   <tr key={index} className="hover:bg-muted/20 transition-colors print:bg-white">
-                    <td className="py-2 px-3 text-center font-bold text-muted-foreground tabular-nums print:text-slate-600">{count}</td>
-                    <td className="py-2 px-3 font-semibold text-foreground whitespace-pre-wrap print:text-slate-900">{item.description}</td>
-                    {showQuantity && <td className="py-2 px-3 text-center font-bold text-foreground tabular-nums print:text-slate-900">{item.quantity}</td>}
-                    {showUnit && <td className="py-2 px-3 text-center text-muted-foreground font-medium print:text-slate-600">{item.unit || '-'}</td>}
+                    <td className="py-2.5 px-3 text-center font-bold text-muted-foreground tabular-nums print:text-slate-600">{count}</td>
+                    <td className="py-2.5 px-3 font-semibold text-foreground whitespace-pre-wrap print:text-slate-900">
+                      <div className="flex items-center gap-2">
+                        {isStoreUnit && (
+                          <span className="inline-flex items-center shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground border border-border/80 print:bg-slate-100 print:text-slate-700 print:border-slate-300">
+                            Unit Toko
+                          </span>
+                        )}
+                        <span>{item.description}</span>
+                      </div>
+                    </td>
+                    {showQuantity && <td className="py-2.5 px-3 text-center font-bold text-foreground tabular-nums print:text-slate-900">{item.quantity}</td>}
+                    {showUnit && <td className="py-2.5 px-3 text-center text-muted-foreground font-medium print:text-slate-600">{item.unit || '-'}</td>}
                     {showUnitPrice && (
-                      <td className="py-2 px-3 text-right font-semibold text-muted-foreground tabular-nums print:text-slate-700">
+                      <td className="py-2.5 px-3 text-right font-semibold text-muted-foreground tabular-nums print:text-slate-700">
                         {isStoreUnit ? '-' : formatCurrency(item.unit_price)}
                       </td>
                     )}
-                    <td className="py-2 px-3 text-right font-bold text-foreground tabular-nums print:text-slate-900">
+                    <td className="py-2.5 px-3 text-right font-bold text-foreground tabular-nums print:text-slate-900">
                       {isStoreUnit ? '-' : formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
                     </td>
                   </tr>

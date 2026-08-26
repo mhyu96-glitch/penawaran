@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, cn } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, cn, getCleanTerms } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +68,10 @@ type QuoteDetails = {
 };
 
 type ProfileInfo = {
+  company_name?: string | null;
+  company_address?: string | null;
+  company_website?: string | null;
+  company_phone?: string | null;
   custom_footer: string | null;
   show_quantity_column: boolean;
   show_unit_column: boolean;
@@ -109,10 +113,10 @@ const PublicQuoteView = () => {
           setActionTaken(data.status);
         }
         
-        // Fetch profile settings
+        // Fetch profile settings with fallback company info
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_logo_url, brand_color')
+          .select('company_name, company_address, company_website, company_phone, custom_footer, show_quantity_column, show_unit_column, show_unit_price_column, company_logo_url, brand_color')
           .eq('id', quoteData.user_id)
           .single();
         setProfile(profileData);
@@ -159,6 +163,20 @@ const PublicQuoteView = () => {
   const discountAmount = useMemo(() => quote?.discount_amount || 0, [quote]);
   const taxAmount = useMemo(() => quote?.tax_amount || 0, [quote]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
+  const cleanTerms = useMemo(() => getCleanTerms(quote?.terms), [quote?.terms]);
+
+  const isPartnerService = useMemo(() => {
+    if (!quote) return false;
+    const termsStr = quote.terms || '';
+    if (termsStr.includes('[CATEGORY:partner_service]')) return true;
+    const titleStr = (quote.title || '').toLowerCase();
+    if (titleStr.includes('jasa') || titleStr.includes('toko') || titleStr.includes('subcon') || titleStr.includes('sub kon')) return true;
+    return false;
+  }, [quote]);
+
+  const effectiveCompanyName = quote?.from_company || profile?.company_name || '';
+  const effectiveAddress = quote?.from_address || profile?.company_address || '';
+  const effectiveWebsite = quote?.from_website || profile?.company_website || '';
 
   if (loading) {
     return (
@@ -190,17 +208,19 @@ const PublicQuoteView = () => {
   return (
     <div className="min-h-screen bg-background text-foreground py-6 px-3 sm:px-6 lg:px-8">
       {/* ========================================================================= */}
-      {/* TOP FLOATING CLIENT ACTION BAR */}
+      {/* UNIFIED TOP CLIENT/PARTNER ACTION HEADER */}
       {/* ========================================================================= */}
-      <div className="max-w-4xl mx-auto mb-6 no-pdf">
-        <div className="rounded-3xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-foreground">Portal Klien Resmi</span>
+      <div className="max-w-4xl mx-auto mb-6 no-pdf space-y-3">
+        <div className={cn(
+          "rounded-3xl border bg-card p-4 sm:p-5 shadow-xs transition-all",
+          isPartnerService ? "border-violet-500/20" : "border-border/80"
+        )}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-foreground">
+                  {isPartnerService ? 'Portal Konfirmasi Mitra / Toko' : 'Portal Klien Resmi'}
+                </span>
                 {isAccepted && (
                   <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
                     ✓ DISETUJUI
@@ -212,107 +232,88 @@ const PublicQuoteView = () => {
                   </Badge>
                 )}
                 {isPending && (
-                  <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-bold">
                     MENUNGGU RESPON
                   </Badge>
                 )}
               </div>
               <p className="text-xs text-muted-foreground font-medium">
-                Penawaran #{quote.quote_number || quote.id.slice(0, 8)} • {quote.from_company}
+                Penawaran #{quote.quote_number || quote.id.slice(0, 8)}
+                {effectiveCompanyName ? ` • ${effectiveCompanyName}` : ''}
               </p>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <Button 
-              onClick={handleSaveAsPDF} 
-              disabled={isGeneratingPDF}
-              variant="outline"
-              size="sm"
-              className="rounded-xl h-10 px-4 text-xs font-bold border-border/80 hover:bg-muted"
-            >
-              <Download className="mr-2 h-4 w-4 text-primary" />
-              {isGeneratingPDF ? 'Membuat PDF...' : 'Unduh PDF'}
-            </Button>
-
-            {isPending && (
-              <div className="flex items-center gap-2">
-                <Button 
-                  onClick={() => handleStatusUpdate('Diterima')} 
-                  disabled={isSubmitting}
-                  size="sm"
-                  className="rounded-xl h-10 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
-                >
-                  <CheckCircle className="mr-1.5 h-4 w-4" />
-                  {isSubmitting ? 'Menyimpan...' : 'Terima Penawaran'}
-                </Button>
-
-                <Button 
-                  onClick={() => handleStatusUpdate('Ditolak')} 
-                  disabled={isSubmitting}
-                  variant="destructive"
-                  size="sm"
-                  className="rounded-xl h-10 px-3 text-xs font-bold"
-                >
-                  <XCircle className="mr-1.5 h-4 w-4" />
-                  Tolak
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* STATUS NOTIFICATION ALERT */}
-      {/* ========================================================================= */}
-      {isPending && (
-        <div className="max-w-4xl mx-auto mb-6 no-pdf">
-          <div className="p-4 sm:p-5 rounded-3xl bg-card border border-primary/30 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> Tinjau & Konfirmasi Penawaran
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Silakan periksa rincian barang, jasa, dan biaya di bawah ini. Jika Anda menyetujui, klik tombol <strong>"Terima Penawaran"</strong>.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
               <Button 
-                onClick={() => handleStatusUpdate('Diterima')} 
-                disabled={isSubmitting}
-                className="rounded-xl font-bold text-xs h-9 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                onClick={handleSaveAsPDF} 
+                disabled={isGeneratingPDF}
+                variant="outline"
+                size="sm"
+                className="rounded-xl h-10 px-3.5 text-xs font-bold border-border/80 hover:bg-muted"
               >
-                <CheckCircle className="mr-1.5 h-4 w-4" /> Setujui Sekarang
+                <Download className="mr-1.5 h-4 w-4 text-primary" />
+                {isGeneratingPDF ? 'Membuat...' : 'Unduh PDF'}
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {isAccepted && (
-        <div className="max-w-4xl mx-auto mb-6 no-pdf">
-          <div className="p-4 rounded-3xl bg-card border border-emerald-500/30 shadow-xs flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="h-6 w-6 text-emerald-500 shrink-0" />
-            <div>
-              <p className="font-bold text-sm text-foreground">Penawaran Telah Diterima & Disetujui</p>
-              <p className="text-xs text-muted-foreground">Terima kasih atas persetujuan Anda. Pihak {quote.from_company} telah menerima notifikasi dan akan segera menindaklanjuti.</p>
-            </div>
-          </div>
-        </div>
-      )}
+              {isPending && (
+                <>
+                  <Button 
+                    onClick={() => handleStatusUpdate('Diterima')} 
+                    disabled={isSubmitting}
+                    size="sm"
+                    className="rounded-xl h-10 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                  >
+                    <CheckCircle className="mr-1.5 h-4 w-4" />
+                    {isSubmitting ? 'Menyimpan...' : 'Terima Penawaran'}
+                  </Button>
 
-      {isRejected && (
-        <div className="max-w-4xl mx-auto mb-6 no-pdf">
-          <div className="p-4 rounded-3xl bg-card border border-rose-500/30 shadow-xs flex items-center gap-3 text-rose-600 dark:text-rose-400">
-            <XCircle className="h-6 w-6 text-rose-500 shrink-0" />
-            <div>
-              <p className="font-bold text-sm text-foreground">Penawaran Ditolak</p>
-              <p className="text-xs text-muted-foreground">Pihak {quote.from_company} telah diberitahu mengenai penolakan penawaran ini.</p>
+                  <Button 
+                    onClick={() => handleStatusUpdate('Ditolak')} 
+                    disabled={isSubmitting}
+                    variant="destructive"
+                    size="sm"
+                    className="rounded-xl h-10 px-3 text-xs font-bold"
+                  >
+                    <XCircle className="mr-1.5 h-4 w-4" />
+                    Tolak
+                  </Button>
+                </>
+              )}
             </div>
           </div>
+
+          {/* Contextual guidance note inside the single unified header */}
+          {isPending && (
+            <div className="mt-3 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+              <p className="leading-relaxed">
+                {isPartnerService
+                  ? 'Silakan periksa rincian unit toko, jasa instalasi, serta biaya akomodasi di bawah ini. Klik tombol "Terima Penawaran" di atas untuk menyetujui jadwal dan rincian pekerjaan.'
+                  : 'Silakan periksa rincian barang, jasa, dan biaya di bawah ini. Klik tombol "Terima Penawaran" di atas jika Anda menyetujui proposal ini.'}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {isAccepted && (
+          <div className="p-4 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 shadow-xs flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="font-bold text-xs text-foreground">Penawaran Telah Diterima & Disetujui</p>
+              <p className="text-[11px] text-muted-foreground">Terima kasih atas persetujuan Anda. Pihak {effectiveCompanyName || 'kami'} telah menerima notifikasi dan akan segera menindaklanjuti pekerjaan.</p>
+            </div>
+          </div>
+        )}
+
+        {isRejected && (
+          <div className="p-4 rounded-3xl bg-rose-500/10 border border-rose-500/20 shadow-xs flex items-center gap-3 text-rose-600 dark:text-rose-400">
+            <XCircle className="h-5 w-5 text-rose-500 shrink-0" />
+            <div>
+              <p className="font-bold text-xs text-foreground">Penawaran Ditolak</p>
+              <p className="text-[11px] text-muted-foreground">Pihak {effectiveCompanyName || 'kami'} telah diberitahu mengenai penolakan penawaran ini.</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ========================================================================= */}
       {/* MAIN QUOTATION CARD (Consistent Theme Aesthetic) */}
@@ -322,31 +323,28 @@ const PublicQuoteView = () => {
         <div className="p-6 sm:p-8 border-b border-border/70 bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             {/* Sender / Company Info */}
-            <div className="space-y-3 max-w-md">
+            <div className="space-y-2 max-w-md">
               {profile?.company_logo_url ? (
                 <img src={profile.company_logo_url} alt="Company Logo" className="max-h-16 object-contain" />
+              ) : effectiveCompanyName ? (
+                <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                  {effectiveCompanyName}
+                </h1>
               ) : (
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-lg">
-                    {quote.from_company.slice(0, 1) || 'P'}
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                    {quote.from_company}
-                  </h1>
-                </div>
+                <span className="text-sm font-bold text-muted-foreground">Profil Usaha</span>
               )}
 
               <div className="text-xs text-muted-foreground space-y-1">
-                {quote.from_address && (
+                {effectiveAddress && (
                   <p className="flex items-start gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                    <span>{quote.from_address}</span>
+                    <span>{effectiveAddress}</span>
                   </p>
                 )}
-                {quote.from_website && (
+                {effectiveWebsite && (
                   <p className="flex items-center gap-1.5">
                     <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span>{quote.from_website}</span>
+                    <span>{effectiveWebsite}</span>
                   </p>
                 )}
               </div>
@@ -354,15 +352,24 @@ const PublicQuoteView = () => {
 
             {/* Document Number & Metadata */}
             <div className="sm:text-right space-y-2">
-              <div className="inline-block px-3 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 text-xs font-black tracking-wider uppercase">
-                SURAT PENAWARAN
+              <div className={cn(
+                "inline-block px-3 py-1 rounded-xl text-xs font-black tracking-wider uppercase",
+                isPartnerService ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20" : "bg-primary/10 text-primary border border-primary/20"
+              )}>
+                {isPartnerService ? 'PENAWARAN JASA & SUBKON' : 'SURAT PENAWARAN'}
               </div>
               <h2 className="text-lg sm:text-xl font-black text-foreground font-mono">
                 #{quote.quote_number || quote.id.slice(0, 8)}
               </h2>
               <div className="text-xs text-muted-foreground space-y-1">
-                <p><strong>Tanggal:</strong> {safeFormat(quote.quote_date, 'd MMMM yyyy')}</p>
-                <p><strong>Berlaku Hingga:</strong> {safeFormat(quote.valid_until, 'd MMMM yyyy')}</p>
+                <p>
+                  <strong>Tanggal:</strong> {safeFormat(quote.quote_date || (quote as any).created_at, 'd MMMM yyyy') || safeFormat(new Date(), 'd MMMM yyyy')}
+                </p>
+                {quote.valid_until && (
+                  <p>
+                    <strong>Berlaku Hingga:</strong> {safeFormat(quote.valid_until, 'd MMMM yyyy')}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -374,7 +381,7 @@ const PublicQuoteView = () => {
             {/* Bill To */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                Ditujukan Kepada:
+                {isPartnerService ? 'Toko / Mitra Penerima:' : 'Ditujukan Kepada:'}
               </span>
               <h3 className="font-black text-base text-foreground">{quote.to_client}</h3>
               {quote.to_address && (
@@ -397,19 +404,25 @@ const PublicQuoteView = () => {
                 Perihal / Proyek:
               </span>
               <h3 className="font-extrabold text-base text-foreground">
-                {quote.title || 'Penawaran Barang & Jasa'}
+                {quote.title || (isPartnerService ? 'Jasa Instalasi & Akomodasi Lapangan' : 'Penawaran Barang & Jasa')}
               </h3>
-              <p className="text-xs text-muted-foreground">
-                Dokumen penawaran resmi dan sah diterbitkan untuk keperluan pengadaan.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {isPartnerService ? 'Dokumen penawaran jasa teknis & akomodasi instalasi untuk mitra toko.' : 'Dokumen penawaran resmi dan sah diterbitkan untuk keperluan pengadaan.'}
               </p>
             </div>
           </div>
-
           {/* Rincian Item Penawaran */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Rincian Barang & Jasa
-            </h4>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {isPartnerService ? 'Rincian Perangkat Toko & Jasa Teknis' : 'Rincian Barang & Jasa'}
+              </h4>
+              {isPartnerService && (
+                <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                  📦 Unit toko bersifat non-tagihan (disediakan pihak toko/mitra)
+                </span>
+              )}
+            </div>
             <div className="rounded-2xl border border-border/80 overflow-hidden">
               <DocumentItemsTable 
                 items={quote.quote_items} 
@@ -426,7 +439,7 @@ const PublicQuoteView = () => {
           <div className="flex justify-end pt-2">
             <div className="w-full sm:w-80 rounded-2xl bg-muted/20 p-5 border border-border/80 space-y-2.5 text-xs">
               <div className="flex justify-between font-medium text-muted-foreground">
-                <span>Subtotal Barang & Jasa:</span>
+                <span>{isPartnerService ? 'Subtotal Jasa & Biaya:' : 'Subtotal Barang & Jasa:'}</span>
                 <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
 
@@ -447,23 +460,25 @@ const PublicQuoteView = () => {
               <Separator className="my-2 border-border/60" />
 
               <div className="flex justify-between text-sm sm:text-base font-black text-foreground">
-                <span>Total Penawaran:</span>
-                <span className="text-primary tabular-nums">{formatCurrency(total)}</span>
+                <span>{isPartnerService ? 'Total Biaya Jasa:' : 'Total Penawaran:'}</span>
+                <span className={cn("tabular-nums", isPartnerService ? "text-violet-600 dark:text-violet-400 font-black" : "text-primary")}>
+                  {formatCurrency(total)}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Terms and Conditions */}
-          {quote.terms && (
+          {cleanTerms ? (
             <div className="space-y-2 p-5 rounded-2xl bg-muted/20 border border-border/80">
               <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-primary" /> Syarat & Ketentuan:
               </h4>
               <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">
-                {quote.terms}
+                {cleanTerms}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Survey Photos & Attachments */}
           {quote.attachments && quote.attachments.length > 0 && (
@@ -474,7 +489,7 @@ const PublicQuoteView = () => {
 
               {/* Photo Gallery Grid */}
               {quote.attachments.some(att => (att as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(att.name.split('.').pop()?.toLowerCase() || '') || att.url.startsWith('data:image/')) && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {quote.attachments.map((attachment, index) => {
                     const isImg = (attachment as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(attachment.name.split('.').pop()?.toLowerCase() || '') || attachment.url.startsWith('data:image/');
                     if (!isImg) return null;
@@ -483,9 +498,9 @@ const PublicQuoteView = () => {
                       <div 
                         key={index}
                         onClick={() => setActivePhotoPreview({ url: attachment.url, title: attachment.caption || attachment.name })}
-                        className="group relative rounded-xl border border-border/80 bg-muted/10 overflow-hidden shadow-2xs cursor-pointer hover:border-primary/50 transition-all"
+                        className="group relative rounded-xl border border-border/80 bg-muted/10 overflow-hidden shadow-2xs cursor-pointer hover:border-primary/50 transition-all print:border-slate-300 print:bg-slate-50 flex flex-col"
                       >
-                        <div className="aspect-video sm:aspect-square w-full overflow-hidden bg-black/20 relative">
+                        <div className="aspect-[4/3] w-full overflow-hidden bg-black/20 relative shrink-0">
                           <img 
                             src={attachment.url} 
                             alt={attachment.caption || attachment.name} 
@@ -497,8 +512,8 @@ const PublicQuoteView = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="p-1.5 space-y-0.5 bg-background/80 border-t border-border/60">
-                          <p className="font-bold text-[10px] text-foreground truncate">
+                        <div className="p-2 space-y-0.5 bg-background/90 print:bg-white border-t border-border/60 print:border-slate-200 grow flex flex-col justify-center">
+                          <p className="font-bold text-[10.5px] text-foreground print:text-slate-900 leading-snug break-words whitespace-normal">
                             {attachment.caption || attachment.name}
                           </p>
                         </div>

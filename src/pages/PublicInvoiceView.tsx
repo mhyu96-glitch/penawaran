@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getCleanTerms } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -210,6 +210,7 @@ const PublicInvoiceView = () => {
   };
 
   const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
+  const cleanTerms = useMemo(() => getCleanTerms(invoice?.terms), [invoice?.terms]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -457,12 +458,12 @@ const PublicInvoiceView = () => {
             </div>
           </div>
 
-          {invoice.terms && (
+          {cleanTerms ? (
             <div>
                 <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.terms}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{cleanTerms}</p>
             </div>
-          )}
+          ) : null}
           {invoice.attachments && invoice.attachments.length > 0 && (
             <div className="no-pdf">
               <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>

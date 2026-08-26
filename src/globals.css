@@ -354,10 +354,24 @@
 .pdf-exporting {
   background-color: #ffffff !important;
   color: #0f172a !important;
+  box-shadow: none !important;
 }
 
 .pdf-exporting * {
   color: #0f172a !important;
+}
+
+.pdf-exporting .text-muted-foreground {
+  color: #475569 !important;
+}
+
+.pdf-exporting .bg-muted\/10,
+.pdf-exporting .bg-muted\/20,
+.pdf-exporting .bg-muted\/30,
+.pdf-exporting .bg-muted\/40,
+.pdf-exporting .bg-card {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
 .pdf-exporting .mobile-document-items {
@@ -367,13 +381,15 @@
 .pdf-exporting .desktop-document-table {
   display: block !important;
   background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 12px !important;
 }
 
 .pdf-exporting .desktop-document-table th {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
   color: #1e293b !important;
-  border-color: #cbd5e1 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  font-weight: 800 !important;
 }
 
 .pdf-exporting .desktop-document-table td {
@@ -383,8 +399,10 @@
 }
 
 .pdf-exporting .desktop-document-table tr.section-header-row td {
-  background-color: #f1f5f9 !important;
+  background-color: #f8fafc !important;
   color: #0f172a !important;
-  border-color: #cbd5e1 !important;
+  border-top: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  font-weight: 800 !important;
 }
 

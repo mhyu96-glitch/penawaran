@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText, Send, MoreVertical, History, CreditCard } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText, Send, MoreVertical, History, CreditCard, Building2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
     AlertDialog,
@@ -29,7 +29,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant, cn } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getStatusVariant, cn, getCleanTerms } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
@@ -54,6 +54,7 @@ type Payment = {
 type InvoiceDetails = {
     id: string;
     user_id: string;
+    title?: string;
     from_company: string;
     from_address: string;
     from_website: string;
@@ -210,6 +211,17 @@ const InvoiceView = () => {
     const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice?.down_payment_amount]);
     const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
+    const isPartnerService = useMemo(() => {
+        if (!invoice) return false;
+        const termsStr = invoice.terms || '';
+        if (termsStr.includes('[CATEGORY:partner_service]')) return true;
+        const titleStr = (invoice.title || '').toLowerCase();
+        if (titleStr.includes('jasa') || titleStr.includes('toko') || titleStr.includes('subcon') || titleStr.includes('sub kon')) return true;
+        return false;
+    }, [invoice]);
+
+    const cleanTerms = useMemo(() => getCleanTerms(invoice?.terms), [invoice?.terms]);
+
     useEffect(() => {
         if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas') {
             supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoice.id).then(() => fetchInvoiceData());
@@ -346,15 +358,12 @@ const InvoiceView = () => {
                             <div className="min-w-0 space-y-1.5">
                                 {profile?.company_logo_url ? (
                                     <img src={profile.company_logo_url} alt="Company Logo" className="mb-2 max-h-14 object-contain" />
+                                ) : invoice.from_company ? (
+                                    <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight print:text-2xl print:text-black">
+                                        {invoice.from_company}
+                                    </h1>
                                 ) : (
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-base print:hidden">
-                                            {invoice.from_company.slice(0, 1) || 'F'}
-                                        </div>
-                                        <h1 className="text-lg sm:text-xl font-black leading-tight text-foreground tracking-tight print:text-2xl print:text-black">
-                                            {invoice.from_company}
-                                        </h1>
-                                    </div>
+                                    <span className="text-xs font-semibold text-muted-foreground">Profil Usaha</span>
                                 )}
                                 <div className="text-[11px] text-muted-foreground space-y-0.5 print:text-slate-600">
                                     <p>{invoice.from_address}</p>
@@ -507,13 +516,13 @@ const InvoiceView = () => {
                             </div>
                         )}
 
-                        {invoice.terms && (
+                        {cleanTerms ? (
                             <Alert variant="default" className="print-terms print-avoid-break bg-muted/20 border-border/70 rounded-2xl">
                                 <Info className="h-4 w-4 text-primary" />
                                 <AlertTitle className="text-xs font-bold">Syarat & Ketentuan</AlertTitle>
-                                <AlertDescription className="text-xs whitespace-pre-wrap text-muted-foreground leading-relaxed">{invoice.terms}</AlertDescription>
+                                <AlertDescription className="text-xs whitespace-pre-wrap text-muted-foreground leading-relaxed">{cleanTerms}</AlertDescription>
                             </Alert>
-                        )}
+                        ) : null}
                     </CardContent>
 
                     {profile?.custom_footer && (
@@ -528,13 +537,15 @@ const InvoiceView = () => {
             {/* BOTTOM SECTION: PROFIT ANALYSIS, PAYMENTS & DOCUMENT TIMELINE (EXCLUDED FROM PRINT/PDF) */}
             {/* ========================================================================= */}
             <div className="mx-auto max-w-5xl space-y-6 pt-2 print:hidden no-pdf">
-                {/* 1. Analisis Keuntungan Full-Width */}
-                <ProfitAnalysisCard
-                    items={invoice.invoice_items}
-                    discountAmount={invoice.discount_amount}
-                    taxAmount={invoice.tax_amount}
-                    type="Faktur"
-                />
+                {/* 1. Analisis Keuntungan Full-Width - Disembunyikan untuk mode Subkon / Tagihan Toko */}
+                {!isPartnerService && (
+                    <ProfitAnalysisCard
+                        items={invoice.invoice_items}
+                        discountAmount={invoice.discount_amount}
+                        taxAmount={invoice.tax_amount}
+                        type="Faktur"
+                    />
+                )}
 
                 {/* 2. Riwayat Pembayaran Full-Width */}
                 <div className="rounded-3xl border border-border/80 bg-card p-5 sm:p-6 shadow-sm">
