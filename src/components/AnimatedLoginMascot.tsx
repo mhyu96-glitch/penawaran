@@ -22,249 +22,481 @@ export const AnimatedLoginMascot: React.FC<AnimatedLoginMascotProps> = ({
 }) => {
   const [isBlinking, setIsBlinking] = useState(false);
 
-  // Automatic natural blinking effect
+  // Automatic natural periodic blinking
   useEffect(() => {
     if (isPasswordFocused && !isPeeking) return;
 
     const blinkInterval = setInterval(() => {
       setIsBlinking(true);
       setTimeout(() => setIsBlinking(false), 180);
-    }, 3200 + Math.random() * 2000);
+    }, 3200 + Math.random() * 2400);
 
     return () => clearInterval(blinkInterval);
   }, [isPasswordFocused, isPeeking]);
 
-  // Calculate eye pupil tracking based on email input length
+  // Calculate realistic eye tracking based on email input character length
   const calculateTracking = () => {
-    if (!isEmailFocused) return { pupilX: 0, pupilY: 0, headTilt: 0 };
-    // Track from -8px (left) to +8px (right)
-    const normalizedLength = Math.min(Math.max(emailLength, 0), 28);
-    const pupilX = ((normalizedLength / 28) - 0.5) * 12;
-    const pupilY = 3.5; // Look downwards towards input
-    const headTilt = ((normalizedLength / 28) - 0.5) * 6; // Subtle 3D head tilt
-    return { pupilX, pupilY, headTilt };
+    if (!isEmailFocused) return { pupilX: 0, pupilY: 0, headTilt: 0, headPanX: 0, headPanY: 0 };
+    
+    // Normalize character count (0 to 30)
+    const normalizedLength = Math.min(Math.max(emailLength, 0), 30);
+    const progress = normalizedLength / 30; // 0 to 1
+    
+    // Pupil tracks horizontally and glances downward toward input
+    const pupilX = (progress - 0.5) * 14; // -7px (left) to +7px (right)
+    const pupilY = 4; // looking down at input
+    
+    // Subtle 3D head pivot
+    const headTilt = (progress - 0.5) * 6; // -3deg to +3deg
+    const headPanX = (progress - 0.5) * 4;
+    const headPanY = 2;
+    
+    return { pupilX, pupilY, headTilt, headPanX, headPanY };
   };
 
-  const { pupilX, pupilY, headTilt } = calculateTracking();
+  const { pupilX, pupilY, headTilt, headPanX, headPanY } = calculateTracking();
 
   return (
-    <div className="relative w-36 h-32 mx-auto flex items-center justify-center select-none pointer-events-none">
-      {/* Ambient Glow Aura */}
+    <div className="relative w-40 h-44 sm:w-44 sm:h-48 mx-auto flex items-center justify-center select-none pointer-events-none">
+      {/* Ambient Status Glow Aura (Transparent background maintained) */}
       <div 
         className={cn(
-          "absolute inset-0 rounded-full blur-2xl transition-all duration-500 opacity-50",
-          hasError ? "bg-rose-500/60 scale-110" :
-          isSuccess ? "bg-emerald-500/70 scale-125" :
-          isSubmitting ? "bg-teal-500/60 animate-pulse" :
-          isPasswordFocused ? "bg-indigo-500/50" :
-          "bg-teal-500/40"
+          "absolute inset-3 rounded-full blur-3xl transition-all duration-500 opacity-40",
+          hasError ? "bg-rose-500/70 scale-110" :
+          isSuccess ? "bg-emerald-500/80 scale-125" :
+          isSubmitting ? "bg-cyan-500/70 animate-pulse" :
+          isPasswordFocused ? "bg-indigo-500/50 scale-95" :
+          "bg-sky-500/30"
         )} 
       />
 
       <svg
-        viewBox="0 0 160 140"
-        style={{ transform: `rotate(${isEmailFocused ? headTilt : 0}deg)` }}
-        className="w-full h-full drop-shadow-2xl overflow-visible transition-transform duration-200 ease-out"
+        viewBox="0 0 240 240"
+        className="w-full h-full drop-shadow-2xl overflow-visible"
       >
         <defs>
-          {/* Gradients */}
-          <linearGradient id="pandaFaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          {/* Metallic Body Gradients */}
+          <linearGradient id="cctvVisorTop" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#e2e8f0" />
+            <stop offset="35%" stopColor="#e2eeff" />
+            <stop offset="100%" stopColor="#a3c3e8" />
           </linearGradient>
 
-          <linearGradient id="pandaDarkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1e293b" />
-            <stop offset="100%" stopColor="#0f172a" />
+          <linearGradient id="cctvVisorSide" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#b4d0f0" />
+            <stop offset="50%" stopColor="#7a9ec7" />
+            <stop offset="100%" stopColor="#456a94" />
           </linearGradient>
 
-          <linearGradient id="irisGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0d9488" />
-            <stop offset="100%" stopColor="#042f2e" />
+          <linearGradient id="cctvBodyLight" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="60%" stopColor="#cde0f7" />
+            <stop offset="100%" stopColor="#8baecf" />
           </linearGradient>
 
-          <linearGradient id="blushGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f43f5e" />
-            <stop offset="100%" stopColor="#fb7185" />
+          <linearGradient id="cctvBodyMid" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#b2cde8" />
+            <stop offset="100%" stopColor="#5d81a8" />
           </linearGradient>
 
-          <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <linearGradient id="cctvBodyDark" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3b5478" />
+            <stop offset="100%" stopColor="#1e2f47" />
+          </linearGradient>
+
+          {/* Camera Lens Eyeball Gradients */}
+          <radialGradient id="cctvLensGlassGlow" cx="45%" cy="40%" r="65%">
+            <stop offset="0%" stopColor="#e0f9ff" />
+            <stop offset="25%" stopColor="#38bdf8" />
+            <stop offset="70%" stopColor="#0284c7" />
+            <stop offset="100%" stopColor="#034b75" />
+          </radialGradient>
+
+          <radialGradient id="cctvIrisBlue" cx="40%" cy="35%" r="60%">
+            <stop offset="0%" stopColor="#38f8ff" />
+            <stop offset="45%" stopColor="#0ea5e9" />
+            <stop offset="85%" stopColor="#0369a1" />
+            <stop offset="100%" stopColor="#082f49" />
+          </radialGradient>
+
+          {/* Glowing Filters */}
+          <filter id="cctvScanBeamGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
 
-        {/* --- EARS --- */}
-        {/* Left Ear */}
-        <g className="transition-transform duration-300 origin-[34px_34px]">
-          <circle cx="34" cy="34" r="21" fill="url(#pandaDarkGrad)" stroke="#334155" strokeWidth="2" />
-          <circle cx="34" cy="34" r="12" fill="#0d9488" opacity="0.35" />
-          <circle cx="34" cy="34" r="7" fill="#14b8a6" opacity="0.2" />
+        {/* ========================================================================= */}
+        {/* 1. REAR FLEXIBLE ACCORDION CABLE */}
+        {/* ========================================================================= */}
+        <g className="transition-transform duration-300">
+          {/* Cable Outer Shadow/Border */}
+          <path 
+            d="M 56 100 C 24 112, 22 165, 82 165" 
+            stroke="#152233" 
+            strokeWidth="16" 
+            fill="none" 
+            strokeLinecap="round" 
+          />
+          {/* Cable Metallic Segments */}
+          <path 
+            d="M 56 100 C 24 112, 22 165, 82 165" 
+            stroke="#8baecf" 
+            strokeWidth="10" 
+            fill="none" 
+            strokeLinecap="round" 
+            strokeDasharray="4 4" 
+          />
+          <path 
+            d="M 56 100 C 24 112, 22 165, 82 165" 
+            stroke="#ffffff" 
+            strokeWidth="3" 
+            fill="none" 
+            strokeLinecap="round" 
+            opacity="0.6" 
+          />
         </g>
 
-        {/* Right Ear */}
-        <g className="transition-transform duration-300 origin-[126px_34px]">
-          <circle cx="126" cy="34" r="21" fill="url(#pandaDarkGrad)" stroke="#334155" strokeWidth="2" />
-          <circle cx="126" cy="34" r="12" fill="#0d9488" opacity="0.35" />
-          <circle cx="126" cy="34" r="7" fill="#14b8a6" opacity="0.2" />
+        {/* ========================================================================= */}
+        {/* 2. LEGS AND FEET (ROBOT STANDING FIRMLY) */}
+        {/* ========================================================================= */}
+        {/* --- LEFT LEG (BACK) --- */}
+        <g id="cctv-left-leg">
+          {/* Thigh */}
+          <path d="M 80 162 L 74 192 L 90 192 L 94 162 Z" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Knee Joint */}
+          <ellipse cx="82" cy="192" rx="8.5" ry="4" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" />
+          {/* Shin */}
+          <path d="M 74 194 L 72 216 L 88 216 L 88 194 Z" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Foot / Boot */}
+          <path d="M 60 226 C 60 216, 75 214, 88 214 C 96 214, 98 220, 96 226 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3.5" strokeLinejoin="round" />
+          {/* Foot Highlight */}
+          <ellipse cx="78" cy="217" rx="6" ry="2.5" fill="#ffffff" opacity="0.8" />
         </g>
 
-        {/* --- MAIN HEAD / FACE (Cute Rounded Fluffy Panda) --- */}
-        <circle 
-          cx="80" 
-          cy="74" 
-          r="53" 
-          fill="url(#pandaFaceGrad)" 
-          stroke={hasError ? "#f43f5e" : isSuccess ? "#10b981" : isPasswordFocused ? "#6366f1" : "#14b8a6"} 
-          strokeWidth="3"
-          className="transition-colors duration-300"
-        />
-
-        {/* --- PANDA EYE PATCHES (Black curved patches around eyes) --- */}
-        {/* Left Eye Patch */}
-        <ellipse 
-          cx="54" 
-          cy="68" 
-          rx="18" 
-          ry="22" 
-          fill="url(#pandaDarkGrad)" 
-          transform="rotate(-14 54 68)"
-        />
-        {/* Right Eye Patch */}
-        <ellipse 
-          cx="106" 
-          cy="68" 
-          rx="18" 
-          ry="22" 
-          fill="url(#pandaDarkGrad)" 
-          transform="rotate(14 106 68)"
-        />
-
-        {/* --- EYEBROWS (Expressive) --- */}
-        {hasError ? (
-          /* Worried Eyebrows */
-          <>
-            <path d="M 44 48 Q 54 53 64 51" stroke="#475569" strokeWidth="3" strokeLinecap="round" fill="none" />
-            <path d="M 96 51 Q 106 53 116 48" stroke="#475569" strokeWidth="3" strokeLinecap="round" fill="none" />
-          </>
-        ) : isSuccess ? (
-          /* Cheerful Raised Eyebrows */
-          <>
-            <path d="M 44 45 Q 54 41 64 45" stroke="#10b981" strokeWidth="3" strokeLinecap="round" fill="none" />
-            <path d="M 96 45 Q 106 41 116 45" stroke="#10b981" strokeWidth="3" strokeLinecap="round" fill="none" />
-          </>
-        ) : (
-          /* Normal Cute Eyebrows */
-          <>
-            <path d="M 45 47 Q 54 44 63 47" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-            <path d="M 97 47 Q 106 44 115 47" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-          </>
-        )}
-
-        {/* --- EYES & PUPILS --- */}
-        {/* Left Eye White */}
-        <ellipse cx="55" cy="69" rx="12" ry="14" fill="#ffffff" />
-        {/* Right Eye White */}
-        <ellipse cx="105" cy="69" rx="12" ry="14" fill="#ffffff" />
-
-        {/* Left Pupil + Iris with dynamic tracking */}
-        <g style={{ transform: `translate(${pupilX}px, ${pupilY}px)` }} className="transition-transform duration-100 ease-out">
-          {/* Iris */}
-          <ellipse cx="55" cy="69" rx="8" ry="10" fill="url(#irisGrad)" />
-          {/* Deep Pupil */}
-          <circle cx="55" cy="69" r="5.5" fill="#0f172a" />
-          {/* Anime Sparkle Catchlights */}
-          <circle cx="52.5" cy="65.5" r="3" fill="#ffffff" />
-          <circle cx="57" cy="72" r="1.5" fill="#ffffff" opacity="0.8" />
+        {/* --- RIGHT LEG (FRONT) --- */}
+        <g id="cctv-right-leg">
+          {/* Thigh */}
+          <path d="M 112 160 L 115 192 L 133 192 L 126 160 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Knee Joint */}
+          <ellipse cx="124" cy="192" rx="9.5" ry="4.5" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" />
+          {/* Shin */}
+          <path d="M 115 194 L 117 216 L 134 216 L 132 194 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Foot / Boot */}
+          <path d="M 106 226 C 106 216, 122 214, 140 214 C 148 214, 151 220, 147 226 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3.5" strokeLinejoin="round" />
+          {/* Foot Highlight */}
+          <ellipse cx="126" cy="217" rx="7.5" ry="2.8" fill="#ffffff" opacity="0.9" />
         </g>
 
-        {/* Right Pupil + Iris with dynamic tracking */}
-        <g style={{ transform: `translate(${pupilX}px, ${pupilY}px)` }} className="transition-transform duration-100 ease-out">
-          {/* Iris */}
-          <ellipse cx="105" cy="69" rx="8" ry="10" fill="url(#irisGrad)" />
-          {/* Deep Pupil */}
-          <circle cx="105" cy="69" r="5.5" fill="#0f172a" />
-          {/* Anime Sparkle Catchlights */}
-          <circle cx="102.5" cy="65.5" r="3" fill="#ffffff" />
-          <circle cx="107" cy="72" r="1.5" fill="#ffffff" opacity="0.8" />
+        {/* ========================================================================= */}
+        {/* 3. PELVIS / WAIST SOCKET */}
+        {/* ========================================================================= */}
+        <g id="cctv-pelvis">
+          <ellipse cx="104" cy="160" rx="18" ry="12" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3.5" />
+          {/* Waist Cylinder */}
+          <path d="M 94 136 L 94 154 C 94 160, 114 160, 114 154 L 114 136 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3.5" strokeLinejoin="round" />
+          <ellipse cx="104" cy="136" rx="10.5" ry="5" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" />
         </g>
 
-        {/* Natural Eyelid Blink */}
-        {isBlinking && !isPasswordFocused && (
-          <>
-            <ellipse cx="55" cy="69" rx="13" ry="15" fill="#1e293b" />
-            <path d="M 43 69 Q 55 75 67 69" stroke="#14b8a6" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-            <ellipse cx="105" cy="69" rx="13" ry="15" fill="#1e293b" />
-            <path d="M 93 69 Q 105 75 117 69" stroke="#14b8a6" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-          </>
-        )}
+        {/* ========================================================================= */}
+        {/* 4. NECK SWIVEL MOUNT */}
+        {/* ========================================================================= */}
+        <g id="cctv-neck">
+          {/* Neck Column */}
+          <path d="M 98 114 L 98 136 L 110 136 L 110 114 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          <ellipse cx="104" cy="124" rx="8" ry="3.5" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="2.5" />
+          {/* Neck Top Ball Joint */}
+          <circle cx="104" cy="112" r="7" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" />
+        </g>
 
-        {/* --- CUTE NOSE & MUZZLE --- */}
-        <ellipse cx="80" cy="91" rx="15" ry="10" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1" />
-        
-        {/* Shiny Black Heart/Triangle Nose */}
-        <path d="M 74 86 Q 80 84 86 86 Q 83 93 80 94 Q 77 93 74 86 Z" fill="#0f172a" />
-        <ellipse cx="78" cy="87" rx="1.5" ry="0.8" fill="#ffffff" opacity="0.6" />
-
-        {/* Mouth */}
-        {hasError ? (
-          /* Oops / Wavy Cute Mouth */
-          <path d="M 73 100 Q 77 96 80 100 Q 83 104 87 100" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        ) : isSuccess ? (
-          /* Joyful Open Mouth */
-          <g>
-            <path d="M 72 98 Q 80 110 88 98 Z" fill="#f43f5e" />
-            <path d="M 72 98 Q 80 110 88 98" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-          </g>
-        ) : isSubmitting ? (
-          /* Concentrated 'o' Mouth */
-          <circle cx="80" cy="100" r="3.5" fill="#0d9488" stroke="#0f172a" strokeWidth="2" />
-        ) : (
-          /* Classic Kawaii 'w' Smile */
-          <path d="M 73 97 Q 77 102 80 98 Q 83 102 87 97" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        )}
-
-        {/* --- BLUSHING CHEEKS --- */}
-        <ellipse cx="40" cy="86" rx="9" ry="5.5" fill="url(#blushGrad)" opacity={isEmailFocused || isSuccess ? "0.6" : "0.35"} />
-        <ellipse cx="120" cy="86" rx="9" ry="5.5" fill="url(#blushGrad)" opacity={isEmailFocused || isSuccess ? "0.6" : "0.35"} />
-
-        {/* --- ANIMATED HANDS / PAWS (COVERING EYES ON PASSWORD) --- */}
-        {/* Left Paw */}
+        {/* ========================================================================= */}
+        {/* 5. LEFT ARM (BACK ARM) - ANIMATED */}
+        {/* ========================================================================= */}
         <g 
+          id="cctv-left-arm"
           className={cn(
-            "transition-all duration-300 ease-out origin-[45px_135px]",
+            "transition-all duration-300 ease-out origin-[75px_115px]",
             isPasswordFocused && !isPeeking 
-              ? "translate-y-0 opacity-100 rotate-[12deg]" 
-              : isPasswordFocused && isPeeking 
-              ? "translate-y-9 opacity-85 rotate-[40deg]" /* Lowers left hand for peek */
-              : "translate-y-16 opacity-0 rotate-0"
+              ? "translate-y-[-35px] translate-x-[36px] rotate-[-55deg]" /* Raises left hand to cover left side of lens */
+              : isPasswordFocused && isPeeking
+              ? "translate-y-[-20px] translate-x-[20px] rotate-[-30deg]"
+              : isSuccess
+              ? "translate-y-[-10px] rotate-[-15deg]"
+              : ""
           )}
         >
-          <ellipse cx="54" cy="74" rx="18" ry="22" fill="url(#pandaDarkGrad)" stroke="#334155" strokeWidth="2.5" />
-          {/* Soft Pink Paw Pads */}
-          <ellipse cx="54" cy="76" rx="8" ry="10" fill="#14b8a6" opacity="0.8" />
-          <circle cx="44" cy="62" r="3.5" fill="#14b8a6" opacity="0.8" />
-          <circle cx="53" cy="57" r="3.8" fill="#14b8a6" opacity="0.8" />
-          <circle cx="63" cy="62" r="3.5" fill="#14b8a6" opacity="0.8" />
+          {/* Shoulder Joint */}
+          <circle cx="76" cy="122" r="7.5" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" />
+          {/* Upper Arm */}
+          <path d="M 72 124 L 52 144 L 62 152 L 80 128 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Elbow Joint */}
+          <circle cx="56" cy="148" r="6" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" />
+          {/* Forearm & Fist */}
+          <path d="M 54 150 L 62 168 C 65 174, 76 174, 80 166 L 66 146 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          {/* Mechanical Hand Fist */}
+          <ellipse cx="73" cy="168" rx="7.5" ry="6.5" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" />
+          {/* Finger Knuckle Details */}
+          <path d="M 68 165 Q 73 172 78 165" stroke="#152233" strokeWidth="2" fill="none" />
         </g>
 
-        {/* Right Paw */}
+        {/* ========================================================================= */}
+        {/* 6. CAMERA HEAD (FULL 3D HOUSING + INTERACTIVE EYE) */}
+        {/* ========================================================================= */}
         <g 
+          id="cctv-camera-head"
+          style={{ 
+            transform: `translate(${headPanX}px, ${headPanY}px) rotate(${headTilt}deg)`,
+            transformOrigin: '104px 112px'
+          }}
+          className="transition-transform duration-200 ease-out"
+        >
+          {/* --- A. Outer Camera Housing (Visor / Body) --- */}
+          {/* Rear Camera Shell Box */}
+          <path 
+            d="M 52 52 L 126 36 L 120 102 L 46 95 Z" 
+            fill="url(#cctvVisorSide)" 
+            stroke="#152233" 
+            strokeWidth="3.5" 
+            strokeLinejoin="round" 
+          />
+          {/* Top Visor Roof */}
+          <path 
+            d="M 52 52 L 126 36 L 210 46 L 132 66 Z" 
+            fill="url(#cctvVisorTop)" 
+            stroke="#152233" 
+            strokeWidth="3.5" 
+            strokeLinejoin="round" 
+          />
+          {/* Top Visor Bright Highlight Line */}
+          <path 
+            d="M 58 52 L 126 38 L 200 48" 
+            stroke="#ffffff" 
+            strokeWidth="3" 
+            strokeLinecap="round" 
+            fill="none" 
+            opacity="0.8" 
+          />
+
+          {/* Camera Side Grooves & Panel Details */}
+          <path d="M 56 68 L 100 60" stroke="#152233" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M 54 80 L 88 74" stroke="#152233" strokeWidth="2.5" strokeLinecap="round" />
+
+          {/* --- B. Front Camera Aperture Bezel (Recessed Visor Hood) --- */}
+          <path 
+            d="M 124 38 L 216 48 C 224 50, 226 56, 224 64 L 208 114 C 206 122, 198 124, 190 122 L 102 110 C 94 108, 92 102, 94 94 L 110 46 C 112 40, 118 38, 124 38 Z" 
+            fill="url(#cctvVisorSide)" 
+            stroke="#152233" 
+            strokeWidth="3.5" 
+            strokeLinejoin="round" 
+          />
+
+          {/* Inner Visor Bevel Rim */}
+          <path 
+            d="M 130 46 L 208 55 C 214 56, 215 60, 213 66 L 201 106 C 199 112, 193 114, 187 112 L 112 102 C 106 100, 104 96, 106 90 L 118 52 C 120 47, 124 45, 130 46 Z" 
+            fill="url(#cctvBodyDark)" 
+            stroke="#152233" 
+            strokeWidth="3" 
+            strokeLinejoin="round" 
+          />
+
+          {/* --- C. Inner Lens Face Screen --- */}
+          <path 
+            d="M 134 50 L 204 58 C 209 59, 210 62, 208 67 L 198 102 C 196 107, 191 109, 186 107 L 118 98 C 113 96, 111 93, 113 88 L 123 55 C 125 51, 129 49, 134 50 Z" 
+            fill="#dbe9f9" 
+            stroke="#152233" 
+            strokeWidth="2.5" 
+          />
+
+          {/* --- D. Circular Camera Lens Frame --- */}
+          <ellipse 
+            cx="160" 
+            cy="80" 
+            rx="33" 
+            ry="31" 
+            fill="url(#cctvBodyDark)" 
+            stroke="#152233" 
+            strokeWidth="3.5" 
+          />
+          {/* Metallic Inner Bezel */}
+          <ellipse 
+            cx="160" 
+            cy="80" 
+            rx="28" 
+            ry="26" 
+            fill="url(#cctvLensGlassGlow)" 
+            stroke="#0284c7" 
+            strokeWidth="2" 
+          />
+
+          {/* --- E. Eye Pupil & Iris with Interactive Cursor/Typing Tracking --- */}
+          <g 
+            style={{ 
+              transform: `translate(${pupilX}px, ${pupilY}px)`,
+              transition: 'transform 0.12s ease-out'
+            }}
+          >
+            {/* Iris */}
+            <ellipse 
+              cx="160" 
+              cy="80" 
+              rx="18" 
+              ry="17" 
+              fill="url(#cctvIrisBlue)" 
+              stroke="#0369a1" 
+              strokeWidth="1.5" 
+            />
+            {/* Deep Pupil */}
+            <ellipse 
+              cx="160" 
+              cy="80" 
+              rx="11" 
+              ry="10.5" 
+              fill="#0b1726" 
+            />
+            {/* High-Gloss Anime Catchlight Reflection (Primary Dot) */}
+            <ellipse 
+              cx="155" 
+              cy="74" 
+              rx="5" 
+              ry="4" 
+              fill="#ffffff" 
+            />
+            {/* Secondary Accent Reflection Dot */}
+            <circle 
+              cx="165" 
+              cy="84" 
+              r="2" 
+              fill="#ffffff" 
+              opacity="0.85" 
+            />
+          </g>
+
+          {/* --- F. Expressive Eyelid / Shutter Overlay --- */}
+          {/* Default Upper Eyelid Arch (Gives determined / scout gaze from image) */}
+          {!isPasswordFocused && !isBlinking && !hasError && !isSuccess && (
+            <path 
+              d="M 132 72 Q 160 62 188 74 Q 160 66 132 72 Z" 
+              fill="#152233" 
+            />
+          )}
+
+          {/* Submitting: Laser Scanner Beam */}
+          {isSubmitting && (
+            <line 
+              x1="130" 
+              y1="80" 
+              x2="190" 
+              y2="80" 
+              stroke="#22d3ee" 
+              strokeWidth="3" 
+              strokeLinecap="round" 
+              filter="url(#cctvScanBeamGlow)" 
+              className="animate-pulse"
+            />
+          )}
+
+          {/* Natural Blink State */}
+          {isBlinking && !isPasswordFocused && (
+            <g>
+              <ellipse cx="160" cy="80" rx="28.5" ry="26.5" fill="#152233" />
+              <path d="M 134 80 Q 160 88 186 80" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" fill="none" />
+            </g>
+          )}
+
+          {/* Password Mode: Shutter / Eye Closed (Tutup Mata) */}
+          {isPasswordFocused && !isPeeking && (
+            <g className="transition-opacity duration-200">
+              {/* Lens Shutter Shut Down */}
+              <ellipse cx="160" cy="80" rx="28.5" ry="26.5" fill="#152233" />
+              {/* Cute Curved Closed Eye Line */}
+              <path 
+                d="M 136 80 Q 160 90 184 80" 
+                stroke="#38bdf8" 
+                strokeWidth="3.5" 
+                strokeLinecap="round" 
+                fill="none" 
+              />
+              {/* Mechanical Shutter Lines */}
+              <path d="M 148 70 L 172 70" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+            </g>
+          )}
+
+          {/* Password Peeking Mode: Curious Gap Gaze */}
+          {isPasswordFocused && isPeeking && (
+            <ellipse 
+              cx="156" 
+              cy="76" 
+              rx="4" 
+              ry="3" 
+              fill="#ffffff" 
+              className="animate-ping"
+            />
+          )}
+
+          {/* Success Mode: Cheerful Happy Eye ^_^ */}
+          {isSuccess && (
+            <g>
+              <ellipse cx="160" cy="80" rx="28.5" ry="26.5" fill="#10b981" opacity="0.2" />
+              <path 
+                d="M 138 84 Q 160 66 182 84" 
+                stroke="#10b981" 
+                strokeWidth="4" 
+                strokeLinecap="round" 
+                fill="none" 
+              />
+            </g>
+          )}
+
+          {/* Error Mode: Worried >_< / Red Alert */}
+          {hasError && (
+            <g>
+              <ellipse cx="160" cy="80" rx="28.5" ry="26.5" fill="#f43f5e" opacity="0.25" />
+              {/* Flash Red Alert Beacon on Hood */}
+              <circle cx="160" cy="32" r="5" fill="#f43f5e" filter="url(#cctvScanBeamGlow)" className="animate-ping" />
+              <path d="M 142 72 L 158 88 L 142 88" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M 178 72 L 162 88 L 178 88" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </g>
+          )}
+        </g>
+
+        {/* ========================================================================= */}
+        {/* 7. RIGHT ARM (FRONT SCOUT / COVER EYE ARM) - ANIMATED */}
+        {/* ========================================================================= */}
+        <g 
+          id="cctv-right-arm"
           className={cn(
-            "transition-all duration-300 ease-out origin-[115px_135px]",
-            isPasswordFocused 
-              ? "translate-y-0 opacity-100 rotate-[-12deg]" 
-              : "translate-y-16 opacity-0 rotate-0"
+            "transition-all duration-300 ease-out origin-[118px_122px]",
+            isPasswordFocused && !isPeeking 
+              ? "translate-y-[-42px] translate-x-[22px] rotate-[-25deg]" /* Moves hand directly over center of camera lens */
+              : isPasswordFocused && isPeeking
+              ? "translate-y-[-24px] translate-x-[48px] rotate-[15deg]" /* Slides hand aside to peek through gap */
+              : isSuccess
+              ? "translate-y-[-18px] translate-x-[15px] rotate-[10deg]"
+              : ""
           )}
         >
-          <ellipse cx="106" cy="74" rx="18" ry="22" fill="url(#pandaDarkGrad)" stroke="#334155" strokeWidth="2.5" />
-          {/* Soft Pink Paw Pads */}
-          <ellipse cx="106" cy="76" rx="8" ry="10" fill="#14b8a6" opacity="0.8" />
-          <circle cx="97" cy="62" r="3.5" fill="#14b8a6" opacity="0.8" />
-          <circle cx="107" cy="57" r="3.8" fill="#14b8a6" opacity="0.8" />
-          <circle cx="116" cy="62" r="3.5" fill="#14b8a6" opacity="0.8" />
+          {/* Shoulder Joint */}
+          <circle cx="118" cy="122" r="8.5" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3.5" />
+          
+          {/* Upper Arm Segment */}
+          <path d="M 120 120 L 166 90 L 176 100 L 126 130 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          
+          {/* Elbow Joint */}
+          <circle cx="170" cy="94" r="7" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="3" />
+          
+          {/* Forearm Segment reaching to Visor/Eye */}
+          <path d="M 168 92 L 194 72 L 202 82 L 174 100 Z" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" strokeLinejoin="round" />
+          
+          {/* Mechanical Wrist & Hand in Visor Scout/Shield Pose */}
+          <ellipse cx="196" cy="74" rx="9" ry="7" fill="url(#cctvBodyLight)" stroke="#152233" strokeWidth="3" />
+          
+          {/* Robotic Fingers in Scout/Salute Curvature */}
+          <path d="M 190 70 C 196 64, 206 66, 210 74 C 204 78, 194 78, 190 70 Z" fill="url(#cctvBodyMid)" stroke="#152233" strokeWidth="2.5" strokeLinejoin="round" />
+          <path d="M 194 71 L 206 73" stroke="#152233" strokeWidth="1.8" />
+          <path d="M 194 75 L 204 77" stroke="#152233" strokeWidth="1.8" />
         </g>
       </svg>
     </div>
   );
 };
+
