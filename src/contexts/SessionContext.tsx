@@ -18,7 +18,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // Single reliable source of auth events
+    // 1. Initial session check with error handling
+    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
+      if (!isMounted) return;
+      if (error) {
+        console.warn('Auth session error, clearing stale token:', error.message);
+        setSession(null);
+        setUser(null);
+      } else if (initialSession) {
+        setSession(initialSession);
+        setUser(initialSession.user ?? null);
+      }
+      setLoading(false);
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
+
+    // 2. Single reliable source of auth events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!isMounted) return;
 
