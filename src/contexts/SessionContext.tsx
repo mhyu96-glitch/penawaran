@@ -18,40 +18,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Initial authoritative session retrieval
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.warn('Initial session check notice:', error.message);
-          if (error.status === 429 || error.message.toLowerCase().includes('rate') || error.message.toLowerCase().includes('refresh')) {
-            try {
-              Object.keys(localStorage).forEach((k) => {
-                if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
-                  localStorage.removeItem(k);
-                }
-              });
-            } catch {}
-          }
-        }
-        if (isMounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Initial session fetch error:', err);
-        if (isMounted) {
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    // 2. Continuous subscription to Supabase auth events
+    // Use ONLY onAuthStateChange as the single source of truth.
+    // Supabase guarantees it fires INITIAL_SESSION on subscribe,
+    // so we don't need a separate getSession() call which causes race conditions.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!isMounted) return;
       setSession(currentSession);
