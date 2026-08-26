@@ -213,12 +213,28 @@ const PublicQuoteView = () => {
           />
 
           <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-              <Separator />
-              <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
+            <div className="w-full max-w-xs space-y-1.5 text-xs">
+              <div className="flex justify-between font-medium">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-rose-600">
+                  <span>Diskon</span>
+                  <span>- {formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {taxAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pajak</span>
+                  <span>+ {formatCurrency(taxAmount)}</span>
+                </div>
+              )}
+              <Separator className="my-1" />
+              <div className="flex justify-between text-sm sm:text-base font-extrabold text-foreground">
+                <span>Total Penawaran</span>
+                <span className="text-primary">{formatCurrency(total)}</span>
+              </div>
             </div>
           </div>
           {quote.terms && (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+﻿import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -271,34 +271,34 @@ const DashboardGlass = () => {
     const insights: string[] = [];
     
     if (goalProgress >= 100) {
-      insights.push('🎉 Selamat! Target pendapatan bulan ini sudah tercapai.');
+      insights.push('≡ƒÄë Selamat! Target pendapatan bulan ini sudah tercapai.');
     } else if (goalProgress >= 80) {
-      insights.push('💪 Hampir mencapai target! Hanya perlu sedikit lagi.');
+      insights.push('≡ƒÆ¬ Hampir mencapai target! Hanya perlu sedikit lagi.');
     } else if (goalProgress < 50) {
-      insights.push('⚡ Fokus pada closing penawaran untuk meningkatkan pendapatan.');
+      insights.push('ΓÜí Fokus pada closing penawaran untuk meningkatkan pendapatan.');
     }
 
     if (quoteConversionRate > 0) {
       if (quoteConversionRate >= 40) {
-        insights.push(`✅ Conversion rate excellent (${quoteConversionRate.toFixed(0)}%). Pertahankan!`);
+        insights.push(`Γ£à Conversion rate excellent (${quoteConversionRate.toFixed(0)}%). Pertahankan!`);
       } else if (quoteConversionRate < 20) {
-        insights.push(`📊 Conversion rate rendah (${quoteConversionRate.toFixed(0)}%). Review strategi penawaran.`);
+        insights.push(`≡ƒôè Conversion rate rendah (${quoteConversionRate.toFixed(0)}%). Review strategi penawaran.`);
       }
     }
 
     const overdueCount = invoices.filter(inv => inv.status !== 'Lunas' && inv.due_date && isDateBeforeToday(inv.due_date)).length;
     if (overdueCount > 0) {
-      insights.push(`⚠️ ${overdueCount} faktur jatuh tempo. Segera follow up untuk arus kas optimal.`);
+      insights.push(`ΓÜá∩╕Å ${overdueCount} faktur jatuh tempo. Segera follow up untuk arus kas optimal.`);
     }
 
     if (profitMargin >= 25) {
-      insights.push(`💰 Profit margin sehat (${profitMargin.toFixed(1)}%). Bisnis berjalan baik!`);
+      insights.push(`≡ƒÆ░ Profit margin sehat (${profitMargin.toFixed(1)}%). Bisnis berjalan baik!`);
     } else if (profitMargin < 10 && profitMargin > 0) {
-      insights.push(`📉 Profit margin tipis (${profitMargin.toFixed(1)}%). Evaluasi pricing atau biaya.`);
+      insights.push(`≡ƒôë Profit margin tipis (${profitMargin.toFixed(1)}%). Evaluasi pricing atau biaya.`);
     }
 
     if (lowStockItems.length > 0) {
-      insights.push(`📦 ${lowStockItems.length} item stok menipis. Pesan ulang untuk avoid delays.`);
+      insights.push(`≡ƒôª ${lowStockItems.length} item stok menipis. Pesan ulang untuk avoid delays.`);
     }
 
     return insights;

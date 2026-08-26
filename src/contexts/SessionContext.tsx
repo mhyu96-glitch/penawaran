@@ -16,40 +16,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getSession = async () => {
-        console.log('🔐 SessionContext: Getting initial session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('🔐 SessionContext result:', { 
-          hasSession: !!session, 
-          userId: session?.user?.id,
-          userEmail: session?.user?.email,
-          error 
-        });
-        
-        setSession(session);
-        setUser(session?.user ?? null);
+    let isMounted = true;
+
+    // Single reliable source of auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
         setLoading(false);
+        return;
+      }
 
-        if (!session) {
-          console.warn('⚠️ SessionContext: No active session found after initial load. User might not be logged in or session is invalid.');
-        } else {
-          console.log('✅ SessionContext: User authenticated successfully');
-        }
-    };
-    
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 SessionContext: Auth state changed:', event, { 
-        hasSession: !!session, 
-        userId: session?.user?.id 
-      });
-      setSession(session);
-      setUser(session?.user ?? null);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (

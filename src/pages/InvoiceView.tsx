@@ -109,7 +109,6 @@ const InvoiceView = () => {
     const fetchInvoiceData = async () => {
         if (!id) return;
         setLoading(true);
-        // Fetch invoice with client details (email/phone) for sending
         const invoiceRes = await supabase
             .from('invoices')
             .select('*, invoice_items(*), clients(email, phone)')
@@ -142,7 +141,7 @@ const InvoiceView = () => {
     const handleSaveAsPDF = async () => {
         if (!invoiceRef.current || !invoice) return;
         setIsGeneratingPDF(true);
-        await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`, { format: 'letter' });
+        await generatePdf(invoiceRef.current, `Faktur-${invoice.invoice_number || invoice.id}.pdf`);
         setIsGeneratingPDF(false);
     };
 
@@ -300,7 +299,7 @@ const InvoiceView = () => {
                                 <div className="min-w-0">
                                     {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{invoice.from_company}</h1>}
                                     <p className="mt-1 text-sm text-muted-foreground">{invoice.from_address}</p>
-                                    <p className="text-sm text-muted-foreground">{invoice.from_website}</p>
+                                    {invoice.from_website && <p className="text-sm text-muted-foreground">{invoice.from_website}</p>}
                                 </div>
                                 <div className="shrink-0 text-left sm:text-right">
                                     <h2 className="text-2xl font-bold uppercase tracking-wide text-muted-foreground sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Faktur</h2>
@@ -312,8 +311,8 @@ const InvoiceView = () => {
                         </CardHeader>
                         <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
                             <div className="grid grid-cols-2 gap-4 sm:gap-8">
-                                <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditagihkan Kepada:</h3><p className="font-bold">{invoice.to_client}</p><p className="text-sm">{invoice.to_address}</p><p className="text-sm">{invoice.to_phone}</p></div>
-                                <div className="text-right"><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Jatuh Tempo:</h3><p className="text-sm">{safeFormat(invoice.due_date, 'PPP')}</p></div>
+                                <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditagihkan Kepada:</h3><p className="font-bold text-foreground">{invoice.to_client}</p><p className="text-sm text-muted-foreground">{invoice.to_address}</p>{invoice.to_phone && <p className="text-sm text-muted-foreground">{invoice.to_phone}</p>}</div>
+                                <div className="text-right"><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Jatuh Tempo:</h3><p className="text-sm font-bold text-foreground">{safeFormat(invoice.due_date, 'PPP')}</p></div>
                             </div>
 
                             <DocumentItemsTable
@@ -326,46 +325,87 @@ const InvoiceView = () => {
                             />
 
                             <div className="flex justify-end">
-                                <div className="w-full space-y-2 rounded-md bg-muted/35 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-                                    <Separator />
-                                    <div className="flex justify-between text-base font-bold sm:text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
-                                    {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Pembayaran Tercatat</span><span>- {formatCurrency(settledPayments)}</span></div>
-                                    <Separator />
-                                    <div className="flex justify-between text-base font-bold sm:text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
+                                <div className="w-full space-y-1.5 rounded-xl bg-muted/35 p-3 text-xs sm:max-w-xs sm:bg-transparent sm:p-0">
+                                    <div className="flex justify-between font-medium">
+                                        <span className="text-muted-foreground">Subtotal</span>
+                                        <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
+                                    </div>
+                                    {discountAmount > 0 && (
+                                        <div className="flex justify-between text-rose-600 dark:text-rose-400">
+                                            <span>Diskon</span>
+                                            <span>- {formatCurrency(discountAmount)}</span>
+                                        </div>
+                                    )}
+                                    {taxAmount > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Pajak</span>
+                                            <span>+ {formatCurrency(taxAmount)}</span>
+                                        </div>
+                                    )}
+                                    <Separator className="my-1" />
+                                    <div className="flex justify-between text-sm sm:text-base font-extrabold text-foreground">
+                                        <span>Total Tagihan</span>
+                                        <span className="text-primary">{formatCurrency(total)}</span>
+                                    </div>
+                                    {invoice.down_payment_amount > 0 && (
+                                        <div className="flex justify-between text-muted-foreground">
+                                            <span>Uang Muka (DP)</span>
+                                            <span>- {formatCurrency(invoice.down_payment_amount)}</span>
+                                        </div>
+                                    )}
+                                    {settledPayments > 0 && (
+                                        <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                                            <span>Pembayaran Tercatat</span>
+                                            <span>- {formatCurrency(settledPayments)}</span>
+                                        </div>
+                                    )}
+                                    {(settledPayments > 0 || invoice.down_payment_amount > 0) && invoice.status !== 'Lunas' && (
+                                        <>
+                                            <Separator className="my-1" />
+                                            <div className="flex justify-between text-sm font-extrabold">
+                                                <span>Sisa Tagihan</span>
+                                                <span className={balanceDue > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600"}>
+                                                    {formatCurrency(balanceDue)}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
-                            <div className="print-avoid-break grid md:grid-cols-2 gap-4">
+                            {/* Bottom Info & Signature Section (Compact & Fits A4) */}
+                            <div className="print-avoid-break mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 print:grid-cols-3 print:gap-3 print:mt-3">
+                                {/* Kolom 1: Instruksi Pembayaran */}
                                 {profile?.payment_instructions ? (
-                                    <Alert className="print-avoid-break h-full">
-                                        <Landmark className="h-4 w-4" />
-                                        <AlertTitle>Instruksi Pembayaran</AlertTitle>
-                                        <AlertDescription className="whitespace-pre-wrap">{profile.payment_instructions}</AlertDescription>
-                                    </Alert>
-                                ) : (
-                                    <div className="print:hidden"><p className="text-sm text-muted-foreground">Instruksi pembayaran belum diatur. Anda bisa menambahkannya di halaman <Link to="/settings" className="underline">Pengaturan</Link>.</p></div>
-                                )}
-
-                                {profile?.qris_url && (
-                                    <div className="print-avoid-break border rounded-lg p-4 flex flex-col items-center justify-center bg-white text-center h-full">
-                                        <p className="font-semibold mb-2 text-sm">Scan QRIS Toko</p>
-                                        <img src={profile.qris_url} alt="QRIS Code" className="w-32 h-32 object-contain" />
+                                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3 text-xs">
+                                        <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
+                                            <Landmark className="h-3.5 w-3.5 text-primary shrink-0" />
+                                            <span>Instruksi Pembayaran</span>
+                                        </div>
+                                        <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed text-[11px]">{profile.payment_instructions}</p>
                                     </div>
+                                ) : (
+                                    <div className="hidden sm:block print:hidden" />
                                 )}
-                            </div>
 
-                            <div className="print-signature print-avoid-break flex justify-end mt-8">
-                                <div className="text-center">
-                                    <p className="text-sm font-medium mb-4">Hormat Kami,</p>
+                                {/* Kolom 2: QRIS Toko */}
+                                {profile?.qris_url ? (
+                                    <div className="rounded-xl border border-border/80 bg-white p-2.5 flex flex-col items-center justify-center text-center">
+                                        <p className="font-bold text-[11px] text-slate-800 mb-1">Scan QRIS Toko</p>
+                                        <img src={profile.qris_url} alt="QRIS Code" className="h-20 w-20 object-contain" />
+                                    </div>
+                                ) : (
+                                    <div className="hidden sm:block print:hidden" />
+                                )}
+
+                                {/* Kolom 3: Tanda Tangan */}
+                                <div className="flex flex-col items-center sm:items-end justify-end text-center sm:text-right print:items-end print:text-right">
+                                    <p className="text-xs font-semibold text-muted-foreground mb-1">Hormat Kami,</p>
                                     {profile?.signature_url ? (
-                                        <img src={profile.signature_url} alt="Tanda Tangan" className="h-24 mx-auto mb-2 object-contain" />
+                                        <img src={profile.signature_url} alt="Tanda Tangan" className="h-16 max-h-16 mb-1 object-contain" />
                                     ) : (
-                                        <div className="h-24" />
+                                        <div className="h-12" />
                                     )}
-                                    <p className="text-sm font-bold">{invoice.from_company}</p>
+                                    <p className="text-xs font-bold text-foreground">{invoice.from_company}</p>
                                 </div>
                             </div>
 
@@ -462,118 +502,6 @@ const InvoiceView = () => {
                     </Card>
                 </div>
             </div>
-            <style>{`
-                .pdf-exporting {
-                    box-shadow: none !important;
-                    border: 0 !important;
-                    border-radius: 0 !important;
-                }
-                .pdf-exporting .mobile-document-items {
-                    display: none !important;
-                }
-                .pdf-exporting .desktop-document-table {
-                    display: block !important;
-                    overflow: visible !important;
-                }
-                .pdf-exporting .print-avoid-break {
-                    break-inside: avoid;
-                    page-break-inside: avoid;
-                }
-                .pdf-exporting .print-signature {
-                    margin-top: 10px !important;
-                    padding-top: 0 !important;
-                }
-                .pdf-exporting .print-signature img {
-                    max-height: 64px !important;
-                }
-                .pdf-exporting .print-terms {
-                    margin-top: 10px !important;
-                }
-                @media print {
-                    @page {
-                        size: letter portrait;
-                        margin: 10mm;
-                    }
-                    html,
-                    body {
-                        width: 210mm;
-                        min-height: 297mm;
-                        background: white !important;
-                    }
-                    [data-radix-popper-content-wrapper],
-                    .print\\:hidden,
-                    .no-print,
-                    .no-pdf {
-                        display: none !important;
-                    }
-                    body * {
-                        visibility: hidden !important;
-                    }
-                    .document-print-root,
-                    .document-print-root * {
-                        visibility: visible !important;
-                    }
-                    .document-print-root {
-                        position: static !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 100% !important;
-                        max-width: none !important;
-                        border: 0 !important;
-                        box-shadow: none !important;
-                        border-radius: 0 !important;
-                    }
-                    .document-print-root .rounded-t-md,
-                    .document-print-root .rounded-t-lg,
-                    .document-print-root .rounded-md,
-                    .document-print-root .rounded-lg {
-                        border-radius: 0 !important;
-                    }
-                    .document-print-root [class*="p-8"] {
-                        padding: 6mm !important;
-                    }
-                    .document-print-root [class*="p-4"] {
-                        padding: 5mm !important;
-                    }
-                    .document-print-root [class*="space-y-8"] > :not([hidden]) ~ :not([hidden]) {
-                        margin-top: 5mm !important;
-                    }
-                    .document-print-root [class*="space-y-5"] > :not([hidden]) ~ :not([hidden]) {
-                        margin-top: 5mm !important;
-                    }
-                    .document-print-root .mobile-document-items {
-                        display: none !important;
-                    }
-                    .document-print-root .desktop-document-table {
-                        display: block !important;
-                        overflow: visible !important;
-                    }
-                    .document-print-root .desktop-document-table table {
-                        min-width: 0 !important;
-                        width: 100% !important;
-                    }
-                    .document-print-root tr,
-                    .document-print-root td,
-                    .document-print-root th {
-                        break-inside: avoid !important;
-                        page-break-inside: avoid !important;
-                    }
-                    .document-print-root .print-avoid-break {
-                        break-inside: avoid !important;
-                        page-break-inside: avoid !important;
-                    }
-                    .document-print-root .print-signature {
-                        margin-top: 6mm !important;
-                        padding-top: 0 !important;
-                    }
-                    .document-print-root .print-signature img {
-                        max-height: 22mm !important;
-                    }
-                    .document-print-root .print-terms {
-                        margin-top: 6mm !important;
-                    }
-                }
-            `}</style>
         </div>
     );
 };

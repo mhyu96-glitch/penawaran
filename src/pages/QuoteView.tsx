@@ -369,24 +369,24 @@ const QuoteView = () => {
                         <div className="min-w-0">
                         {profile?.company_logo_url ? <img src={profile.company_logo_url} alt="Company Logo" className="mb-3 max-h-16 sm:max-h-20" /> : <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">{quote.from_company}</h1>}
                         <p className="text-sm text-muted-foreground">{quote.from_address}</p>
-                        <p className="text-sm text-muted-foreground">{quote.from_website}</p>
+                        {quote.from_website && <p className="text-sm text-muted-foreground">{quote.from_website}</p>}
                         </div>
                         <div className="shrink-0 text-left sm:text-right">
                         <h2 className="text-2xl font-bold uppercase tracking-wide text-muted-foreground sm:text-3xl sm:tracking-widest" style={{ color: profile?.brand_color || undefined }}>Penawaran</h2>
                         <div className="mt-1"><Badge variant={getStatusVariant(quote.status)} className="text-xs">{quote.status || 'Draf'}</Badge></div>
-                        <p className="text-sm text-muted-foreground mt-2">No: {quote.quote_number}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">No: {quote.quote_number}</p>
                         <p className="text-sm text-muted-foreground">Tanggal: {safeFormat(quote.quote_date, 'PPP')}</p>
                         </div>
                     </div>
                     </CardHeader>
                     <CardContent className="space-y-5 p-4 sm:space-y-8 sm:p-8">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-8">
-                        <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditujukan Kepada:</h3><p className="font-bold">{quote.to_client}</p><p className="text-sm">{quote.to_address}</p><p className="text-sm">{quote.to_phone}</p></div>
+                        <div><h3 className="mb-2 text-sm font-semibold text-muted-foreground">Ditujukan Kepada:</h3><p className="font-bold text-foreground">{quote.to_client}</p><p className="text-sm text-muted-foreground">{quote.to_address}</p>{quote.to_phone && <p className="text-sm text-muted-foreground">{quote.to_phone}</p>}</div>
                         <div className="sm:text-right">
                             <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Perihal:</h3>
-                            <p className="font-bold text-lg">{quote.title || '-'}</p>
+                            <p className="font-bold text-lg text-foreground">{quote.title || '-'}</p>
                             <h3 className="mb-2 mt-4 text-sm font-semibold text-muted-foreground">Berlaku Hingga:</h3>
-                            <p className="text-sm">{safeFormat(quote.valid_until, 'PPP')}</p>
+                            <p className="text-sm font-bold text-foreground">{safeFormat(quote.valid_until, 'PPP')}</p>
                         </div>
                     </div>
                     
@@ -400,12 +400,28 @@ const QuoteView = () => {
                     />
 
                     <div className="flex justify-end">
-                        <div className="w-full space-y-2 rounded-md bg-muted/35 p-3 text-sm sm:max-w-xs sm:bg-transparent sm:p-0">
-                        <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-                        <Separator />
-                        <div className="flex justify-between font-bold text-lg"><span >Total</span><span>{formatCurrency(total)}</span></div>
+                        <div className="w-full space-y-1.5 rounded-xl bg-muted/35 p-3 text-xs sm:max-w-xs sm:bg-transparent sm:p-0">
+                            <div className="flex justify-between font-medium">
+                                <span className="text-muted-foreground">Subtotal</span>
+                                <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
+                            </div>
+                            {discountAmount > 0 && (
+                                <div className="flex justify-between text-rose-600 dark:text-rose-400">
+                                    <span>Diskon</span>
+                                    <span>- {formatCurrency(discountAmount)}</span>
+                                </div>
+                            )}
+                            {taxAmount > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Pajak</span>
+                                    <span>+ {formatCurrency(taxAmount)}</span>
+                                </div>
+                            )}
+                            <Separator className="my-1" />
+                            <div className="flex justify-between text-sm sm:text-base font-extrabold text-foreground">
+                                <span>Total Penawaran</span>
+                                <span className="text-primary">{formatCurrency(total)}</span>
+                            </div>
                         </div>
                     </div>
                     {quote.terms && (<div><h3 className="mb-2 font-semibold text-muted-foreground">Syarat & Ketentuan:</h3><p className="whitespace-pre-wrap text-sm text-muted-foreground">{quote.terms}</p></div>)}
@@ -445,7 +461,6 @@ const QuoteView = () => {
                 <DocumentTimeline docId={id!} type="quote" />
             </div>
         </div>
-        <style>{`@media print { body { background-color: white; } .print\\:shadow-none { box-shadow: none; } .print\\:border-none { border: none; } .print\\:hidden { display: none; } }`}</style>
     </div>
   );
 };

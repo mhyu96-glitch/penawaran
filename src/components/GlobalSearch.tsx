@@ -75,11 +75,11 @@ export const GlobalSearch = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex h-10 w-full max-w-xl items-center gap-2 rounded-lg border bg-background px-3 text-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-9 w-full items-center gap-2.5 rounded-xl border border-border/70 bg-background/70 px-3 text-xs text-muted-foreground outline-none transition-all hover:border-primary/40 hover:bg-background hover:text-foreground hover:shadow-xs focus-visible:ring-2 focus-visible:ring-primary/20"
       >
-        <Search className="h-4 w-4 shrink-0" />
-        <span className="truncate">Cari klien, dokumen, proyek...</span>
-        <kbd className="pointer-events-none ml-auto hidden h-5 shrink-0 select-none items-center rounded-md border bg-muted px-1.5 font-mono text-[10px] font-medium leading-none text-muted-foreground sm:inline-flex">
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors" />
+        <span className="truncate text-xs font-normal">Cari klien, dokumen...</span>
+        <kbd className="pointer-events-none ml-auto inline-flex h-4.5 items-center gap-0.5 rounded-md border border-border/70 bg-muted/60 px-1.5 font-mono text-[9px] font-semibold text-muted-foreground group-hover:border-border">
           Ctrl+K
         </kbd>
       </button>

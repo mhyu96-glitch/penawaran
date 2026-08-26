@@ -45,7 +45,7 @@ const TEMPLATES = {
   }
 };
 
-const CSVImporter = ({ type, onSuccess, triggerButtonText }: CSVImporterProps) => {
+const CSVImporter = ({ type, onSuccess, triggerButtonText, className }: CSVImporterProps) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [data, setData] = useState<any[]>([]);
@@ -112,12 +112,15 @@ const CSVImporter = ({ type, onSuccess, triggerButtonText }: CSVImporterProps) =
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button 
+          variant="outline"
+          className={className || "rounded-xl text-xs font-semibold"}
+        >
           <FileSpreadsheet className="mr-2 h-4 w-4" />
           {triggerButtonText || 'Impor CSV'}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] rounded-2xl border border-border/80 shadow-2xl">
         <DialogHeader>
           <DialogTitle>Impor Data {type === 'clients' ? 'Klien' : 'Barang'}</DialogTitle>
           <DialogDescription>
