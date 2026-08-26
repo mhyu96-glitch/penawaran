@@ -105,7 +105,7 @@ const Login = () => {
         if (data.session) {
           setIsSuccess(true);
           showSuccess('Login berhasil! Mengalihkan ke Dashboard...');
-          navigate('/dashboard', { replace: true });
+          window.location.href = '/dashboard';
         }
       } else if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({
@@ -122,9 +122,7 @@ const Login = () => {
         if (data.session) {
           setIsSuccess(true);
           showSuccess('Pendaftaran berhasil! Mengalihkan ke Dashboard...');
-          setTimeout(() => {
-            navigate('/dashboard', { replace: true });
-          }, 600);
+          window.location.href = '/dashboard';
         } else {
           showSuccess('Pendaftaran berhasil! Silakan periksa email Anda untuk konfirmasi aktivasi.');
           setMode('login');
@@ -426,6 +424,24 @@ const Login = () => {
                 </button>
               </p>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  Object.keys(localStorage).forEach((k) => {
+                    if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
+                      localStorage.removeItem(k);
+                    }
+                  });
+                  window.location.reload();
+                } catch {
+                  window.location.reload();
+                }
+              }}
+              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 mt-1"
+            >
+              <RefreshCw className="h-3 w-3" /> Bersihkan Cache Sesi Browser
+            </button>
           </CardFooter>
         </Card>
 
