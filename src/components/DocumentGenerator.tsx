@@ -24,7 +24,7 @@ import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
 import TemplateManager from "./TemplateManager";
 import ProfitAnalysisCard from "./ProfitAnalysisCard";
-import { Building2, User, Wrench, Car, Hotel, HardHat, PackageCheck } from "lucide-react";
+import { Building2, User, Wrench, Car, Hotel, HardHat, PackageCheck, Briefcase } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
