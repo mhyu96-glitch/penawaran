@@ -137,6 +137,7 @@ const SharedLayout = () => {
       items: [
         { to: '/expenses', icon: Wallet, label: 'Pengeluaran', color: 'text-rose-500 dark:text-rose-400', activeBg: 'bg-rose-500/10' },
         { to: '/reports', icon: AreaChart, label: 'Laporan Keuangan', exact: true, color: 'text-blue-500 dark:text-blue-400', activeBg: 'bg-blue-500/10' },
+        { to: '/reports/partner-statement', icon: Building2, label: 'Rekap Tagihan Toko', color: 'text-violet-500 dark:text-violet-400', activeBg: 'bg-violet-500/10' },
         { to: '/reports/profitability', icon: TrendingUp, label: 'Laba & Margin', color: 'text-emerald-500 dark:text-emerald-400', activeBg: 'bg-emerald-500/10' },
         { to: '/reports/profit-loss', icon: BarChart3, label: 'Laba Rugi', color: 'text-purple-500 dark:text-purple-400', activeBg: 'bg-purple-500/10' },
       ],

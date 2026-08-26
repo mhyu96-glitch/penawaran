@@ -10,7 +10,8 @@ import {
   ArrowLeft, DollarSign, Wallet, TrendingUp, FileText, Receipt, Clock, 
   ListTodo, Target, ShoppingCart, CheckCircle2, Circle, Edit3, Check, 
   X, AlertCircle, PackageCheck, Layers, Sparkles, User, Fuel, Utensils,
-  Users, Hotel, Wrench, Plus, Trash2, PieChart, Calculator, Car, Landmark
+  Users, Hotel, Wrench, Plus, Trash2, PieChart, Calculator, Car, Landmark,
+  Share2, ExternalLink, ShieldCheck, Building2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -102,8 +103,14 @@ type Expense = {
 };
 
 const EXPENSE_CATEGORIES = [
+  { value: 'Material Lapangan', label: 'Material Lapangan (Baut/Isolasi/Ties)', icon: Wrench, color: 'text-violet-500 bg-violet-500/10 border-violet-500/20' },
+  { value: 'Transportasi', label: 'Bensin & Transportasi', icon: Fuel, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
   { value: 'Bensin & Transportasi', label: 'Bensin & Transportasi', icon: Fuel, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  { value: 'Konsumsi', label: 'Makan & Konsumsi Tim', icon: Utensils, color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' },
   { value: 'Makan & Konsumsi', label: 'Makan & Konsumsi Tim', icon: Utensils, color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' },
+  { value: 'Parkir & Tol', label: 'Parkir, Tol & Retribusi', icon: Car, color: 'text-sky-500 bg-sky-500/10 border-sky-500/20' },
+  { value: 'Sewa Alat', label: 'Sewa Tangga / Scaffolding', icon: Wrench, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20' },
+  { value: 'Kasbon', label: 'Kasbon / Uang Muka Lapangan', icon: DollarSign, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' },
   { value: 'Gaji & Upah Teknisi', label: 'Gaji & Upah Teknisi', icon: Users, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
   { value: 'Penginapan & Hotel', label: 'Penginapan & Hotel', icon: Hotel, color: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
   { value: 'Alat & Lain-lain', label: 'Alat Kerja & Lain-lain', icon: Wrench, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
@@ -180,6 +187,44 @@ const ProjectDetail = () => {
   const [newPhotoNotes, setNewPhotoNotes] = useState('');
   const [isSubmittingPhoto, setIsSubmittingPhoto] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<ProjectDocPhoto | null>(null);
+
+  // Field Progress Tracker (0 - 100%)
+  const [fieldProgressPercent, setFieldProgressPercent] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(`project-progress-${id}`);
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const handleUpdateFieldProgress = (percent: number) => {
+    setFieldProgressPercent(percent);
+    try {
+      localStorage.setItem(`project-progress-${id}`, String(percent));
+      showSuccess(`Progres lapangan diperbarui ke ${percent}%`);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSharePortalLink = () => {
+    const portalUrl = `${window.location.origin}/portal/proyek/${id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(portalUrl);
+      showSuccess('Link Portal Toko / Partner berhasil disalin ke clipboard!');
+    }
+  };
+
+  const handleShareViaWhatsApp = () => {
+    const portalUrl = `${window.location.origin}/portal/proyek/${id}`;
+    const clientPhone = project?.clients?.phone ? project.clients.phone.replace(/[^0-9]/g, '') : '';
+    const text = encodeURIComponent(`Halo, berikut link live tracking progres pengerjaan proyek *${project?.name || 'Pekerjaan'}*:\n\n👉 ${portalUrl}\n\nAnda dapat memantau checklist tahapan dan foto dokumentasi lapangan secara real-time.`);
+    const waUrl = clientPhone 
+      ? `https://wa.me/${clientPhone.startsWith('0') ? '62' + clientPhone.slice(1) : clientPhone}?text=${text}`
+      : `https://wa.me/?text=${text}`;
+    window.open(waUrl, '_blank');
+  };
 
   // Handle file selected for photo upload
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -739,6 +784,77 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                 Sisa: {formatCurrency(budgetRemaining)}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Live Partner Portal & Field Progress Bar */}
+        <div className="mt-5 pt-5 border-t border-border/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="flex items-center gap-1.5 text-indigo-500">
+                <Sparkles className="h-4 w-4" /> Live Progress Lapangan (Untuk Toko & Klien):
+              </span>
+              <span className="text-foreground font-black text-sm tabular-nums">{fieldProgressPercent}%</span>
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+              {[
+                { label: '20% Persiapan', val: 20 },
+                { label: '40% Tarik Jalur', val: 40 },
+                { label: '60% Pasang Unit', val: 60 },
+                { label: '80% Setting', val: 80 },
+                { label: '100% Selesai & BAST', val: 100 },
+              ].map(btn => (
+                <button
+                  key={btn.val}
+                  type="button"
+                  onClick={() => handleUpdateFieldProgress(btn.val)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-xl text-xs font-bold border transition-all whitespace-nowrap active:scale-95",
+                    fieldProgressPercent >= btn.val
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-2xs"
+                      : "bg-muted/40 hover:bg-muted text-muted-foreground border-border/80"
+                  )}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Portal Sharing Actions */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleShareViaWhatsApp}
+              className="h-9 rounded-xl text-xs font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 gap-1.5"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              <span>Kirim WA Toko</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSharePortalLink}
+              className="h-9 rounded-xl text-xs font-bold border-indigo-500/30 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 gap-1.5"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span>Salin Link Portal</span>
+            </Button>
+
+            <Button
+              asChild
+              size="sm"
+              className="h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold gap-1.5 shadow-md shadow-indigo-950/40"
+            >
+              <Link to={`/portal/proyek/${id}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>Buka Portal</span>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>

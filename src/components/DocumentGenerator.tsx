@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, Plus, Sparkles } from "lucide-react";
+import { Trash2, PlusCircle, Calendar as CalendarIcon, Library, FileEdit, FilePlus2, ReceiptText, TrendingUp, GripVertical, Heading, Plus, Sparkles, Search, ChevronsUpDown, Check, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { parseISO } from "date-fns";
@@ -17,12 +17,14 @@ import { showError, showSuccess } from "@/utils/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Client } from "@/pages/ClientList";
+import { parseClientType } from "@/components/ClientForm";
 import ItemLibraryDialog from "@/components/ItemLibraryDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
 import TemplateManager from "./TemplateManager";
 import ProfitAnalysisCard from "./ProfitAnalysisCard";
+import { Building2, User, Wrench, Car, Hotel, HardHat, PackageCheck } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -90,13 +92,15 @@ const SortableItemRow = ({
   index, 
   handleItemChange, 
   removeItem,
-  isMobile
+  isMobile,
+  allItems
 }: { 
   item: Item; 
   index: number; 
   handleItemChange: (index: number, field: keyof Item, value: any) => void; 
   removeItem: (index: number) => void;
   isMobile: boolean;
+  allItems?: Item[];
 }) => {
   const {
     attributes,
@@ -116,6 +120,44 @@ const SortableItemRow = ({
 
   const isSectionHeader = Number(item.quantity) === 0;
 
+  // Determine if this item is a store unit (non-tagihan)
+  const isStoreUnit = useMemo(() => {
+    if (isSectionHeader) return false;
+    if (item.is_store_unit) return true;
+    
+    const desc = (item.description || '').toLowerCase();
+    if (
+      desc.includes('bawaan toko') || 
+      desc.includes('non-tagihan') || 
+      desc.includes('unit toko') || 
+      desc.includes('dari toko') ||
+      desc.includes('supply toko') ||
+      desc.includes('disediakan toko')
+    ) {
+      return true;
+    }
+
+    if (allItems) {
+      for (let i = index - 1; i >= 0; i--) {
+        if (Number(allItems[i].quantity) === 0) {
+          const headerDesc = (allItems[i].description || '').toLowerCase();
+          if (
+            headerDesc.includes('disediakan') ||
+            headerDesc.includes('toko') ||
+            headerDesc.includes('non-tagihan') ||
+            headerDesc.includes('bawaan') ||
+            headerDesc.includes('material partner')
+          ) {
+            return true;
+          }
+          break;
+        }
+      }
+    }
+
+    return false;
+  }, [item, index, allItems, isSectionHeader]);
+
   // COMPACT & BALANCED MOBILE CARD VIEW
   if (isMobile) {
     return (
@@ -125,18 +167,25 @@ const SortableItemRow = ({
         className={cn(
           "relative rounded-2xl border bg-card p-3.5 shadow-xs transition-all space-y-3",
           isDragging && "opacity-50 z-50",
-          isSectionHeader ? "border-primary/30 bg-primary/5" : "border-border/80"
+          isSectionHeader ? "border-primary/30 bg-primary/5" : isStoreUnit ? "border-violet-500/30 bg-violet-500/5" : "border-border/80"
         )}
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-border/70 pb-2">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-black">
+            <span className={cn(
+              "flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black",
+              isStoreUnit ? "bg-violet-500/20 text-violet-500" : "bg-primary/10 text-primary"
+            )}>
               {index + 1}
             </span>
             {isSectionHeader ? (
               <span className="flex items-center gap-1 text-xs font-black uppercase tracking-wider text-primary">
                 <Heading className="h-3.5 w-3.5" /> Kategori Header
+              </span>
+            ) : isStoreUnit ? (
+              <span className="flex items-center gap-1 text-xs font-bold text-violet-600 dark:text-violet-400">
+                📦 Unit Toko (Non-Tagihan)
               </span>
             ) : (
               <span className="text-xs font-bold text-foreground">
@@ -156,9 +205,11 @@ const SortableItemRow = ({
 
         {/* Description Field */}
         <div>
-          <Label className="text-[10px] font-bold text-muted-foreground uppercase">Deskripsi Item / Jasa</Label>
+          <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+            {isStoreUnit ? "Nama Perangkat / Unit Bawaan Toko" : "Deskripsi Item / Jasa"}
+          </Label>
           <Input 
-            placeholder={isSectionHeader ? "Nama Kategori (misal: Instalasi, Material, dll)" : "Deskripsi item produk atau layanan"} 
+            placeholder={isSectionHeader ? "Nama Kategori (misal: Instalasi, Material, dll)" : isStoreUnit ? "Nama unit (misal: Kamera CCTV 2MP, NVR 8CH)" : "Deskripsi item produk atau layanan"} 
             value={item.description} 
             onChange={e => handleItemChange(index, 'description', e.target.value)} 
             className={cn("h-10 rounded-xl text-xs font-medium mt-1", isSectionHeader && "font-bold text-primary border-primary/40")}
@@ -167,7 +218,7 @@ const SortableItemRow = ({
 
         {!isSectionHeader && (
           <>
-            {/* 2-Column Grid: Qty & Unit */}
+            {/* 2-Column Grid: Qty & Unit (TETAP ADA) */}
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Jumlah (Qty)</Label>
@@ -182,7 +233,7 @@ const SortableItemRow = ({
               <div>
                 <Label className="text-[10px] font-bold text-muted-foreground uppercase">Satuan</Label>
                 <Input 
-                  placeholder="Pcs / Unit / Bln" 
+                  placeholder="Unit / Pcs" 
                   value={item.unit} 
                   onChange={e => handleItemChange(index, 'unit', e.target.value)} 
                   className="h-9 rounded-xl text-xs text-center font-medium mt-1" 
@@ -190,43 +241,52 @@ const SortableItemRow = ({
               </div>
             </div>
 
-            {/* 2-Column Grid: Modal (HPP) & Harga Jual SIDE-BY-SIDE */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <Label className="text-[10px] font-bold text-muted-foreground uppercase">Harga Modal (HPP)</Label>
-                <div className="relative flex items-center mt-1">
-                  <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-muted-foreground select-none">Rp</span>
-                  <Input 
-                    type="text" 
-                    inputMode="numeric"
-                    placeholder="0" 
-                    value={formatNumberWithDots(item.cost_price)} 
-                    onChange={e => handleItemChange(index, 'cost_price', parseDotsToNumber(e.target.value))} 
-                    className="h-9 rounded-xl pl-8 pr-2.5 text-right text-xs font-medium tabular-nums" 
-                  />
-                </div>
+            {/* Modal & Jual: Hidden for Store Units, replaced with Info Notice */}
+            {isStoreUnit ? (
+              <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 px-3 py-2 text-center text-xs font-semibold text-violet-600 dark:text-violet-400">
+                📦 Unit disediakan pihak toko (Non-Tagihan / Tanpa Modal & Harga Jual)
               </div>
+            ) : (
+              /* 2-Column Grid: Modal (HPP) & Harga Jual SIDE-BY-SIDE */
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Harga Modal (HPP)</Label>
+                  <div className="relative flex items-center mt-1">
+                    <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-muted-foreground select-none">Rp</span>
+                    <Input 
+                      type="text" 
+                      inputMode="numeric"
+                      placeholder="0" 
+                      value={formatNumberWithDots(item.cost_price)} 
+                      onChange={e => handleItemChange(index, 'cost_price', parseDotsToNumber(e.target.value))} 
+                      className="h-9 rounded-xl pl-8 pr-2.5 text-right text-xs font-medium tabular-nums" 
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <Label className="text-[10px] font-bold text-primary uppercase">Harga Jual</Label>
-                <div className="relative flex items-center mt-1">
-                  <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-primary select-none">Rp</span>
-                  <Input 
-                    type="text" 
-                    inputMode="numeric"
-                    placeholder="0" 
-                    value={formatNumberWithDots(item.unit_price)} 
-                    onChange={e => handleItemChange(index, 'unit_price', parseDotsToNumber(e.target.value))} 
-                    className="h-9 rounded-xl pl-8 pr-2.5 border-primary/40 text-right text-xs font-bold text-foreground tabular-nums focus-visible:ring-primary" 
-                  />
+                <div>
+                  <Label className="text-[10px] font-bold text-primary uppercase">Harga Jual</Label>
+                  <div className="relative flex items-center mt-1">
+                    <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-primary select-none">Rp</span>
+                    <Input 
+                      type="text" 
+                      inputMode="numeric"
+                      placeholder="0" 
+                      value={formatNumberWithDots(item.unit_price)} 
+                      onChange={e => handleItemChange(index, 'unit_price', parseDotsToNumber(e.target.value))} 
+                      className="h-9 rounded-xl pl-8 pr-2.5 border-primary/40 text-right text-xs font-bold text-foreground tabular-nums focus-visible:ring-primary" 
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Compact Subtotal Footer */}
             <div className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 border border-border/60">
               <div className="text-[10px] font-semibold text-muted-foreground">
-                {Number(item.unit_price) > 0 && Number(item.cost_price) > 0 ? (
+                {isStoreUnit ? (
+                  <span className="text-violet-600 dark:text-violet-400 font-bold">Unit Bawaan Toko</span>
+                ) : Number(item.unit_price) > 0 && Number(item.cost_price) > 0 ? (
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                     Profit: {formatCurrency((Number(item.unit_price) - Number(item.cost_price)) * (Number(item.quantity) || 1))}
                   </span>
@@ -235,7 +295,7 @@ const SortableItemRow = ({
                 )}
               </div>
               <span className="font-extrabold text-sm text-foreground tabular-nums">
-                {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
+                {isStoreUnit ? '-' : formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
               </span>
             </div>
           </>
@@ -276,7 +336,7 @@ const SortableItemRow = ({
 
   // DESKTOP REGULAR ITEM ROW
   return (
-    <TableRow ref={setNodeRef} style={style} className={cn("hover:bg-muted/30 transition-colors border-b border-border/60", isDragging && "opacity-50")}>
+    <TableRow ref={setNodeRef} style={style} className={cn("hover:bg-muted/30 transition-colors border-b border-border/60", isDragging && "opacity-50", isStoreUnit && "bg-violet-500/5")}>
       {/* Handle */}
       <TableCell className="text-center w-10 py-2.5 px-1 align-middle">
         <Button variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground" {...attributes} {...listeners}>
@@ -286,15 +346,22 @@ const SortableItemRow = ({
 
       {/* Deskripsi */}
       <TableCell className="py-2.5 px-3 align-middle">
-        <Input 
-          placeholder="Deskripsi barang atau jasa" 
-          value={item.description} 
-          onChange={e => handleItemChange(index, 'description', e.target.value)} 
-          className="h-9 rounded-xl text-xs font-medium"
-        />
+        <div className="flex items-center gap-2">
+          {isStoreUnit && (
+            <span className="shrink-0 rounded-md bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 text-[10px] font-black text-violet-600 dark:text-violet-400">
+              📦 Unit Toko
+            </span>
+          )}
+          <Input 
+            placeholder={isStoreUnit ? "Nama unit / perangkat bawaan toko (misal: Kamera CCTV 2MP)" : "Deskripsi barang atau jasa"} 
+            value={item.description} 
+            onChange={e => handleItemChange(index, 'description', e.target.value)} 
+            className="h-9 rounded-xl text-xs font-medium"
+          />
+        </div>
       </TableCell>
 
-      {/* Jumlah (Qty) */}
+      {/* Jumlah (Qty) - TETAP ADA */}
       <TableCell className="w-20 py-2.5 px-2 align-middle">
         <Input 
           type="number" 
@@ -305,49 +372,65 @@ const SortableItemRow = ({
         />
       </TableCell>
 
-      {/* Satuan */}
+      {/* Satuan - TETAP ADA */}
       <TableCell className="w-24 py-2.5 px-2 align-middle">
         <Input 
-          placeholder="Pcs" 
+          placeholder="Unit" 
           value={item.unit} 
           onChange={e => handleItemChange(index, 'unit', e.target.value)} 
           className="h-9 rounded-xl text-xs text-center font-medium"
         />
       </TableCell>
 
-      {/* Harga Modal (HPP) with Dots */}
-      <TableCell className="w-40 py-2.5 px-2 align-middle">
-        <div className="relative flex items-center">
-          <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-muted-foreground select-none">Rp</span>
-          <Input 
-            type="text" 
-            inputMode="numeric"
-            placeholder="0" 
-            value={formatNumberWithDots(item.cost_price)} 
-            onChange={e => handleItemChange(index, 'cost_price', parseDotsToNumber(e.target.value))} 
-            className="h-9 rounded-xl pl-8 pr-2.5 text-right text-xs font-medium tabular-nums" 
-          />
-        </div>
+      {/* Harga Modal (HPP) with Dots - HIDDEN / DASH FOR STORE UNITS */}
+      <TableCell className="w-40 py-2.5 px-2 align-middle text-center">
+        {isStoreUnit ? (
+          <span className="inline-block rounded-lg bg-muted/40 border border-border/80 px-3 py-1 text-[11px] font-bold text-muted-foreground select-none">
+            -
+          </span>
+        ) : (
+          <div className="relative flex items-center">
+            <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-muted-foreground select-none">Rp</span>
+            <Input 
+              type="text" 
+              inputMode="numeric"
+              placeholder="0" 
+              value={formatNumberWithDots(item.cost_price)} 
+              onChange={e => handleItemChange(index, 'cost_price', parseDotsToNumber(e.target.value))} 
+              className="h-9 rounded-xl pl-8 pr-2.5 text-right text-xs font-medium tabular-nums" 
+            />
+          </div>
+        )}
       </TableCell>
 
-      {/* Harga Jual with Dots */}
-      <TableCell className="w-40 py-2.5 px-2 align-middle">
-        <div className="relative flex items-center">
-          <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-primary select-none">Rp</span>
-          <Input 
-            type="text" 
-            inputMode="numeric"
-            placeholder="0" 
-            value={formatNumberWithDots(item.unit_price)} 
-            onChange={e => handleItemChange(index, 'unit_price', parseDotsToNumber(e.target.value))} 
-            className="h-9 rounded-xl pl-8 pr-2.5 border-primary/40 text-right text-xs font-bold text-foreground tabular-nums focus-visible:ring-primary" 
-          />
-        </div>
+      {/* Harga Jual with Dots - HIDDEN / BADGE FOR STORE UNITS */}
+      <TableCell className="w-40 py-2.5 px-2 align-middle text-center">
+        {isStoreUnit ? (
+          <span className="inline-block rounded-lg bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 select-none">
+            Non-Tagihan
+          </span>
+        ) : (
+          <div className="relative flex items-center">
+            <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-primary select-none">Rp</span>
+            <Input 
+              type="text" 
+              inputMode="numeric"
+              placeholder="0" 
+              value={formatNumberWithDots(item.unit_price)} 
+              onChange={e => handleItemChange(index, 'unit_price', parseDotsToNumber(e.target.value))} 
+              className="h-9 rounded-xl pl-8 pr-2.5 border-primary/40 text-right text-xs font-bold text-foreground tabular-nums focus-visible:ring-primary" 
+            />
+          </div>
+        )}
       </TableCell>
 
-      {/* Total */}
+      {/* Total - DASH FOR STORE UNITS */}
       <TableCell className="w-36 text-right font-black text-xs text-foreground tabular-nums py-2.5 px-3 align-middle">
-        {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
+        {isStoreUnit ? (
+          <span className="text-muted-foreground font-semibold text-xs">-</span>
+        ) : (
+          formatCurrency(calculateItemTotal(item.quantity, item.unit_price))
+        )}
       </TableCell>
 
       {/* Action */}
@@ -376,6 +459,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   );
 
   const [loading, setLoading] = useState(isEditMode);
+  const [docCategory, setDocCategory] = useState<'standard' | 'partner_service'>('standard');
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -400,7 +484,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
   const config = useMemo(() => {
     if (docType === 'quote') {
       return {
@@ -490,7 +575,12 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setDiscountAmount(data.discount_amount || 0);
       setTaxAmount(data.tax_amount || 0);
       if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
-      setTerms(data.terms || "");
+      
+      const loadedTerms = data.terms || "";
+      if (loadedTerms.includes('[CATEGORY:partner_service]') || data.title?.toLowerCase().includes('jasa')) {
+        setDocCategory('partner_service');
+      }
+      setTerms(loadedTerms.replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim());
       setAttachments(data.attachments || []);
 
       const fetchedItems = data[config.itemTable];
@@ -509,6 +599,16 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setToClient(client.name || "");
       setToAddress(client.address || "");
       setToPhone(client.phone || "");
+
+      // Smart auto-detection of Partner/Store
+      const cType = parseClientType(client.notes);
+      if (cType === 'partner_store') {
+        setDocCategory('partner_service');
+        if (!terms || terms.trim() === '') {
+          setTerms("1. Penawaran ini khusus mencakup jasa instalasi teknis, konfigurasi, dan biaya akomodasi lapangan.\n2. Seluruh unit/material utama disediakan langsung oleh pihak Toko/Pemberi Kerja.\n3. Pembayaran jasa diselesaikan setelah serah terima pekerjaan (BAST).");
+        }
+        showSuccess('Klien Toko/Partner terdeteksi: Mode Jasa & Akomodasi otomatis diaktifkan.');
+      }
     }
   };
 
@@ -534,6 +634,26 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   const addSectionHeader = () => {
     setItems([...items, { uid: crypto.randomUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }]);
+  };
+
+  const addPresetItem = (type: 'install' | 'transport' | 'accommodation' | 'tool' | 'store_hardware_header') => {
+    // Filter out initial empty item if it has no description
+    const validExisting = items.filter(i => i.description.trim() !== '');
+
+    if (type === 'install') {
+      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Jasa Instalasi & Konfigurasi Teknis Perangkat", quantity: 1, unit: "Titik", unit_price: 150000, cost_price: 0 }]);
+    } else if (type === 'transport') {
+      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Biaya Transportasi, BBM & Operasional Lapangan", quantity: 1, unit: "Trip", unit_price: 250000, cost_price: 150000 }]);
+    } else if (type === 'accommodation') {
+      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Akomodasi Penginapan & Konsumsi Tim Lapangan", quantity: 1, unit: "Hari", unit_price: 200000, cost_price: 150000 }]);
+    } else if (type === 'tool') {
+      setItems([...validExisting, { uid: crypto.randomUUID(), description: "Sewa Alat Kerja Bantu / Scaffolding / Tangga", quantity: 1, unit: "Set", unit_price: 100000, cost_price: 50000 }]);
+    } else if (type === 'store_hardware_header') {
+      setItems([
+        ...validExisting,
+        { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "Unit", unit_price: 0, cost_price: 0, is_store_unit: true }
+      ]);
+    }
   };
 
   const removeItem = (index: number) => {
@@ -661,10 +781,14 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       }
     }
 
+    const packedTerms = docCategory === 'partner_service'
+      ? `[CATEGORY:partner_service]\n${terms || ''}`.trim()
+      : terms;
+
     const docPayload: { [key: string]: any } = {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
-      discount_amount: discountAmount, tax_amount: taxAmount, terms: terms, status: status,
+      discount_amount: discountAmount, tax_amount: taxAmount, terms: packedTerms, status: status,
       client_id: finalClientId, project_id: selectedProjectId,
       attachments: attachments,
       title: docTitle, 
@@ -781,6 +905,60 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
         </CardHeader>
         <CardContent className="space-y-6 px-4 py-6 sm:px-6 lg:space-y-8">
+          {/* Mode Selector: Reguler vs Jasa & Akomodasi Toko */}
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Tipe / Mode Dokumen
+              </Label>
+              {docCategory === 'partner_service' && (
+                <span className="text-[11px] font-bold text-violet-500 flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5" /> Khusus Tagihan Toko / Partner
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDocCategory('standard')}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-xl border text-left transition-all",
+                  docCategory === 'standard'
+                    ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary/40 font-bold"
+                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/40 font-medium"
+                )}
+              >
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                  <User className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-foreground">Proyek Mandiri (Barang & Jasa)</div>
+                  <div className="text-[11px] text-muted-foreground font-normal">Penjualan lengkap pengadaan material & instalasi ke klien langsung.</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDocCategory('partner_service')}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-xl border text-left transition-all",
+                  docCategory === 'partner_service'
+                    ? "border-violet-500 bg-violet-500/10 text-violet-500 shadow-xs ring-1 ring-violet-500/40 font-bold"
+                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/40 font-medium"
+                )}
+              >
+                <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-500 shrink-0 mt-0.5">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-foreground">Subkon / Jasa & Akomodasi (Toko / Partner)</div>
+                  <div className="text-[11px] text-muted-foreground font-normal">Hanya menagih jasa teknis, transportasi & akomodasi (Barang dari toko).</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2 md:gap-6">
             <section className="space-y-3 rounded-2xl border border-border/80 bg-background p-4 shadow-2xs">
               <h3 className="font-bold text-sm text-foreground">Dari (Penerbit)</h3>
@@ -789,13 +967,130 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
               <Input className="h-11 rounded-xl text-sm font-medium" placeholder="Website / Kontak Perusahaan" value={fromWebsite} onChange={e => setFromWebsite(e.target.value)} />
             </section>
             <section className="space-y-3 rounded-2xl border border-border/80 bg-background p-4 shadow-2xs">
-              <h3 className="font-bold text-sm text-foreground">Untuk (Klien Penerima)</h3>
-              <Select onValueChange={handleClientSelect} value={selectedClientId || undefined}>
-                <SelectTrigger className="h-11 rounded-xl text-sm font-medium"><SelectValue placeholder="Pilih dari daftar klien atau isi manual" /></SelectTrigger>
-                <SelectContent>{clients.map(client => (<SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>))}</SelectContent>
-              </Select>
-              <Input className="h-11 rounded-xl text-sm font-medium" placeholder="Nama Klien" value={toClient} onChange={e => setToClient(e.target.value)} />
-              <Textarea className="min-h-24 rounded-xl text-sm font-medium" placeholder="Alamat Klien" value={toAddress} onChange={e => setToAddress(e.target.value)} />
+              <h3 className="font-bold text-sm text-foreground">Untuk ({docCategory === 'partner_service' ? 'Toko / Partner Penerima' : 'Klien Penerima'})</h3>
+              
+              {/* Searchable Client Selector Combobox */}
+              <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isClientPopoverOpen}
+                    className="w-full h-11 justify-between rounded-xl text-sm font-medium bg-background border-input hover:bg-muted/40 text-foreground"
+                  >
+                    <span className="truncate">
+                      {selectedClientId
+                        ? (() => {
+                            const c = (clients || []).find((c) => c?.id === selectedClientId);
+                            return c ? `${c.name || ''} ${parseClientType(c.notes) === 'partner_store' ? '(Toko)' : ''}` : "Pilih dari daftar klien atau isi manual";
+                          })()
+                        : (toClient ? `Klien: ${toClient}` : "Pilih dari daftar klien atau isi manual")}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] sm:w-[360px] p-0 rounded-2xl shadow-xl border-border/80" align="start">
+                  <div className="p-2 border-b">
+                    <div className="relative flex items-center">
+                      <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Ketik nama klien / toko..."
+                        value={clientSearchQuery}
+                        onChange={(e) => setClientSearchQuery(e.target.value)}
+                        className="pl-9 h-9 text-xs rounded-xl border-border/70 bg-background"
+                        autoFocus
+                      />
+                      {clientSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setClientSearchQuery('')}
+                          className="absolute right-2.5 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+                    {/* Manual input option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedClientId(null);
+                        setIsClientPopoverOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl text-left transition-colors",
+                        !selectedClientId ? "bg-primary/10 text-primary font-bold" : "hover:bg-muted/60 text-muted-foreground"
+                      )}
+                    >
+                      <span>➕ Input Manual / Klien Baru</span>
+                      {!selectedClientId && <Check className="h-3.5 w-3.5" />}
+                    </button>
+
+                    {/* Filtered Clients */}
+                    {(clients || [])
+                      .filter((c) => {
+                        if (!c) return false;
+                        if (!clientSearchQuery.trim()) return true;
+                        const query = clientSearchQuery.toLowerCase();
+                        const name = (c.name || '').toLowerCase();
+                        const phone = (c.phone || '').toLowerCase();
+                        const address = (c.address || '').toLowerCase();
+                        return name.includes(query) || phone.includes(query) || address.includes(query);
+                      })
+                      .map((c) => {
+                        const isStore = parseClientType(c.notes) === 'partner_store';
+                        const isSelected = selectedClientId === c.id;
+
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              handleClientSelect(c.id);
+                              setIsClientPopoverOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl text-left transition-colors",
+                              isSelected
+                                ? "bg-primary/10 text-primary font-bold"
+                                : "hover:bg-muted/60 text-foreground"
+                            )}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold truncate">{c.name || 'Tanpa Nama'}</span>
+                                {isStore && (
+                                  <span className="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                                    Toko
+                                  </span>
+                                )}
+                              </div>
+                              {c.phone && (
+                                <span className="text-[10px] text-muted-foreground block truncate">
+                                  {c.phone} {c.address ? `• ${c.address}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          </button>
+                        );
+                      })}
+
+                    {(clients || []).filter((c) =>
+                      (c?.name || '').toLowerCase().includes(clientSearchQuery.toLowerCase())
+                    ).length === 0 && (
+                      <div className="py-6 text-center text-xs text-muted-foreground">
+                        Klien "{clientSearchQuery}" tidak ditemukan.
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Input className="h-11 rounded-xl text-sm font-medium" placeholder={docCategory === 'partner_service' ? 'Nama Toko / Partner' : 'Nama Klien'} value={toClient} onChange={e => setToClient(e.target.value)} />
+              <Textarea className="min-h-24 rounded-xl text-sm font-medium" placeholder={docCategory === 'partner_service' ? 'Alamat Kantor Toko / Lokasi Proyek' : 'Alamat Klien'} value={toAddress} onChange={e => setToAddress(e.target.value)} />
               <Input className="h-11 rounded-xl text-sm font-medium" placeholder="Nomor Telepon / WhatsApp Klien" value={toPhone} onChange={e => setToPhone(e.target.value)} />
             </section>
           </div>
@@ -806,7 +1101,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Judul / Perihal</Label>
-            <Input className="h-11 rounded-xl text-sm" placeholder={`Contoh: Paket CCTV 4 Channel, Renovasi Kantor, dll...`} value={docTitle} onChange={e => setDocTitle(e.target.value)} />
+            <Input className="h-11 rounded-xl text-sm" placeholder={docCategory === 'partner_service' ? `Contoh: Penawaran Jasa Instalasi CCTV 8 Titik - Toko Cahaya Mandiri` : `Contoh: Paket CCTV 4 Channel, Renovasi Kantor, dll...`} value={docTitle} onChange={e => setDocTitle(e.target.value)} />
             <p className="text-[11px] text-muted-foreground">Judul ini akan tampil di laporan dan pesan WhatsApp ke klien.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -823,15 +1118,24 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-black text-base text-foreground flex items-center gap-2">
-                  <span>Barang & Jasa</span>
-                  <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold">
+                  <span>{docCategory === 'partner_service' ? 'Rincian Jasa & Akomodasi Lapangan' : 'Barang & Jasa'}</span>
+                  <span className={cn(
+                    "rounded-full px-2.5 py-0.5 text-[11px] font-bold border",
+                    docCategory === 'partner_service' 
+                      ? "bg-violet-500/10 text-violet-500 border-violet-500/20" 
+                      : "bg-primary/10 text-primary border-primary/20"
+                  )}>
                     {items.filter(i => Number(i.quantity) > 0).length} Item
                   </span>
                 </h3>
-                <p className="text-xs text-muted-foreground">Rincian item, kuantitas, modal HPP, dan harga jual.</p>
+                <p className="text-xs text-muted-foreground">
+                  {docCategory === 'partner_service' 
+                    ? "Rincian biaya jasa teknis, transportasi BBM, penginapan & operasional."
+                    : "Rincian item, kuantitas, modal HPP, dan harga jual."}
+                </p>
               </div>
 
-              {/* Action Buttons: 3 Column Grid on Mobile, Flex on Desktop */}
+              {/* Action Buttons */}
               <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full sm:w-auto">
                 <Button 
                   variant="outline" 
@@ -864,6 +1168,63 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                 </Button>
               </div>
             </div>
+
+            {/* Quick Preset Buttons for Partner Service Mode */}
+            {docCategory === 'partner_service' && (
+              <div className="rounded-2xl bg-violet-500/10 border border-violet-500/20 p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-violet-700 dark:text-violet-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Preset Cepat Tagihan Toko:</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addPresetItem('install')}
+                    className="h-8 rounded-xl text-xs font-semibold bg-background hover:bg-violet-500/10 border-violet-500/30 text-foreground"
+                  >
+                    <Wrench className="h-3 w-3 mr-1 text-violet-500" /> + Jasa Instalasi/Setting
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addPresetItem('transport')}
+                    className="h-8 rounded-xl text-xs font-semibold bg-background hover:bg-violet-500/10 border-violet-500/30 text-foreground"
+                  >
+                    <Car className="h-3 w-3 mr-1 text-emerald-500" /> + Transportasi & BBM
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addPresetItem('accommodation')}
+                    className="h-8 rounded-xl text-xs font-semibold bg-background hover:bg-violet-500/10 border-violet-500/30 text-foreground"
+                  >
+                    <Hotel className="h-3 w-3 mr-1 text-amber-500" /> + Akomodasi & Makan
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addPresetItem('tool')}
+                    className="h-8 rounded-xl text-xs font-semibold bg-background hover:bg-violet-500/10 border-violet-500/30 text-foreground"
+                  >
+                    <HardHat className="h-3 w-3 mr-1 text-sky-500" /> + Sewa Alat Bantu
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addPresetItem('store_hardware_header')}
+                    className="h-8 rounded-xl text-xs font-semibold bg-background hover:bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400 font-bold"
+                  >
+                    <PackageCheck className="h-3 w-3 mr-1 text-violet-500" /> + Unit Dari Toko (Non-Tagihan)
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Items List Container */}
             <div className={cn(!isMobile && "w-full rounded-2xl border border-border/80 bg-card overflow-hidden shadow-2xs")}>
@@ -899,6 +1260,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                             handleItemChange={handleItemChange}
                             removeItem={removeItem}
                             isMobile={false}
+                            allItems={items}
                           />
                         ))}
                       </SortableContext>
@@ -918,6 +1280,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                           handleItemChange={handleItemChange}
                           removeItem={removeItem}
                           isMobile={true}
+                          allItems={items}
                         />
                       ))}
                     </SortableContext>
@@ -1056,8 +1419,13 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             </div>
           </div>
           <Separator />
-          <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Syarat & Ketentuan</Label><Textarea className="min-h-28 rounded-xl text-sm font-medium" placeholder="Contoh: Pembayaran dilakukan via transfer BCA..." value={terms} onChange={e => setTerms(e.target.value)} /></div>
-          {isEditMode && id && (<><Separator /><AttachmentManager docId={id} docType={docType} initialAttachments={attachments} onAttachmentsChange={setAttachments} /></>)}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Syarat & Ketentuan</Label>
+            <Textarea className="min-h-28 rounded-xl text-sm font-medium" placeholder="Contoh: Pembayaran dilakukan via transfer BCA..." value={terms} onChange={e => setTerms(e.target.value)} />
+          </div>
+          
+          <Separator />
+          <AttachmentManager docId={id} docType={docType} initialAttachments={attachments} onAttachmentsChange={setAttachments} />
         </CardContent>
         <CardFooter className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 border-t bg-card/95 px-4 py-3.5 backdrop-blur sm:static sm:px-6">
           <Button size="lg" className="h-12 w-full sm:w-auto rounded-xl font-bold text-sm shadow-md" onClick={handleSubmit} disabled={isSubmitting}>

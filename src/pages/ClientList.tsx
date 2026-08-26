@@ -23,13 +23,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { showError, showSuccess } from '@/utils/toast';
-import ClientForm from '@/components/ClientForm';
+import ClientForm, { parseClientType, cleanClientNotes } from '@/components/ClientForm';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import CSVImporter from '@/components/CSVImporter';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatCurrency, isDateBeforeToday } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Building2, User as UserIcon } from 'lucide-react';
 
 export type Client = {
   id: string;
@@ -60,7 +61,7 @@ const ClientList = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'has_overdue' | 'has_paid' | 'has_pending' | 'has_email'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'partner_store' | 'end_user' | 'has_overdue' | 'has_paid' | 'has_pending' | 'has_email'>('all');
 
   const fetchClientsAndTransactions = useCallback(async (showLoadingSpinner = true) => {
     if (!user) return;
@@ -301,8 +302,14 @@ const ClientList = () => {
     let clientsWithPaid = 0;
     let totalAllInvoiced = 0;
     let totalAllOverdue = 0;
+    let partnerStoreCount = 0;
+    let endUserCount = 0;
 
     clients.forEach(c => {
+      const type = parseClientType(c.notes);
+      if (type === 'partner_store') partnerStoreCount++;
+      else endUserCount++;
+
       const fin = clientFinancials[c.id];
       if (fin) {
         totalAllInvoiced += fin.totalInvoiced;
@@ -316,6 +323,8 @@ const ClientList = () => {
 
     return { 
       totalCount, 
+      partnerStoreCount,
+      endUserCount,
       clientsWithOverdue, 
       clientsWithPaid, 
       totalAllInvoiced, 
@@ -334,9 +343,12 @@ const ClientList = () => {
         (client.address && client.address.toLowerCase().includes(search));
 
       const fin = clientFinancials[client.id];
+      const type = parseClientType(client.notes);
 
       let matchesFilter = true;
-      if (filterType === 'has_overdue') matchesFilter = Boolean(fin && fin.overdueCount > 0);
+      if (filterType === 'partner_store') matchesFilter = (type === 'partner_store');
+      else if (filterType === 'end_user') matchesFilter = (type === 'end_user');
+      else if (filterType === 'has_overdue') matchesFilter = Boolean(fin && fin.overdueCount > 0);
       else if (filterType === 'has_paid') matchesFilter = Boolean(fin && fin.paidCount > 0);
       else if (filterType === 'has_pending') matchesFilter = Boolean(fin && fin.pendingCount > 0);
       else if (filterType === 'has_email') matchesFilter = Boolean(client.email && client.email.trim());
@@ -538,6 +550,8 @@ const ClientList = () => {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 { key: 'all', label: 'Semua', count: stats.totalCount },
+                { key: 'partner_store', label: '🏢 Toko / Partner', count: stats.partnerStoreCount, badgeColor: 'bg-violet-500/15 text-violet-600 dark:text-violet-400' },
+                { key: 'end_user', label: '👤 Klien Langsung', count: stats.endUserCount, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
                 { key: 'has_overdue', label: 'Nunggak / Overdue', count: stats.clientsWithOverdue, badgeColor: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
                 { key: 'has_paid', label: 'Pernah Lunas', count: stats.clientsWithPaid, badgeColor: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
                 { key: 'has_email', label: 'Ada Email', count: stats.withEmail, badgeColor: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' },
@@ -612,6 +626,7 @@ const ClientList = () => {
                 {filteredClients.map((client) => {
                   const clientName = capitalizeName(client.name);
                   const cleanPhone = formatCleanPhone(client.phone);
+                  const clientType = parseClientType(client.notes);
                   const fin = clientFinancials[client.id] || {
                     totalInvoiced: 0, totalPaid: 0, totalOverdue: 0, totalUnpaid: 0,
                     paidCount: 0, overdueCount: 0, pendingCount: 0, invoicesCount: 0, quotesCount: 0,
@@ -622,13 +637,25 @@ const ClientList = () => {
                       {/* Top Row: Avatar + Name + Invoiced & Status */}
                       <div className="flex items-start justify-between gap-2">
                         <Link to={`/client/${client.id}`} className="flex items-center gap-2.5 min-w-0 grow">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-500/30">
-                            {clientName.substring(0, 1).toUpperCase()}
+                          <div className={cn(
+                            "w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border",
+                            clientType === 'partner_store'
+                              ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                              : "bg-indigo-500/15 text-indigo-400 border-indigo-500/30"
+                          )}>
+                            {clientType === 'partner_store' ? <Building2 className="h-4 w-4" /> : clientName.substring(0, 1).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-bold text-sm text-foreground truncate">
-                              {clientName}
-                            </h4>
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-bold text-sm text-foreground truncate">
+                                {clientName}
+                              </h4>
+                              {clientType === 'partner_store' && (
+                                <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0 rounded bg-violet-500/10 text-violet-400 border-violet-500/20 shrink-0">
+                                  Toko
+                                </Badge>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
                               <span>{fin.invoicesCount} Faktur</span>
                               <span>•</span>
@@ -710,10 +737,21 @@ const ClientList = () => {
 
                         <div className="flex items-center gap-1">
                           <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 rounded-lg text-xs font-bold border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10"
+                          >
+                            <Link to={`/reports/partner-statement/${client.id}`}>
+                              <Receipt className="h-3.5 w-3.5 mr-1" /> Rekap
+                            </Link>
+                          </Button>
+
+                          <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenForm(client)}
-                            className="h-8 px-2.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground"
+                            className="h-8 px-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground"
                           >
                             <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                           </Button>
@@ -753,6 +791,7 @@ const ClientList = () => {
                     {filteredClients.map((client) => {
                       const clientName = capitalizeName(client.name);
                       const cleanPhone = formatCleanPhone(client.phone);
+                      const clientType = parseClientType(client.notes);
                       const fin = clientFinancials[client.id] || {
                         totalInvoiced: 0, totalPaid: 0, totalOverdue: 0, totalUnpaid: 0,
                         paidCount: 0, overdueCount: 0, pendingCount: 0, invoicesCount: 0, quotesCount: 0,
@@ -763,16 +802,28 @@ const ClientList = () => {
                           {/* Nama Klien & Avatar */}
                           <TableCell className="px-5 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/15 to-violet-500/20 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-500/30 shadow-2xs">
-                                {clientName.substring(0, 1).toUpperCase()}
+                              <div className={cn(
+                                "w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border shadow-2xs",
+                                clientType === 'partner_store'
+                                  ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                                  : "bg-gradient-to-br from-indigo-500/15 to-violet-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                              )}>
+                                {clientType === 'partner_store' ? <Building2 className="h-4 w-4" /> : clientName.substring(0, 1).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <Link 
-                                  to={`/client/${client.id}`}
-                                  className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs"
-                                >
-                                  {clientName}
-                                </Link>
+                                <div className="flex items-center gap-1.5">
+                                  <Link 
+                                    to={`/client/${client.id}`}
+                                    className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs"
+                                  >
+                                    {clientName}
+                                  </Link>
+                                  {clientType === 'partner_store' && (
+                                    <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 rounded-md bg-violet-500/10 text-violet-400 border-violet-500/20 shrink-0">
+                                      🏢 Toko
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
                                   <span>{fin.invoicesCount} Faktur</span>
                                   <span>•</span>
@@ -876,6 +927,19 @@ const ClientList = () => {
                               >
                                 <Link to={`/client/${client.id}`}>
                                   <Eye className="h-4 w-4" />
+                                </Link>
+                              </Button>
+
+                              {/* Rekap Tagihan Partner Statement */}
+                              <Button 
+                                asChild 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 rounded-lg text-violet-500 hover:text-violet-600 hover:bg-violet-500/10 transition-colors" 
+                                title="Buka Rekap Tagihan (Statement of Account)"
+                              >
+                                <Link to={`/reports/partner-statement/${client.id}`}>
+                                  <Receipt className="h-4 w-4" />
                                 </Link>
                               </Button>
 

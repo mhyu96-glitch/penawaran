@@ -329,6 +329,12 @@ const ClientDetail = () => {
             <Share2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Salin Tautan Portal
           </Button>
 
+          <Button asChild variant="outline" size="sm" className="rounded-xl text-xs font-bold border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10">
+            <Link to={`/reports/partner-statement/${client.id}`}>
+              <Building2 className="mr-1.5 h-3.5 w-3.5 text-violet-500" /> Rekap Tagihan (Statement)
+            </Link>
+          </Button>
+
           <Button asChild size="sm" className="rounded-xl bg-primary text-primary-foreground font-semibold text-xs shadow-sm">
             <Link to="/quote/new">
               <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Buat Penawaran

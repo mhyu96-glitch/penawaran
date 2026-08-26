@@ -27,6 +27,7 @@ import ProfitabilityReports from "./pages/ProfitabilityReports";
 import PublicQuoteView from "./pages/PublicQuoteView";
 import PublicInvoiceView from "./pages/PublicInvoiceView";
 import ClientPortal from "./pages/ClientPortal";
+import ProjectPartnerPortal from "./pages/ProjectPartnerPortal";
 import { ThemeProvider } from "./components/ThemeProvider";
 import ExpenseReport from "./pages/ExpenseReport";
 import ProjectList from "./pages/ProjectList";
@@ -35,6 +36,7 @@ import ProfitLossReport from "./pages/ProfitLossReport";
 import Automation from "./pages/Automation";
 import ProjectCalendar from "./pages/ProjectCalendar";
 import RecurringInvoiceList from "./pages/RecurringInvoiceList";
+import PartnerStatementReport from "./pages/PartnerStatementReport";
 
 // Glass Morphism Pages
 import DashboardGlass from "./pages/DashboardGlass";
@@ -61,6 +63,8 @@ const App = () => (
               <Route path="/quote/public/:id" element={<PublicQuoteView />} />
               <Route path="/invoice/public/:id" element={<PublicInvoiceView />} />
               <Route path="/portal/:accessKey" element={<ClientPortal />} />
+              <Route path="/portal/proyek/:id" element={<ProjectPartnerPortal />} />
+              <Route path="/portal/project/:id" element={<ProjectPartnerPortal />} />
               
               <Route element={<ProtectedRoute />}>
                 <Route element={<SharedLayout />}>
@@ -84,6 +88,8 @@ const App = () => (
                   <Route path="/reports/profitability" element={<ProfitabilityReports />} />
                   <Route path="/reports/expenses" element={<ExpenseReport />} />
                   <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
+                  <Route path="/reports/partner-statement" element={<PartnerStatementReport />} />
+                  <Route path="/reports/partner-statement/:clientId" element={<PartnerStatementReport />} />
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
                   <Route path="/automation" element={<Automation />} />

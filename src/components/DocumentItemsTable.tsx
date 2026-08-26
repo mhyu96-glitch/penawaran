@@ -23,6 +23,40 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
     showUnitPrice = true
   } = config;
 
+  const isStoreUnitItem = (item: DocumentItem, index: number, allItems: DocumentItem[]) => {
+    if (Number(item.quantity) === 0) return false;
+    
+    const desc = (item.description || '').toLowerCase();
+    if (
+      desc.includes('bawaan toko') || 
+      desc.includes('non-tagihan') || 
+      desc.includes('unit toko') || 
+      desc.includes('dari toko') ||
+      desc.includes('supply toko') ||
+      desc.includes('disediakan toko')
+    ) {
+      return true;
+    }
+
+    for (let i = index - 1; i >= 0; i--) {
+      if (Number(allItems[i].quantity) === 0) {
+        const headerDesc = (allItems[i].description || '').toLowerCase();
+        if (
+          headerDesc.includes('disediakan') ||
+          headerDesc.includes('toko') ||
+          headerDesc.includes('non-tagihan') ||
+          headerDesc.includes('bawaan') ||
+          headerDesc.includes('material partner')
+        ) {
+          return true;
+        }
+        break;
+      }
+    }
+
+    return false;
+  };
+
   // Calculate total visible columns accurately
   const totalColumns = 1 // No.
     + 1 // Deskripsi
@@ -39,6 +73,7 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
       <div className="mobile-document-items space-y-2 md:hidden">
         {items.map((item, index) => {
           const isHeader = Number(item.quantity) === 0;
+          const isStoreUnit = isStoreUnitItem(item, index, items);
 
           if (isHeader) {
             return (
@@ -60,7 +95,7 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
                   <p className="whitespace-pre-wrap text-xs font-bold leading-snug text-foreground print:text-slate-900">{item.description}</p>
                 </div>
                 <p className="shrink-0 text-right text-xs font-black text-foreground tabular-nums print:text-slate-900">
-                  {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
+                  {isStoreUnit ? '-' : formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
                 </p>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
@@ -79,7 +114,9 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
                 {showUnitPrice && (
                   <div className="rounded-lg bg-muted/30 px-2 py-1 text-right print:bg-slate-50">
                     <p className="text-[10px] text-muted-foreground print:text-slate-500">Harga</p>
-                    <p className="font-bold text-foreground tabular-nums print:text-slate-900">{formatCurrency(item.unit_price)}</p>
+                    <p className="font-bold text-foreground tabular-nums print:text-slate-900">
+                      {isStoreUnit ? '-' : formatCurrency(item.unit_price)}
+                    </p>
                   </div>
                 )}
               </div>
@@ -106,6 +143,7 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
               let count = 0;
               return items.map((item, index) => {
                 const isHeader = Number(item.quantity) === 0;
+                const isStoreUnit = isStoreUnitItem(item, index, items);
 
                 if (isHeader) {
                   return (
@@ -128,9 +166,13 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
                     <td className="py-2 px-3 font-semibold text-foreground whitespace-pre-wrap print:text-slate-900">{item.description}</td>
                     {showQuantity && <td className="py-2 px-3 text-center font-bold text-foreground tabular-nums print:text-slate-900">{item.quantity}</td>}
                     {showUnit && <td className="py-2 px-3 text-center text-muted-foreground font-medium print:text-slate-600">{item.unit || '-'}</td>}
-                    {showUnitPrice && <td className="py-2 px-3 text-right font-semibold text-muted-foreground tabular-nums print:text-slate-700">{formatCurrency(item.unit_price)}</td>}
+                    {showUnitPrice && (
+                      <td className="py-2 px-3 text-right font-semibold text-muted-foreground tabular-nums print:text-slate-700">
+                        {isStoreUnit ? '-' : formatCurrency(item.unit_price)}
+                      </td>
+                    )}
                     <td className="py-2 px-3 text-right font-bold text-foreground tabular-nums print:text-slate-900">
-                      {formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
+                      {isStoreUnit ? '-' : formatCurrency(calculateItemTotal(item.quantity, item.unit_price))}
                     </td>
                   </tr>
                 );

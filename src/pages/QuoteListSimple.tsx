@@ -39,6 +39,7 @@ type Quote = {
   created_at: string;
   status: string;
   title?: string;
+  terms?: string;
   client_id?: string;
   discount_amount?: number;
   tax_amount?: number;
@@ -67,6 +68,7 @@ const QuoteListSimple = () => {
           created_at, 
           status,
           title,
+          terms,
           client_id,
           discount_amount,
           tax_amount,
@@ -230,16 +232,30 @@ const QuoteListSimple = () => {
     };
   }, [user, fetchQuotes]);
 
+  const isQuotePartnerService = (quote: Quote): boolean => {
+    return Boolean(
+      quote.terms?.includes('[CATEGORY:partner_service]') ||
+      quote.title?.toLowerCase().includes('jasa') ||
+      quote.title?.toLowerCase().includes('subkon') ||
+      quote.title?.toLowerCase().includes('toko')
+    );
+  };
+
   // Filtered quotes based on search and status tab
   const filteredQuotes = useMemo(() => {
     return quotes.filter(quote => {
       const matchesSearch = 
         (quote.quote_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (quote.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (quote.to_client || '').toLowerCase().includes(searchTerm.toLowerCase());
       
       const s = (quote.status || '').toLowerCase();
+      const isPartner = isQuotePartnerService(quote);
+
       let matchesStatus = true;
-      if (statusFilter === 'terkirim') matchesStatus = s === 'terkirim' || s === 'sent';
+      if (statusFilter === 'partner_service') matchesStatus = isPartner;
+      else if (statusFilter === 'standard') matchesStatus = !isPartner;
+      else if (statusFilter === 'terkirim') matchesStatus = s === 'terkirim' || s === 'sent';
       else if (statusFilter === 'draf') matchesStatus = s === 'draf' || s === 'draft';
       else if (statusFilter === 'diterima') matchesStatus = s === 'diterima' || s === 'accepted';
       else if (statusFilter === 'ditolak') matchesStatus = s === 'ditolak' || s === 'rejected';
@@ -256,10 +272,15 @@ const QuoteListSimple = () => {
     let totalDraft = 0;
     let totalValue = 0;
     let acceptedValue = 0;
+    let partnerCount = 0;
+    let standardCount = 0;
 
     quotes.forEach(quote => {
       const val = calculateQuoteTotal(quote);
       totalValue += val;
+      if (isQuotePartnerService(quote)) partnerCount++;
+      else standardCount++;
+
       const s = (quote.status || '').toLowerCase();
       if (s === 'terkirim' || s === 'sent') totalSent++;
       else if (s === 'diterima' || s === 'accepted') {
@@ -272,6 +293,8 @@ const QuoteListSimple = () => {
 
     return {
       totalCount,
+      partnerCount,
+      standardCount,
       totalSent,
       totalAccepted,
       totalDraft,
@@ -477,6 +500,8 @@ const QuoteListSimple = () => {
             <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 overflow-x-auto no-scrollbar max-w-full">
               {[
                 { key: 'all', label: 'Semua', count: stats.totalCount },
+                { key: 'partner_service', label: '🏢 Toko / Jasa', count: stats.partnerCount, badgeColor: 'bg-violet-500/15 text-violet-600 dark:text-violet-400' },
+                { key: 'standard', label: '👤 Mandiri', count: stats.standardCount, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
                 { key: 'terkirim', label: 'Terkirim', count: stats.totalSent, badgeColor: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' },
                 { key: 'draf', label: 'Draf', count: stats.totalDraft, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
                 { key: 'diterima', label: 'Diterima', count: stats.totalAccepted, badgeColor: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
@@ -489,7 +514,7 @@ const QuoteListSimple = () => {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none",
                       isActive
-                        ? "bg-background text-foreground shadow-xs border border-border/70"
+                        ? "bg-background text-foreground shadow-xs border border-border/70 font-black"
                         : "text-muted-foreground hover:text-foreground hover:bg-background/40"
                     )}
                   >
@@ -552,31 +577,44 @@ const QuoteListSimple = () => {
                   const totalVal = calculateQuoteTotal(quote);
                   const clientName = capitalizeName(quote.to_client);
                   const itemCount = quote.quote_items?.length || 0;
+                  const isPartner = isQuotePartnerService(quote);
 
                   return (
                     <div key={quote.id} className="p-3.5 space-y-3 hover:bg-muted/20 transition-colors">
                       {/* Top Row: Nomor & Status */}
                       <div className="flex items-center justify-between">
-                        <Link 
-                          to={`/quote/${quote.id}`}
-                          className="font-mono font-bold text-xs text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20"
-                        >
-                          {quote.quote_number || 'N/A'}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link 
+                            to={`/quote/${quote.id}`}
+                            className="font-mono font-bold text-xs text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20"
+                          >
+                            {quote.quote_number || 'N/A'}
+                          </Link>
+                          {isPartner && (
+                            <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border-violet-500/20">
+                              🏢 Toko
+                            </Badge>
+                          )}
+                        </div>
                         {getStatusBadge(quote.status)}
                       </div>
 
                       {/* Middle Row: Client Info & Date */}
                       <Link to={`/quote/${quote.id}`} className="flex items-center gap-3 group block">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-700 dark:text-teal-300 flex items-center justify-center font-black text-xs shrink-0 border border-teal-500/30 shadow-2xs">
-                          {clientName.substring(0, 1).toUpperCase()}
+                        <div className={cn(
+                          "w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 border shadow-2xs",
+                          isPartner 
+                            ? "bg-violet-500/15 text-violet-400 border-violet-500/30" 
+                            : "bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                        )}>
+                          {isPartner ? '🏢' : clientName.substring(0, 1).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                             {clientName}
                           </h4>
                           <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                            <span>{itemCount > 0 ? `${itemCount} item barang/jasa` : 'Penawaran proyek'}</span>
+                            <span>{itemCount > 0 ? `${itemCount} item ${isPartner ? 'jasa/akomodasi' : 'barang/jasa'}` : 'Penawaran proyek'}</span>
                             <span>•</span>
                             <span>{safeFormat(quote.created_at, 'd MMM yyyy')}</span>
                           </div>
@@ -691,6 +729,7 @@ const QuoteListSimple = () => {
                       const totalVal = calculateQuoteTotal(quote);
                       const clientName = capitalizeName(quote.to_client);
                       const itemCount = quote.quote_items?.length || 0;
+                      const isPartner = isQuotePartnerService(quote);
 
                       return (
                         <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors group">
@@ -707,18 +746,30 @@ const QuoteListSimple = () => {
                           {/* Nama Klien */}
                           <TableCell className="px-5 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-700 dark:text-teal-300 flex items-center justify-center font-black text-xs shrink-0 border border-teal-500/30 shadow-2xs">
-                                {clientName.substring(0, 1).toUpperCase()}
+                              <div className={cn(
+                                "w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 border shadow-2xs",
+                                isPartner 
+                                  ? "bg-violet-500/15 text-violet-400 border-violet-500/30" 
+                                  : "bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                              )}>
+                                {isPartner ? '🏢' : clientName.substring(0, 1).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <Link 
-                                  to={`/quote/${quote.id}`}
-                                  className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs"
-                                >
-                                  {clientName}
-                                </Link>
+                                <div className="flex items-center gap-1.5">
+                                  <Link 
+                                    to={`/quote/${quote.id}`}
+                                    className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs"
+                                  >
+                                    {clientName}
+                                  </Link>
+                                  {isPartner && (
+                                    <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 rounded-md bg-violet-500/10 text-violet-400 border-violet-500/20 shrink-0">
+                                      🏢 Jasa Toko
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-[11px] text-muted-foreground block truncate">
-                                  {itemCount > 0 ? `${itemCount} item barang/jasa` : 'Penawaran proyek'}
+                                  {itemCount > 0 ? `${itemCount} item ${isPartner ? 'jasa/akomodasi' : 'barang/jasa'}` : 'Penawaran proyek'}
                                 </span>
                               </div>
                             </div>

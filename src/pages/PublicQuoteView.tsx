@@ -20,7 +20,10 @@ import {
   Sparkles,
   Paperclip,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  Eye,
+  X
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,6 +36,8 @@ interface Attachment {
   name: string;
   url: string;
   path: string;
+  caption?: string;
+  type?: 'image' | 'file';
 }
 
 type QuoteDetails = {
@@ -80,6 +85,7 @@ const PublicQuoteView = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionTaken, setActionTaken] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [activePhotoPreview, setActivePhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const quoteRef = useRef<HTMLDivElement>(null);
   const hasTracked = useRef(false);
 
@@ -459,32 +465,77 @@ const PublicQuoteView = () => {
             </div>
           )}
 
-          {/* Attachments */}
+          {/* Survey Photos & Attachments */}
           {quote.attachments && quote.attachments.length > 0 && (
-            <div className="space-y-3 no-pdf">
+            <div className="space-y-3 pt-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Paperclip className="h-4 w-4" /> Berkas & Lampiran Pendukung ({quote.attachments.length})
+                <Camera className="h-4 w-4 text-primary" /> Dokumentasi & Lampiran Foto Survei Lapangan ({quote.attachments.length})
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {quote.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <a 
-                      href={attachment.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-2 text-xs font-bold text-primary hover:underline truncate"
-                    >
-                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{attachment.name}</span>
-                    </a>
-                    <Button asChild variant="ghost" size="sm" className="h-7 text-[11px] font-bold text-muted-foreground">
-                      <a href={attachment.url} target="_blank" rel="noopener noreferrer" download>
-                        Unduh
-                      </a>
-                    </Button>
-                  </div>
-                ))}
-              </div>
+
+              {/* Photo Gallery Grid */}
+              {quote.attachments.some(att => (att as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(att.name.split('.').pop()?.toLowerCase() || '') || att.url.startsWith('data:image/')) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  {quote.attachments.map((attachment, index) => {
+                    const isImg = (attachment as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(attachment.name.split('.').pop()?.toLowerCase() || '') || attachment.url.startsWith('data:image/');
+                    if (!isImg) return null;
+
+                    return (
+                      <div 
+                        key={index}
+                        onClick={() => setActivePhotoPreview({ url: attachment.url, title: attachment.caption || attachment.name })}
+                        className="group relative rounded-xl border border-border/80 bg-muted/10 overflow-hidden shadow-2xs cursor-pointer hover:border-primary/50 transition-all"
+                      >
+                        <div className="aspect-video sm:aspect-square w-full overflow-hidden bg-black/20 relative">
+                          <img 
+                            src={attachment.url} 
+                            alt={attachment.caption || attachment.name} 
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center no-pdf">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white rounded-full p-1.5">
+                              <Eye className="h-3.5 w-3.5" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-1.5 space-y-0.5 bg-background/80 border-t border-border/60">
+                          <p className="font-bold text-[10px] text-foreground truncate">
+                            {attachment.caption || attachment.name}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Non-image File Documents List */}
+              {quote.attachments.some(att => !(att as any).type?.includes('image') && !['jpg', 'jpeg', 'png', 'webp'].includes(att.name.split('.').pop()?.toLowerCase() || '') && !att.url.startsWith('data:image/')) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 no-pdf">
+                  {quote.attachments.map((attachment, index) => {
+                    const isImg = (attachment as any).type === 'image' || ['jpg', 'jpeg', 'png', 'webp'].includes(attachment.name.split('.').pop()?.toLowerCase() || '') || attachment.url.startsWith('data:image/');
+                    if (isImg) return null;
+
+                    return (
+                      <div key={index} className="flex items-center justify-between p-2.5 rounded-xl border border-border/80 bg-muted/20 hover:bg-muted/40 transition-colors">
+                        <a 
+                          href={attachment.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="flex items-center gap-2 text-xs font-bold text-primary hover:underline truncate"
+                        >
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{attachment.name}</span>
+                        </a>
+                        <Button asChild variant="ghost" size="sm" className="h-7 text-[11px] font-bold text-muted-foreground">
+                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" download>
+                            Unduh
+                          </a>
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -498,6 +549,34 @@ const PublicQuoteView = () => {
           </CardFooter>
         )}
       </Card>
+
+      {/* Lightbox Modal for Survey Photo Preview */}
+      {activePhotoPreview && (
+        <div 
+          onClick={() => setActivePhotoPreview(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={e => e.stopPropagation()} 
+            className="max-w-3xl w-full bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl space-y-3 p-4 text-white"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-sm text-white">{activePhotoPreview.title}</h4>
+              <Button 
+                onClick={() => setActivePhotoPreview(null)}
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 rounded-full text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[75vh] overflow-hidden rounded-2xl bg-black flex items-center justify-center">
+              <img src={activePhotoPreview.url} alt={activePhotoPreview.title} className="max-h-[75vh] w-auto object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print styles for PDF export */}
       <style>{`
