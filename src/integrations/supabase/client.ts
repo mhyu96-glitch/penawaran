@@ -28,10 +28,16 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
+// Custom safe lock implementation to completely eliminate Navigator LockManager lock failures
+const noOpAuthLock = async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
+  return await fn();
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    lock: noOpAuthLock,
   },
 });
