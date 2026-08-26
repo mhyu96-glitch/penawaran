@@ -612,13 +612,45 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     }
   };
 
-  const handleApplyTemplate = (template: any) => {
-    setDocTitle(template.content.title || docTitle);
-    setTerms(template.content.terms || terms);
-    setDiscountAmount(template.content.discount_amount || 0);
-    setTaxAmount(template.content.tax_amount || 0);
-    if (template.content.items && template.content.items.length > 0) {
-        setItems(template.content.items.map((item: any) => ({ ...item, uid: crypto.randomUUID() })));
+  const handleApplyTemplate = (data: any) => {
+    if (!data) return;
+    const templateData = data.content || data;
+
+    const newTitle = templateData.docTitle ?? templateData.title;
+    if (newTitle !== undefined) setDocTitle(newTitle);
+
+    const newTerms = templateData.terms;
+    if (newTerms !== undefined) {
+      if (newTerms.includes('[CATEGORY:partner_service]')) {
+        setDocCategory('partner_service');
+      }
+      setTerms(newTerms.replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim());
+    }
+
+    if (templateData.docCategory) {
+      setDocCategory(templateData.docCategory);
+    }
+
+    const newDiscount = templateData.discountAmount ?? templateData.discount_amount;
+    if (newDiscount !== undefined) setDiscountAmount(Number(newDiscount) || 0);
+
+    const newTax = templateData.taxAmount ?? templateData.tax_amount;
+    if (newTax !== undefined) setTaxAmount(Number(newTax) || 0);
+
+    const templateItems = templateData.items;
+    if (Array.isArray(templateItems) && templateItems.length > 0) {
+      setItems(
+        templateItems.map((item: any) => ({
+          uid: crypto.randomUUID(),
+          description: item.description || '',
+          quantity: item.quantity !== undefined ? Number(item.quantity) : 1,
+          unit: item.unit || '',
+          unit_price: Number(item.unit_price) || 0,
+          cost_price: Number(item.cost_price) || 0,
+          is_store_unit: Boolean(item.is_store_unit),
+          ...(item.item_id ? { item_id: item.item_id } : {})
+        }))
+      );
     }
   };
 
@@ -922,7 +954,21 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                 </div>
               </div>
             </div>
-            <TemplateManager type={docType} currentData={{ docTitle, items, terms, taxAmount, discountAmount }} onApplyTemplate={handleApplyTemplate} />
+            <TemplateManager 
+              type={docType} 
+              currentData={{ 
+                docTitle, 
+                title: docTitle, 
+                docCategory, 
+                items, 
+                terms, 
+                taxAmount, 
+                tax_amount: taxAmount, 
+                discountAmount, 
+                discount_amount: discountAmount 
+              }} 
+              onApplyTemplate={handleApplyTemplate} 
+            />
           </div>
         </CardHeader>
         <CardContent className="space-y-6 px-4 py-6 sm:px-6 lg:space-y-8">

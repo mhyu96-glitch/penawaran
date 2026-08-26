@@ -80,7 +80,15 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
   const handleLoadTemplate = () => {
     const template = templates.find(t => t.id === selectedTemplateId);
     if (template) {
-      onApplyTemplate(template.content);
+      let content = template.content;
+      if (typeof content === 'string') {
+        try {
+          content = JSON.parse(content);
+        } catch (e) {
+          console.error('Error parsing template content JSON:', e);
+        }
+      }
+      onApplyTemplate(content || template);
       showSuccess('Template berhasil diterapkan.');
       setIsLoadOpen(false);
     }
