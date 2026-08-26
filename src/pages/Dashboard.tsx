@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -157,59 +157,96 @@ const Dashboard = () => {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      setLoading(true);
+  const fetchData = useCallback(async (showLoadingSpinner = true) => {
+    if (!user) return;
+    if (showLoadingSpinner) setLoading(true);
 
-      const fromDate = date?.from ? startOfDay(date.from).toISOString() : undefined;
-      const toDate = date?.to ? startOfDay(addDays(date.to, 1)).toISOString() : undefined;
+    const fromDate = date?.from ? startOfDay(date.from).toISOString() : undefined;
+    const toDate = date?.to ? startOfDay(addDays(date.to, 1)).toISOString() : undefined;
 
-      const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
-      const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, created_at, invoice_items(quantity, unit_price, cost_price)').eq('user_id', user.id);
-      const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
-      const paymentQuery = supabase
-        .from('payments')
-        .select('id, amount, payment_date, status, invoices(discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price))')
-        .eq('user_id', user.id);
-      const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
-      const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
-      const stockQuery = supabase.from('items').select('id, description, stock, min_stock_alert, unit').eq('user_id', user.id).eq('track_stock', true);
+    const quoteQuery = supabase.from('quotes').select('id, status, to_client, created_at, client_id, clients(name), quote_items(quantity, unit_price, cost_price)').eq('user_id', user.id).order('created_at', { ascending: false });
+    const invoiceQuery = supabase.from('invoices').select('id, status, due_date, to_client, discount_amount, tax_amount, created_at, invoice_items(quantity, unit_price, cost_price)').eq('user_id', user.id);
+    const expenseQuery = supabase.from('expenses').select('amount, expense_date').eq('user_id', user.id);
+    const paymentQuery = supabase
+      .from('payments')
+      .select('id, amount, payment_date, status, invoices(discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price))')
+      .eq('user_id', user.id);
+    const activityQuery = supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
+    const profileQuery = supabase.from('profiles').select('monthly_revenue_goal').eq('id', user.id).single();
+    const stockQuery = supabase.from('items').select('id, description, stock, min_stock_alert, unit').eq('user_id', user.id).eq('track_stock', true);
 
-      if (fromDate) {
-        quoteQuery.gte('created_at', fromDate);
-        invoiceQuery.gte('created_at', fromDate);
-        expenseQuery.gte('expense_date', fromDate);
-        paymentQuery.gte('payment_date', fromDate);
-      }
-      if (toDate) {
-        quoteQuery.lt('created_at', toDate);
-        invoiceQuery.lt('created_at', toDate);
-        expenseQuery.lt('expense_date', toDate);
-        paymentQuery.lt('payment_date', toDate);
-      }
+    if (fromDate) {
+      quoteQuery.gte('created_at', fromDate);
+      invoiceQuery.gte('created_at', fromDate);
+      expenseQuery.gte('expense_date', fromDate);
+      paymentQuery.gte('payment_date', fromDate);
+    }
+    if (toDate) {
+      quoteQuery.lt('created_at', toDate);
+      invoiceQuery.lt('created_at', toDate);
+      expenseQuery.lt('expense_date', toDate);
+      paymentQuery.lt('payment_date', toDate);
+    }
 
-      const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes, profileRes, stockRes] = await Promise.all([
-        quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery, profileQuery, stockQuery
-      ]);
+    const [quoteRes, invoiceRes, expenseRes, paymentRes, activityRes, profileRes, stockRes] = await Promise.all([
+      quoteQuery, invoiceQuery, expenseQuery, paymentQuery, activityQuery, profileQuery, stockQuery
+    ]);
 
-      if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes(quoteRes.data as Quote[]);
-      if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices(invoiceRes.data as Invoice[]);
-      if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses(expenseRes.data as Expense[]);
-      if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments((paymentRes.data || []).map((p: any) => ({ ...p, amount: Number(p.amount || 0) })) as Payment[]);
-      if (activityRes.data) setRecentActivities(activityRes.data as Notification[]);
-      if (profileRes.data) setRevenueGoal(profileRes.data.monthly_revenue_goal || 0);
-      
-      if (stockRes.data) {
-        const lowStock = (stockRes.data as LowStockItem[]).filter((item) => item.stock <= (item.min_stock_alert || 5));
-        setLowStockItems(lowStock);
-      }
-      
-      setLoading(false);
-    };
-
-    fetchData();
+    if (quoteRes.error) console.error('Error fetching quotes:', quoteRes.error); else setQuotes((quoteRes.data || []) as Quote[]);
+    if (invoiceRes.error) console.error('Error fetching invoices:', invoiceRes.error); else setInvoices((invoiceRes.data || []) as Invoice[]);
+    if (expenseRes.error) console.error('Error fetching expenses:', expenseRes.error); else setExpenses((expenseRes.data || []) as Expense[]);
+    if (paymentRes.error) console.error('Error fetching payments:', paymentRes.error); else setPayments(((paymentRes.data || []).map((p: any) => ({ ...p, amount: Number(p.amount || 0) }))) as Payment[]);
+    if (activityRes.data) setRecentActivities((activityRes.data || []) as Notification[]);
+    if (profileRes.data) setRevenueGoal(profileRes.data.monthly_revenue_goal || 0);
+    
+    if (stockRes.data) {
+      const lowStock = ((stockRes.data || []) as LowStockItem[]).filter((item) => item.stock <= (item.min_stock_alert || 5));
+      setLowStockItems(lowStock);
+    }
+    
+    if (showLoadingSpinner) setLoading(false);
   }, [user, date]);
+
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  // Realtime Supabase Subscription for live instant updates on Dashboard
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`dashboard_realtime_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoice_items' }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, () => {
+        fetchData(false);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchData]);
 
   const updateGoal = async () => {
     if (!user) return;
@@ -417,15 +454,11 @@ const Dashboard = () => {
 
     const result = Object.entries(clientMap)
       .map(([name, val]) => ({ name, 'Nilai Transaksi': val }))
+      .filter(item => item['Nilai Transaksi'] > 0)
       .sort((a, b) => b['Nilai Transaksi'] - a['Nilai Transaksi'])
       .slice(0, 5);
 
-    return result.length > 0 ? result : [
-      { name: 'Klien A', 'Nilai Transaksi': 15000000 },
-      { name: 'Klien B', 'Nilai Transaksi': 9500000 },
-      { name: 'Klien C', 'Nilai Transaksi': 6200000 },
-      { name: 'Klien D', 'Nilai Transaksi': 4100000 }
-    ];
+    return result;
   }, [invoices, quotes]);
 
   // Chart 3: Monthly Performance (6 Months Comparison)
@@ -467,17 +500,17 @@ const Dashboard = () => {
   const goalProgress = revenueGoal > 0 ? Math.min((totalRevenue / revenueGoal) * 100, 100) : 0;
   const overdueInvoicesCount = overdueInvoices.length;
   const activeInvoiceCount = invoices.filter(invoice => invoice.status !== 'Lunas').length;
-  const draftQuotesCount = quotes.filter(quote => quote.status === 'Draft').length;
+  const draftQuotesCount = quotes.filter(quote => quote.status === 'Draft' || quote.status === 'draf').length;
   const sentQuotesCount = quotes.filter(quote => quote.status === 'Terkirim' || quote.status === 'sent').length;
   const acceptedQuotesTotal = quotes.filter(quote => quote.status === 'Diterima' || quote.status === 'accepted').length;
   
   // Chart 4: Document Health Donut Chart Data
   const documentHealthPieData = useMemo(() => [
-    { name: 'Draft', value: draftQuotesCount || 2, color: '#64748b' },
-    { name: 'Terkirim', value: sentQuotesCount || 4, color: '#0ea5e9' },
-    { name: 'Diterima', value: acceptedQuotesTotal || 8, color: '#10b981' },
-    { name: 'Faktur Aktif', value: activeInvoiceCount || 3, color: '#6366f1' },
-    { name: 'Overdue', value: overdueInvoicesCount || 1, color: '#f43f5e' },
+    { name: 'Draft', value: draftQuotesCount, color: '#64748b' },
+    { name: 'Terkirim', value: sentQuotesCount, color: '#0ea5e9' },
+    { name: 'Diterima', value: acceptedQuotesTotal, color: '#10b981' },
+    { name: 'Faktur Aktif', value: activeInvoiceCount, color: '#6366f1' },
+    { name: 'Overdue', value: overdueInvoicesCount, color: '#f43f5e' },
   ], [draftQuotesCount, sentQuotesCount, acceptedQuotesTotal, activeInvoiceCount, overdueInvoicesCount]);
 
   const totalHealthDocs = useMemo(() => {
@@ -547,19 +580,14 @@ const Dashboard = () => {
       {/* 4 Primary KPI Cards - 2 Columns on Mobile */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* KPI 1: Business Health */}
-        <Card className={cn(
-          "relative overflow-hidden transition-all duration-200 border rounded-2xl shadow-xs",
-          businessScore >= 75 ? "bg-emerald-500/5 border-emerald-500/20" :
-          businessScore >= 50 ? "bg-amber-500/5 border-amber-500/20" :
-          "bg-rose-500/5 border-rose-500/20"
-        )}>
+        <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
           <CardContent className="p-3.5 sm:p-5">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Kesehatan Bisnis</span>
               <div className={cn("flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl border shrink-0",
-                businessScore >= 75 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" :
-                businessScore >= 50 ? "bg-amber-500/10 border-amber-500/30 text-amber-600" :
-                "bg-rose-500/10 border-rose-500/30 text-rose-600"
+                businessScore >= 75 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
+                businessScore >= 50 ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400" :
+                "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
               )}>
                 {performanceTrend === 'up' ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
                  performanceTrend === 'down' ? <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
@@ -582,11 +610,11 @@ const Dashboard = () => {
         </Card>
 
         {/* KPI 2: Revenue */}
-        <Card className="relative overflow-hidden border border-primary/20 bg-primary/5 rounded-2xl shadow-xs">
+        <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
           <CardContent className="p-3.5 sm:p-5">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-primary truncate">Pendapatan</span>
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/30 text-primary shrink-0">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Pendapatan</span>
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shrink-0">
                 <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
@@ -604,11 +632,11 @@ const Dashboard = () => {
         </Card>
 
         {/* KPI 3: Profit Margin */}
-        <Card className="relative overflow-hidden border border-purple-500/20 bg-purple-500/5 rounded-2xl shadow-xs">
+        <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
           <CardContent className="p-3.5 sm:p-5">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 truncate">Margin Keuntungan</span>
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400 shrink-0">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Margin Keuntungan</span>
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0">
                 <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
@@ -631,10 +659,10 @@ const Dashboard = () => {
         </Card>
 
         {/* KPI 4: Revenue Target */}
-        <Card className="relative overflow-hidden border border-amber-500/20 bg-amber-500/5 rounded-2xl shadow-xs">
+        <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
           <CardContent className="p-3.5 sm:p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">Target Omset</span>
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Target Omset</span>
               {!isEditingGoal ? (
                 <Button variant="ghost" size="sm" className="h-6 w-6 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:bg-amber-500/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
                   <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -806,16 +834,16 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={175}>
                 <PieChart>
                   <Pie
-                    data={documentHealthPieData}
+                    data={totalHealthDocs > 0 ? documentHealthPieData.filter(d => d.value > 0) : [{ name: 'Belum Ada Dokumen', value: 1, color: '#94a3b833' }]}
                     cx="50%"
                     cy="50%"
                     innerRadius={54}
                     outerRadius={78}
-                    paddingAngle={3}
+                    paddingAngle={totalHealthDocs > 0 ? 3 : 0}
                     cornerRadius={4}
                     dataKey="value"
                   >
-                    {documentHealthPieData.map((entry, index) => (
+                    {(totalHealthDocs > 0 ? documentHealthPieData.filter(d => d.value > 0) : [{ name: 'Belum Ada Dokumen', value: 1, color: '#94a3b833' }]).map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={entry.color} 
@@ -824,7 +852,7 @@ const Dashboard = () => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomChartTooltip />} />
+                  {totalHealthDocs > 0 && <Tooltip content={<CustomChartTooltip />} />}
                 </PieChart>
               </ResponsiveContainer>
               
@@ -880,20 +908,28 @@ const Dashboard = () => {
             </CardTitle>
             <CardDescription>Peringkat klien terbesar berdasarkan nilai penawaran & faktur.</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 min-h-[280px] h-[300px] px-2 sm:px-4 pt-4 pb-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topClientsData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid horizontal={false} stroke="rgba(148, 163, 184, 0.2)" />
-                <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} tickFormatter={(val) => compactNumber.format(val as number)} stroke="#94a3b8" />
-                <YAxis type="category" dataKey="name" width={90} tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
-                <Tooltip content={<CustomChartTooltip />} />
-                <Bar dataKey="Nilai Transaksi" radius={[0, 8, 8, 0]} barSize={18}>
-                  {topClientsData.map((_, idx) => (
-                    <Cell key={`bar-${idx}`} fill={['#3b82f6', '#0ea5e9', '#6366f1', '#8b5cf6', '#a855f7'][idx % 5]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="flex-1 min-h-[280px] h-[300px] px-2 sm:px-4 pt-4 pb-2 flex items-center justify-center">
+            {topClientsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topClientsData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                  <CartesianGrid horizontal={false} stroke="rgba(148, 163, 184, 0.2)" />
+                  <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} tickFormatter={(val) => compactNumber.format(val as number)} stroke="#94a3b8" />
+                  <YAxis type="category" dataKey="name" width={90} tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
+                  <Tooltip content={<CustomChartTooltip />} />
+                  <Bar dataKey="Nilai Transaksi" radius={[0, 8, 8, 0]} barSize={18}>
+                    {topClientsData.map((_, idx) => (
+                      <Cell key={`bar-${idx}`} fill={['#3b82f6', '#0ea5e9', '#6366f1', '#8b5cf6', '#a855f7'][idx % 5]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
+                <Users className="h-10 w-10 mb-2 opacity-30" />
+                <p className="text-sm font-semibold">Belum ada transaksi klien</p>
+                <p className="text-xs">Data akan otomatis terhitung saat ada penawaran atau faktur.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

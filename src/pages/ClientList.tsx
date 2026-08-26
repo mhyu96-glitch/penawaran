@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
@@ -62,9 +62,9 @@ const ClientList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'has_overdue' | 'has_paid' | 'has_pending' | 'has_email'>('all');
 
-  const fetchClientsAndTransactions = async () => {
+  const fetchClientsAndTransactions = useCallback(async (showLoadingSpinner = true) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoadingSpinner) setLoading(true);
 
     try {
       // 1. Fetch all quotes and invoices for transaction calculation and auto-harvesting
@@ -205,25 +205,24 @@ const ClientList = () => {
         }
 
         if (matchedClientId && financials[matchedClientId]) {
-          const itemsSubtotal = (inv.invoice_items || []).reduce((sum: number, item: any) => {
-            return sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-          }, 0);
-          const invoiceTotal = Math.max(0, itemsSubtotal - (inv.discount_amount || 0) + (inv.tax_amount || 0));
+          const subtotal = (inv.invoice_items || []).reduce((sum: number, item: any) => 
+            sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0);
+          const afterDiscount = subtotal - (Number(inv.discount_amount) || 0);
+          const totalVal = Math.max(0, afterDiscount + (Number(inv.tax_amount) || 0));
 
           financials[matchedClientId].invoicesCount++;
-          financials[matchedClientId].totalInvoiced += invoiceTotal;
+          financials[matchedClientId].totalInvoiced += totalVal;
 
-          const isPaid = inv.status === 'Lunas' || inv.status === 'paid';
-          const isOverdue = !isPaid && inv.due_date && isDateBeforeToday(inv.due_date);
-
-          if (isPaid) {
+          const s = (inv.status || '').toLowerCase();
+          if (s === 'lunas' || s === 'paid') {
             financials[matchedClientId].paidCount++;
-            financials[matchedClientId].totalPaid += invoiceTotal;
+            financials[matchedClientId].totalPaid += totalVal;
           } else {
-            financials[matchedClientId].totalUnpaid += invoiceTotal;
+            financials[matchedClientId].totalUnpaid += totalVal;
+            const isOverdue = inv.due_date && isDateBeforeToday(inv.due_date);
             if (isOverdue) {
               financials[matchedClientId].overdueCount++;
-              financials[matchedClientId].totalOverdue += invoiceTotal;
+              financials[matchedClientId].totalOverdue += totalVal;
             } else {
               financials[matchedClientId].pendingCount++;
             }
@@ -237,13 +236,41 @@ const ClientList = () => {
       console.error('Error fetching clients & transactions:', err);
       showError('Terjadi kesalahan saat memuat data transaksi klien.');
     } finally {
-      setLoading(false);
+      if (showLoadingSpinner) setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchClientsAndTransactions();
-  }, [user]);
+    fetchClientsAndTransactions(true);
+  }, [fetchClientsAndTransactions]);
+
+  // Realtime subscription for live updates in ClientList
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`client_list_realtime_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${user.id}` }, () => {
+        fetchClientsAndTransactions(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => {
+        fetchClientsAndTransactions(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `user_id=eq.${user.id}` }, () => {
+        fetchClientsAndTransactions(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoice_items' }, () => {
+        fetchClientsAndTransactions(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: `user_id=eq.${user.id}` }, () => {
+        fetchClientsAndTransactions(false);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchClientsAndTransactions]);
 
   const handleOpenForm = (client: Client | null = null) => {
     setSelectedClient(client);
@@ -408,52 +435,41 @@ const ClientList = () => {
         </Card>
 
         {/* Card 2: Total Akumulasi Transaksi */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total Omzet</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Omzet</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(stats.totalAllInvoiced)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-medium border-t border-emerald-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>{stats.clientsWithPaid} Pernah lunas</span>
           </div>
         </Card>
 
         {/* Card 3: Klien Menunggak */}
-        <Card className={cn(
-          "rounded-2xl p-3.5 sm:p-5 shadow-xs",
-          stats.clientsWithOverdue > 0 
-            ? "border-rose-500/40 bg-rose-500/5" 
-            : "border-border/80 bg-card"
-        )}>
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className={cn(
-              "text-[10px] sm:text-xs font-bold uppercase tracking-wider",
-              stats.clientsWithOverdue > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
-            )}>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Nunggak / Overdue
             </p>
             <div className={cn(
               "flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs",
               stats.clientsWithOverdue > 0 
-                ? "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse" 
-                : "bg-muted text-muted-foreground"
+                ? "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400" 
+                : "bg-muted/50 border border-border/60 text-muted-foreground"
             )}>
               <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-1">
-            <h3 className={cn(
-              "text-xl sm:text-3xl font-extrabold tracking-tight",
-              stats.clientsWithOverdue > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"
-            )}>
+            <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground">
               {stats.clientsWithOverdue}
             </h3>
             {stats.totalAllOverdue > 0 && (
@@ -462,9 +478,9 @@ const ClientList = () => {
               </span>
             )}
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2 truncate">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-t border-border/60 pt-2 truncate">
             {stats.clientsWithOverdue > 0 ? (
-              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 truncate">
+              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 truncate font-bold">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
                 Perlu ditindaklanjuti
               </span>

@@ -405,57 +405,57 @@ const ProjectCalendar = () => {
       {/* ========================================================================= */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Jatuh Tempo */}
-        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Tempo Bulan Ini</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Tempo Bulan Ini</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 shadow-2xs">
               <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums truncate">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(monthStats.overdueInvoicesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[10px] sm:text-[11px] text-rose-700/80 dark:text-rose-300 font-semibold border-t border-rose-500/20 pt-2 hidden sm:flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
             <span>{monthStats.overdueInvoicesCount} Faktur Menunggu Pembayaran</span>
           </p>
         </Card>
 
         {/* Card 2: Faktur Lunas */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Lunas Bulan Ini</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Lunas Bulan Ini</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(monthStats.paidInvoicesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-semibold border-t border-emerald-500/20 pt-2 hidden sm:flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>{monthStats.paidInvoicesCount} Faktur Berhasil Diterima</span>
           </p>
         </Card>
 
         {/* Card 3: Penawaran Aktif */}
-        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Penawaran Aktif</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Penawaran Aktif</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
               <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums truncate">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(monthStats.quotesAmount)}
             </h3>
           </div>
-          <p className="mt-2 text-[10px] sm:text-[11px] text-amber-700/80 dark:text-amber-300 font-semibold border-t border-amber-500/20 pt-2 hidden sm:flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             <span>{monthStats.quotesCount} Penawaran Terjadwal</span>
           </p>

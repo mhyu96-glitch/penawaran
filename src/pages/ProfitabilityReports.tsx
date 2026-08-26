@@ -298,21 +298,21 @@ const ProfitabilityReports = () => {
         </Card>
 
         {/* Card 2: Total Estimasi Laba */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Total Laba</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Laba</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums truncate">
               {formatCurrency(reportData.grandProfit)}
             </h3>
           </div>
-          <div className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2 hidden sm:flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 hidden sm:flex items-center justify-between">
             <span>Rata-rata Margin:</span>
-            <span>{reportData.overallMargin.toFixed(1)}%</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{reportData.overallMargin.toFixed(1)}%</span>
           </div>
         </Card>
 

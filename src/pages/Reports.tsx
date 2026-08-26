@@ -489,43 +489,43 @@ const Reports = () => {
         </Card>
 
         {/* Card 2: Realisasi Kas Masuk (Paid Invoices / Pelunasan) */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Kas Masuk (Lunas)</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Kas Masuk (Lunas)</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(metrics.realizedRevenue)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Pelunasan Berhasil
             </span>
-            <span>{metrics.totalInvoicedAmount > 0 ? `${((metrics.realizedRevenue / metrics.totalInvoicedAmount) * 100).toFixed(1)}% Terkumpul` : '100%'}</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{metrics.totalInvoicedAmount > 0 ? `${((metrics.realizedRevenue / metrics.totalInvoicedAmount) * 100).toFixed(1)}% Terkumpul` : '100%'}</span>
           </div>
         </Card>
 
         {/* Card 3: Piutang Usaha & Tunggakan */}
-        <Card className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Piutang & Tunggakan</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Piutang & Tunggakan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 shadow-2xs">
               <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(metrics.unpaidInvoicesAmount)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-rose-700/80 dark:text-rose-300 font-bold border-t border-rose-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
               {metrics.overdueCount} Jatuh Tempo
             </span>
             <span>{metrics.unpaidCount} Faktur</span>
@@ -533,19 +533,19 @@ const Reports = () => {
         </Card>
 
         {/* Card 4: Nilai Pipeline Penawaran */}
-        <Card className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pipeline Penawaran</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Pipeline Penawaran</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-2xs">
               <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(metrics.totalQuotesAmount)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-amber-700/80 dark:text-amber-300 font-bold border-t border-amber-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               Goal: {formatCurrency(metrics.acceptedQuotesAmount)}

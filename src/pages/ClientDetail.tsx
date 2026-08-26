@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -74,9 +74,9 @@ const ClientDetail = () => {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [activeTab, setActiveTab] = useState<'invoices' | 'quotes' | 'payments' | 'notes'>('invoices');
 
-  const fetchClientFullDetails = async () => {
+  const fetchClientFullDetails = useCallback(async (showLoadingSpinner = true) => {
     if (!id || !user) return;
-    setLoading(true);
+    if (showLoadingSpinner) setLoading(true);
 
     try {
       // 1. Fetch Client Profile
@@ -152,13 +152,41 @@ const ClientDetail = () => {
     } catch (err) {
       console.error('Error fetching full client details:', err);
     } finally {
-      setLoading(false);
+      if (showLoadingSpinner) setLoading(false);
     }
-  };
+  }, [id, user]);
 
   useEffect(() => {
-    fetchClientFullDetails();
-  }, [id, user]);
+    fetchClientFullDetails(true);
+  }, [fetchClientFullDetails]);
+
+  // Realtime subscription for live updates
+  useEffect(() => {
+    if (!user || !id) return;
+
+    const channel = supabase
+      .channel(`client_detail_realtime_${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => {
+        fetchClientFullDetails(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => {
+        fetchClientFullDetails(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
+        fetchClientFullDetails(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoice_items' }, () => {
+        fetchClientFullDetails(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+        fetchClientFullDetails(false);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, id, fetchClientFullDetails]);
 
   const calculateQuoteTotal = (quote: Quote): number => {
     const subtotal = quote.quote_items?.reduce((sum, item) => 
@@ -404,19 +432,19 @@ const ClientDetail = () => {
         </Card>
 
         {/* Card 2: Sudah Terbayar (LUNAS) */}
-        <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Sudah Lunas</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sudah Lunas</p>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+            <h3 className="text-2xl font-black tracking-tight text-foreground truncate">
               {formatCurrency(financials.totalPaidValue)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2.5">
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>{financials.countPaid} Faktur Terbayar Lunas</span>
           </div>
@@ -442,39 +470,28 @@ const ClientDetail = () => {
         </Card>
 
         {/* Card 4: Tagihan NUNGGAK (OVERDUE) */}
-        <Card className={cn(
-          "relative overflow-hidden rounded-2xl p-5 shadow-xs hover:shadow-md transition-all group",
-          financials.totalOverdueValue > 0 
-            ? "border-rose-500/40 bg-rose-500/5" 
-            : "border-border/80 bg-card"
-        )}>
+        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <p className={cn(
-              "text-xs font-bold uppercase tracking-wider",
-              financials.totalOverdueValue > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
-            )}>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Tunggakan (Jatuh Tempo)
             </p>
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl shadow-2xs",
               financials.totalOverdueValue > 0 
-                ? "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse" 
-                : "bg-muted text-muted-foreground"
+                ? "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400" 
+                : "bg-muted/50 border border-border/60 text-muted-foreground"
             )}>
               <AlertTriangle className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-3">
-            <h3 className={cn(
-              "text-2xl font-black tracking-tight truncate",
-              financials.totalOverdueValue > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"
-            )}>
+            <h3 className="text-2xl font-black tracking-tight text-foreground truncate">
               {formatCurrency(financials.totalOverdueValue)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2.5">
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-t border-border/60 pt-2.5">
             {financials.totalOverdueValue > 0 ? (
-              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">
+              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 font-bold">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
                 {financials.countOverdue} Faktur Lewat Jatuh Tempo
               </span>

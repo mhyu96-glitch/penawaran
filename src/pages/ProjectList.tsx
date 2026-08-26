@@ -407,15 +407,12 @@ const ProjectList = () => {
         </Card>
 
         {/* Card 4: Laba Bersih Proyek */}
-        <Card className={cn(
-          "rounded-2xl p-3.5 sm:p-5 shadow-xs",
-          summary.profit >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"
-        )}>
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider", summary.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Laba Bersih
             </p>
-            <div className={cn("flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs", summary.profit >= 0 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400")}>
+            <div className={cn("flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs", summary.profit >= 0 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400")}>
               <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
@@ -424,9 +421,9 @@ const ProjectList = () => {
               {formatCurrency(summary.profit)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-t border-border/60 pt-2">
             <span className={cn("h-1.5 w-1.5 rounded-full", summary.profit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
-            <span className={summary.profit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}>
+            <span className={summary.profit >= 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>
               {summary.revenue > 0 ? `${((summary.profit / summary.revenue) * 100).toFixed(1)}% Margin` : 'Estimasi laba'}
             </span>
           </div>

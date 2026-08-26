@@ -383,12 +383,18 @@ const QuoteView = () => {
 
   const handleDeleteQuote = async () => {
     if (!id) return;
-    const { error } = await supabase.from('quotes').delete().match({ id });
-    if (error) {
+    try {
+      await supabase.from('quote_items').delete().eq('quote_id', id);
+      const { error } = await supabase.from('quotes').delete().match({ id });
+      if (error) {
+        showError('Gagal menghapus penawaran.');
+      } else {
+        showSuccess('Penawaran berhasil dihapus.');
+        navigate('/quotes');
+      }
+    } catch (err: any) {
+      console.error('Delete error:', err);
       showError('Gagal menghapus penawaran.');
-    } else {
-      showSuccess('Penawaran berhasil dihapus.');
-      navigate('/quotes');
     }
   };
 

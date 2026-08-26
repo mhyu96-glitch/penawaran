@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -53,9 +53,9 @@ const QuoteListSimple = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const fetchQuotes = async () => {
+  const fetchQuotes = useCallback(async (showLoadingSpinner = true) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoadingSpinner) setLoading(true);
     
     try {
       const { data, error } = await supabase
@@ -86,8 +86,8 @@ const QuoteListSimple = () => {
       showError('Terjadi kesalahan saat memuat data');
     }
     
-    setLoading(false);
-  };
+    if (showLoadingSpinner) setLoading(false);
+  }, [user]);
 
   const calculateQuoteTotal = (quote: Quote): number => {
     const subtotal = quote.quote_items?.reduce((sum, item) => 
@@ -192,18 +192,43 @@ const QuoteListSimple = () => {
   };
 
   const handleDeleteQuote = async (quoteId: string) => {
-    const { error } = await supabase.from('quotes').delete().eq('id', quoteId);
-    if (error) {
+    try {
+      await supabase.from('quote_items').delete().eq('quote_id', quoteId);
+      const { error } = await supabase.from('quotes').delete().eq('id', quoteId);
+      if (error) {
+        showError(`Gagal menghapus penawaran: ${error.message}`);
+      } else {
+        showSuccess('Penawaran berhasil dihapus.');
+        setQuotes(prev => prev.filter(q => q.id !== quoteId));
+      }
+    } catch (err: any) {
+      console.error('Delete quote error:', err);
       showError('Gagal menghapus penawaran.');
-    } else {
-      showSuccess('Penawaran berhasil dihapus.');
-      setQuotes(quotes.filter(q => q.id !== quoteId));
     }
   };
 
   useEffect(() => {
-    fetchQuotes();
-  }, [user]);
+    fetchQuotes(true);
+  }, [fetchQuotes]);
+
+  // Realtime live subscription for quotes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`quotes_realtime_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${user.id}` }, () => {
+        fetchQuotes(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => {
+        fetchQuotes(false);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchQuotes]);
 
   // Filtered quotes based on search and status tab
   const filteredQuotes = useMemo(() => {
@@ -368,38 +393,38 @@ const QuoteListSimple = () => {
         </Card>
 
         {/* Card 2: Diterima */}
-        <Card className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-border/80 bg-card p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Goal Diterima</p>
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Goal Diterima</p>
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
               <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-1.5 sm:mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(stats.acceptedValue)}
             </h3>
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-1.5">
+          <div className="mt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-1.5">
             <span className="truncate">{stats.totalAccepted} Goal</span>
-            <span>{stats.conversionRate.toFixed(0)}% Konversi</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{stats.conversionRate.toFixed(0)}% Konversi</span>
           </div>
         </Card>
 
         {/* Card 3: Terkirim */}
-        <Card className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-xl border border-border/80 bg-card p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Terkirim</p>
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Terkirim</p>
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shadow-2xs">
               <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-1.5 sm:mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground tabular-nums">
               {stats.totalSent} <span className="text-xs font-normal text-muted-foreground">Proposal</span>
             </h3>
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-sky-700/80 dark:text-sky-300 font-bold border-t border-sky-500/20 pt-1.5">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
             <span className="truncate">Menunggu Respon Klien</span>
           </div>

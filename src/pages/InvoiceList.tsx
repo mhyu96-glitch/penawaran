@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -79,9 +79,9 @@ const InvoiceList = () => {
     invoice: null 
   });
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async (showLoadingSpinner = true) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoadingSpinner) setLoading(true);
     const { data, error } = await supabase
       .from('invoices')
       .select(`
@@ -107,12 +107,34 @@ const InvoiceList = () => {
     } else {
       setInvoices((data as Invoice[]) || []);
     }
-    setLoading(false);
-  };
+    if (showLoadingSpinner) setLoading(false);
+  }, [user]);
 
   useEffect(() => {
-    fetchInvoices();
-  }, [user]);
+    fetchInvoices(true);
+  }, [fetchInvoices]);
+
+  // Realtime subscription for live updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`invoice_list_realtime_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `user_id=eq.${user.id}` }, () => {
+        fetchInvoices(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoice_items' }, () => {
+        fetchInvoices(false);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${user.id}` }, () => {
+        fetchInvoices(false);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchInvoices]);
 
   const calculateInvoiceTotal = (invoice: Invoice): number => {
     const subtotal = invoice.invoice_items?.reduce((sum, item) => 
@@ -189,13 +211,20 @@ const InvoiceList = () => {
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
-    const { error } = await supabase.from('invoices').delete().match({ id: invoiceId });
+    try {
+      await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId);
+      await supabase.from('payments').delete().eq('invoice_id', invoiceId);
+      const { error } = await supabase.from('invoices').delete().match({ id: invoiceId });
 
-    if (error) {
+      if (error) {
+        showError('Gagal menghapus faktur: ' + error.message);
+      } else {
+        showSuccess('Faktur berhasil dihapus.');
+        setInvoices(prev => prev.filter(i => i.id !== invoiceId));
+      }
+    } catch (err: any) {
+      console.error('Delete invoice error:', err);
       showError('Gagal menghapus faktur.');
-    } else {
-      showSuccess('Faktur berhasil dihapus.');
-      setInvoices(invoices.filter(i => i.id !== invoiceId));
     }
   };
 
@@ -499,19 +528,19 @@ const InvoiceList = () => {
         </Card>
 
         {/* Card 2: Nilai Tagihan Total */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Nilai Tagihan</p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Nilai Tagihan</p>
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(stats.grandTotalValue)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300 font-medium border-t border-emerald-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>Piutang & lunas</span>
           </div>

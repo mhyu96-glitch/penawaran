@@ -108,19 +108,19 @@ const ExpenseReport = () => {
       {/* 3 KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Pengeluaran */}
-        <Card className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5 shadow-xs hover:shadow-md transition-all group">
+        <Card className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Total Beban Dicatat</p>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 shadow-2xs">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Beban Dicatat</p>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 shadow-2xs">
               <Wallet className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate">
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground truncate">
               {formatCurrency(reportData.total)}
             </h3>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-rose-700/80 dark:text-rose-300 font-bold border-t border-rose-500/20 pt-2.5">
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2.5">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
             <span>Akumulasi semua pengeluaran</span>
           </div>

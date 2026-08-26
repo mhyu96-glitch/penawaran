@@ -786,10 +786,10 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         </Card>
 
         {/* Card 3: Laba Bersih */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Estimasi Laba Bersih</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Estimasi Laba Bersih</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs">
               <TrendingUp className="h-4 w-4" />
             </div>
           </div>
@@ -798,9 +798,9 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
               {formatCurrency(financials.netProfit)}
             </h3>
           </div>
-          <div className="mt-2 text-[10px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2 flex items-center justify-between">
+          <div className="mt-2 text-[10px] sm:text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2 flex items-center justify-between">
             <span>Margin Keuntungan</span>
-            <span>{financials.profitMargin.toFixed(1)}%</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{financials.profitMargin.toFixed(1)}%</span>
           </div>
         </Card>
 

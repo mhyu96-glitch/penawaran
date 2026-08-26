@@ -373,21 +373,21 @@ const ProfitLossReport = () => {
       {/* 4 KPI Summary Cards - 2 Columns on Mobile */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Pendapatan Usaha */}
-        <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-5 shadow-xs">
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider truncate">
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider truncate">
               {reportMethod === 'accrual' ? 'Pendapatan Tagihan' : 'Kas Masuk Lunas'}
             </p>
-            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-2xs shrink-0">
+            <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-2xs shrink-0">
               <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-base sm:text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 truncate tabular-nums">
+            <h3 className="text-base sm:text-2xl font-black tracking-tight text-foreground truncate tabular-nums">
               {formatCurrency(financials.revenue)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-300 font-bold border-t border-emerald-500/20 pt-2">
+          <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-muted-foreground font-medium border-t border-border/60 pt-2">
             <span className="flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {financials.filteredInvoicesCount} Faktur
@@ -435,17 +435,14 @@ const ProfitLossReport = () => {
         </Card>
 
         {/* Card 4: Laba Bersih */}
-        <Card className={cn(
-          "rounded-2xl p-3.5 sm:p-5 shadow-xs transition-all",
-          financials.netProfit >= 0 ? "border border-emerald-500/30 bg-emerald-500/5" : "border border-rose-500/30 bg-rose-500/5"
-        )}>
+        <Card className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs transition-all">
           <div className="flex items-center justify-between">
-            <p className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider", financials.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Laba Bersih Real
             </p>
             <div className={cn(
               "flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-xl shadow-2xs shrink-0",
-              financials.netProfit >= 0 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400"
+              financials.netProfit >= 0 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400"
             )}>
               {financials.netProfit >= 0 ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
             </div>
@@ -455,9 +452,9 @@ const ProfitLossReport = () => {
               {formatCurrency(financials.netProfit)}
             </h3>
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-bold border-t border-border/60 pt-2">
+          <div className="mt-2 hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-t border-border/60 pt-2">
             <span className={cn("h-1.5 w-1.5 rounded-full", financials.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
-            <span className={financials.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}>
+            <span className={financials.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-600 dark:text-rose-400 font-bold"}>
               {financials.netMargin.toFixed(1)}% Net Margin
             </span>
           </div>
