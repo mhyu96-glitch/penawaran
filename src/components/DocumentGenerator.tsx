@@ -862,9 +862,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
     let currentDocId = id;
     let createdNewDocument = false;
-    const previousItemIds = isEditMode
-      ? items.map(item => item.id).filter((itemId): itemId is string => Boolean(itemId))
-      : [];
 
     if (isEditMode) {
       const { error } = await supabase.from(config.table).update(docPayload).match({ id });
@@ -884,41 +881,46 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       createdNewDocument = true;
     }
 
-    const itemsPayload = items
-        .filter(item => item.description && item.description.trim())
-        .map(({ uid, id, created_at, is_store_unit, ...item }: any) => ({
-            ...item,
-            [config.foreignKey]: currentDocId
-        }));
-    
-    let insertedItemIds: string[] = [];
-    if (itemsPayload.length > 0) {
-      const { data: insertedItems, error } = await supabase
-        .from(config.itemTable)
-        .insert(itemsPayload)
-        .select('id');
-      if (error) {
-        if (createdNewDocument && currentDocId) {
-          await supabase.from(config.table).delete().eq('id', currentDocId);
-        }
-        showError(`Gagal menyimpan item: ${error.message}`); 
-        setIsSubmitting(false); 
-        return; 
-      }
-      insertedItemIds = (insertedItems || []).map((item: { id: string }) => item.id);
-    }
-
-    if (isEditMode && previousItemIds.length > 0) {
+    if (isEditMode && currentDocId) {
       const { error: deleteError } = await supabase
         .from(config.itemTable)
         .delete()
-        .in('id', previousItemIds);
+        .eq(config.foreignKey, currentDocId);
 
       if (deleteError) {
-        if (insertedItemIds.length > 0) {
-          await supabase.from(config.itemTable).delete().in('id', insertedItemIds);
+        showError(`Gagal memperbarui item lama: ${deleteError.message}`);
+        setIsSubmitting(false); 
+        return; 
+      }
+    }
+
+    const itemsPayload = items
+      .filter(item => item.description && item.description.trim())
+      .map((item: any) => {
+        const payloadItem: any = {
+          description: item.description.trim(),
+          quantity: Number(item.quantity) || 0,
+          unit: item.unit || '',
+          unit_price: Number(item.unit_price) || 0,
+          cost_price: Number(item.cost_price) || 0,
+          [config.foreignKey]: currentDocId,
+        };
+        if (item.item_id) {
+          payloadItem.item_id = item.item_id;
         }
-        showError(`Gagal mengganti item lama: ${deleteError.message}`);
+        return payloadItem;
+      });
+    
+    if (itemsPayload.length > 0) {
+      const { error: insertError } = await supabase
+        .from(config.itemTable)
+        .insert(itemsPayload);
+
+      if (insertError) {
+        if (createdNewDocument && currentDocId) {
+          await supabase.from(config.table).delete().eq('id', currentDocId);
+        }
+        showError(`Gagal menyimpan item: ${insertError.message}`); 
         setIsSubmitting(false); 
         return; 
       }
