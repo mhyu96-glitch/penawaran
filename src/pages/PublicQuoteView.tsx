@@ -363,7 +363,7 @@ const PublicQuoteView = () => {
               </h2>
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>
-                  <strong>Tanggal:</strong> {safeFormat(quote.quote_date || (quote as any).created_at, 'd MMMM yyyy') || safeFormat(new Date(), 'd MMMM yyyy')}
+                  <strong>Tanggal:</strong> {safeFormat(quote.quote_date || (quote as any).created_at, 'd MMMM yyyy') || safeFormat(new Date().toISOString(), 'd MMMM yyyy')}
                 </p>
                 {quote.valid_until && (
                   <p>

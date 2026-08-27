@@ -11,7 +11,7 @@ import {
   ListTodo, Target, ShoppingCart, CheckCircle2, Circle, Edit3, Check, 
   X, AlertCircle, PackageCheck, Layers, Sparkles, User, Fuel, Utensils,
   Users, Hotel, Wrench, Plus, Trash2, PieChart, Calculator, Car, Landmark,
-  Share2, ExternalLink, ShieldCheck, Building2
+  Share2, ExternalLink, ShieldCheck, Building2, Phone
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,7 @@ type ProjectDetails = {
   name: string;
   description: string | null;
   status: string;
-  clients: { name: string } | null;
+  clients: { name: string; phone?: string | null } | null;
   budget: number;
 };
 
@@ -329,7 +329,7 @@ const ProjectDetail = () => {
 
     try {
       const [projectRes, quotesRes, invoicesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
-        supabase.from('projects').select('*, clients(name)').eq('id', id).single(),
+        supabase.from('projects').select('*, clients(name, phone)').eq('id', id).single(),
         supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
         supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
         supabase.from('expenses').select('*').eq('project_id', id).order('expense_date', { ascending: false }),

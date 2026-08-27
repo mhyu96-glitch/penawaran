@@ -367,7 +367,7 @@ const QuoteList = () => {
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <Button 
-              onClick={fetchQuotes} 
+              onClick={() => fetchQuotes(true)} 
               variant="outline" 
               size="sm"
               className="h-10 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3 text-xs"

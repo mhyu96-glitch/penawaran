@@ -371,7 +371,7 @@ const QuoteListSimple = () => {
           {/* Action Buttons */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap">
             <Button 
-              onClick={fetchQuotes} 
+              onClick={() => fetchQuotes(true)} 
               variant="outline" 
               size="lg"
               className="h-10 sm:h-11 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-600 transition-all shadow-md active:scale-95 px-3"
