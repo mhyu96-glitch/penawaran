@@ -156,8 +156,6 @@ const QuoteView = () => {
     if (!quote) return false;
     const termsStr = quote.terms || '';
     if (termsStr.includes('[CATEGORY:partner_service]')) return true;
-    const titleStr = (quote.title || '').toLowerCase();
-    if (titleStr.includes('jasa') || titleStr.includes('toko') || titleStr.includes('subcon') || titleStr.includes('sub kon')) return true;
     return false;
   }, [quote]);
 

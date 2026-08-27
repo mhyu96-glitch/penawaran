@@ -234,10 +234,7 @@ const QuoteListSimple = () => {
 
   const isQuotePartnerService = (quote: Quote): boolean => {
     return Boolean(
-      quote.terms?.includes('[CATEGORY:partner_service]') ||
-      quote.title?.toLowerCase().includes('jasa') ||
-      quote.title?.toLowerCase().includes('subkon') ||
-      quote.title?.toLowerCase().includes('toko')
+      quote.terms?.includes('[CATEGORY:partner_service]')
     );
   };
 

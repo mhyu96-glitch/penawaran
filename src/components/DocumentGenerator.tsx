@@ -93,7 +93,8 @@ const SortableItemRow = ({
   handleItemChange, 
   removeItem,
   isMobile,
-  allItems
+  allItems,
+  docCategory
 }: { 
   item: Item; 
   index: number; 
@@ -101,6 +102,7 @@ const SortableItemRow = ({
   removeItem: (index: number) => void;
   isMobile: boolean;
   allItems?: Item[];
+  docCategory?: 'standard' | 'partner_service';
 }) => {
   const {
     attributes,
@@ -123,12 +125,10 @@ const SortableItemRow = ({
   // Determine if this item is a store unit (non-tagihan)
   const isStoreUnit = useMemo(() => {
     if (isSectionHeader) return false;
+    // In standard / personal mode, items are never store units
+    if (docCategory !== 'partner_service') return false;
+
     if (item.is_store_unit) return true;
-    
-    // Any item with 0 unit_price & 0 cost_price is non-tagihan / store unit
-    if (Number(item.unit_price) === 0 && Number(item.cost_price || 0) === 0) {
-      return true;
-    }
 
     const desc = (item.description || '').toLowerCase();
     if (
@@ -161,7 +161,7 @@ const SortableItemRow = ({
     }
 
     return false;
-  }, [item, index, allItems, isSectionHeader]);
+  }, [item, index, allItems, isSectionHeader, docCategory]);
 
   // COMPACT & BALANCED MOBILE CARD VIEW
   if (isMobile) {
@@ -582,8 +582,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
       
       const loadedTerms = data.terms || "";
-      if (loadedTerms.includes('[CATEGORY:partner_service]') || data.title?.toLowerCase().includes('jasa')) {
+      const isPartner = loadedTerms.includes('[CATEGORY:partner_service]');
+      if (isPartner) {
         setDocCategory('partner_service');
+      } else {
+        setDocCategory('standard');
       }
       setTerms(loadedTerms.replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim());
       setAttachments(data.attachments || []);
@@ -593,7 +596,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
         setItems(fetchedItems.map((item: any) => ({
           ...item,
           uid: crypto.randomUUID(),
-          is_store_unit: Number(item.quantity) > 0 && Number(item.unit_price) === 0 && Number(item.cost_price || 0) === 0
+          is_store_unit: isPartner && (
+            Boolean(item.is_store_unit) ||
+            (item.description || '').toLowerCase().includes('bawaan toko') ||
+            (item.description || '').toLowerCase().includes('unit toko')
+          )
         })));
       }
       setLoading(false);
@@ -632,6 +639,8 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     if (newTerms !== undefined) {
       if (newTerms.includes('[CATEGORY:partner_service]')) {
         setDocCategory('partner_service');
+      } else if (!templateData.docCategory) {
+        setDocCategory('standard');
       }
       setTerms(newTerms.replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim());
     }
@@ -682,7 +691,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   };
 
   const addItem = () => {
-    setItems(prev => [...prev, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+    setItems(prev => [...prev, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0, is_store_unit: false }]);
   };
 
   const addSectionHeader = () => {
@@ -1339,6 +1348,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                             removeItem={removeItem}
                             isMobile={false}
                             allItems={items}
+                            docCategory={docCategory}
                           />
                         ))}
                       </SortableContext>
@@ -1359,6 +1369,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                           removeItem={removeItem}
                           isMobile={true}
                           allItems={items}
+                          docCategory={docCategory}
                         />
                       ))}
                     </SortableContext>

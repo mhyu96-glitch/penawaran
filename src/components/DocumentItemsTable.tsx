@@ -25,11 +25,7 @@ export const DocumentItemsTable = ({ items, config = {} }: DocumentItemsTablePro
 
   const isStoreUnitItem = (item: DocumentItem, index: number, allItems: DocumentItem[]) => {
     if (Number(item.quantity) === 0) return false;
-    
-    // Any item with 0 unit_price is non-tagihan (store-provided / free / included)
-    if (Number(item.unit_price) === 0) {
-      return true;
-    }
+    if ((item as any).is_store_unit) return true;
 
     const desc = (item.description || '').toLowerCase();
     if (

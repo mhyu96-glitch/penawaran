@@ -215,8 +215,6 @@ const InvoiceView = () => {
         if (!invoice) return false;
         const termsStr = invoice.terms || '';
         if (termsStr.includes('[CATEGORY:partner_service]')) return true;
-        const titleStr = (invoice.title || '').toLowerCase();
-        if (titleStr.includes('jasa') || titleStr.includes('toko') || titleStr.includes('subcon') || titleStr.includes('sub kon')) return true;
         return false;
     }, [invoice]);
 
