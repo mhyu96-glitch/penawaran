@@ -14,6 +14,7 @@ import { cn, safeFormat, formatCurrency, calculateSubtotal, calculateTotal, calc
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
+import { convertQuoteToInvoice } from "@/utils/quoteToInvoice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Client } from "@/pages/ClientList";
@@ -935,7 +936,22 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       }
     }
 
-    showSuccess(`${config.title} berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
+    if (docType === 'quote' && status === 'Diterima' && currentDocId) {
+      const invoiceResult = await convertQuoteToInvoice({
+        quoteId: currentDocId,
+        userId: user.id,
+        autoUpdateStatus: false,
+      });
+
+      if (invoiceResult.success && invoiceResult.invoiceNumber && !invoiceResult.alreadyExisted) {
+        showSuccess(`Penawaran disimpan & Faktur #${invoiceResult.invoiceNumber} berhasil otomatis dibuat!`);
+      } else {
+        showSuccess(`${config.title} berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
+      }
+    } else {
+      showSuccess(`${config.title} berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
+    }
+
     setIsSubmitting(false);
     if (currentDocId) navigate(config.navigateTo(currentDocId));
   };

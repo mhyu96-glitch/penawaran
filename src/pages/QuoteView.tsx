@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SessionContext';
 import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, getStatusVariant, cn, formatNumberWithDots, parseDotsToNumber, getCleanTerms } from '@/lib/utils';
 import { generatePdf } from '@/utils/pdfGenerator';
+import { convertQuoteToInvoice } from '@/utils/quoteToInvoice';
 import { DocumentItemsTable } from '@/components/DocumentItemsTable';
 import ProfitAnalysisCard from '@/components/ProfitAnalysisCard';
 import DocumentTimeline from '@/components/DocumentTimeline';
@@ -352,14 +353,20 @@ const QuoteView = () => {
   };
 
   const handleAcceptQuote = async () => {
-    if (!id || !quote) return;
+    if (!id || !quote || !user) return;
     try {
-      const { error } = await supabase.from('quotes').update({ status: 'Diterima' }).eq('id', id);
-      if (error) {
-        showError(`Gagal memperbarui status: ${error.message}`);
+      const result = await convertQuoteToInvoice({
+        quoteId: quote.id,
+        userId: user.id,
+        autoUpdateStatus: true,
+      });
+
+      setQuote({ ...quote, status: 'Diterima' });
+
+      if (result.success && result.invoiceNumber && !result.alreadyExisted) {
+        showSuccess(`Penawaran diterima! Faktur #${result.invoiceNumber} berhasil otomatis dibuat.`);
       } else {
         showSuccess('Penawaran berhasil ditandai Diterima!');
-        setQuote({ ...quote, status: 'Diterima' });
       }
     } catch (err: any) {
       console.error(err);
