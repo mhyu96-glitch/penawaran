@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { showError, showSuccess } from '@/utils/toast';
 import { Client } from '@/pages/ClientList';
+import { SearchableClientSelect } from '@/components/SearchableClientSelect';
+import { formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 
 export type Project = {
   id: string;
@@ -39,7 +41,11 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
   useEffect(() => {
     const fetchClients = async () => {
       if (!user) return;
-      const { data } = await supabase.from('clients').select('*').eq('user_id', user.id);
+      const { data } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
       if (data) setClients(data);
     };
     fetchClients();
@@ -107,12 +113,12 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
           </div>
           <div className="space-y-2">
             <Label htmlFor="client">Klien (Opsional)</Label>
-            <Select value={clientId} onValueChange={setClientId}>
-              <SelectTrigger><SelectValue placeholder="Pilih klien" /></SelectTrigger>
-              <SelectContent>
-                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableClientSelect
+              clients={clients}
+              value={clientId}
+              onValueChange={setClientId}
+              placeholder="Cari & pilih nama klien..."
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -128,7 +134,18 @@ const ProjectForm = ({ isOpen, setIsOpen, project, onSave }: ProjectFormProps) =
             </div>
             <div className="space-y-2">
                 <Label htmlFor="budget">Anggaran (IDR)</Label>
-                <Input id="budget" type="number" value={budget} onChange={(e) => setBudget(e.target.value)} />
+                <div className="relative flex items-center">
+                  <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+                  <Input 
+                    id="budget" 
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={formatNumberWithDots(budget)} 
+                    onChange={(e) => setBudget(String(parseDotsToNumber(e.target.value)))} 
+                    className="pl-9 font-bold tabular-nums"
+                  />
+                </div>
             </div>
           </div>
           <div className="space-y-2">

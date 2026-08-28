@@ -46,6 +46,7 @@ import GlassThemeHub from "./pages/GlassThemeHub";
 import QuoteFormGlass from "./pages/QuoteFormGlass";
 import InvoiceFormGlass from "./pages/InvoiceFormGlass";
 import ClientListGlass from "./pages/ClientListGlass";
+import { GlassErrorBoundary } from "./components/glass/GlassErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -57,7 +58,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
+            <GlassErrorBoundary>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/quote/public/:id" element={<PublicQuoteView />} />
@@ -113,8 +115,9 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+          </GlassErrorBoundary>
+        </AuthProvider>
+      </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

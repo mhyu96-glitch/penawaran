@@ -399,7 +399,7 @@ const SortableItemRow = ({
             <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-muted-foreground select-none">Rp</span>
             <Input 
               type="text" 
-              inputMode="numeric" 
+              inputMode="numeric"
               placeholder="0" 
               value={formatNumberWithDots(item.cost_price)} 
               onChange={e => handleItemChange(index, 'cost_price', parseDotsToNumber(e.target.value))} 
@@ -420,7 +420,7 @@ const SortableItemRow = ({
             <span className="pointer-events-none absolute left-2.5 text-[11px] font-bold text-primary select-none">Rp</span>
             <Input 
               type="text" 
-              inputMode="numeric" 
+              inputMode="numeric"
               placeholder="0" 
               value={formatNumberWithDots(item.unit_price)} 
               onChange={e => handleItemChange(index, 'unit_price', parseDotsToNumber(e.target.value))} 

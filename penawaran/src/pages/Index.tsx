@@ -1,54 +1,29 @@
-import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/SessionContext";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const { session, loading } = useAuth();
 
-  const renderContent = () => {
-    if (loading) {
-      return <Skeleton className="h-10 w-48" />;
-    }
-    if (session) {
-      return (
-        <Button asChild size="lg">
-          <Link to="/dashboard">Buka Dashboard</Link>
-        </Button>
-      );
-    }
+  if (loading) {
     return (
-      <Button asChild size="lg">
-        <Link to="/login">Masuk untuk Memulai</Link>
-      </Button>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center animate-pulse">
+            <span className="h-4 w-4 rounded-full bg-teal-400" />
+          </div>
+          <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase animate-pulse">Memuat Aplikasi...</p>
+        </div>
+      </div>
     );
-  };
+  }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-2xl">
-        <Card className="text-center">
-          <CardHeader>
-            <CardTitle className="text-3xl md:text-4xl font-bold mb-2">Selamat Datang di Aplikasi Penawaran Anda</CardTitle>
-            <CardDescription className="text-lg md:text-xl text-gray-600">
-              Hasilkan penawaran proyek secara instan.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-6">
-              {session ? "Kelola semua penawaran Anda atau buat yang baru." : "Masuk atau daftar untuk mulai membuat penawaran."}
-            </p>
-            {renderContent()}
-          </CardContent>
-        </Card>
-      </div>
-      <div className="absolute bottom-0 w-full">
-        <MadeWithDyad />
-      </div>
-    </div>
-  );
+  // If user is already authenticated, go to Dashboard
+  if (session) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If not authenticated, redirect straight to the animated Login screen
+  return <Navigate to="/login" replace />;
 };
 
 export default Index;

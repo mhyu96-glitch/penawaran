@@ -9,7 +9,7 @@ import QuoteGenerator from "./pages/QuoteGenerator";
 import { AuthProvider } from "./contexts/SessionContext";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
-import QuoteList from "./pages/QuoteList";
+import QuoteListSimple from "./pages/QuoteListSimple";
 import QuoteView from "./pages/QuoteView";
 import Profile from "./pages/Profile";
 import SharedLayout from "./components/SharedLayout";
@@ -27,6 +27,7 @@ import ProfitabilityReports from "./pages/ProfitabilityReports";
 import PublicQuoteView from "./pages/PublicQuoteView";
 import PublicInvoiceView from "./pages/PublicInvoiceView";
 import ClientPortal from "./pages/ClientPortal";
+import ProjectPartnerPortal from "./pages/ProjectPartnerPortal";
 import { ThemeProvider } from "./components/ThemeProvider";
 import ExpenseReport from "./pages/ExpenseReport";
 import ProjectList from "./pages/ProjectList";
@@ -35,6 +36,17 @@ import ProfitLossReport from "./pages/ProfitLossReport";
 import Automation from "./pages/Automation";
 import ProjectCalendar from "./pages/ProjectCalendar";
 import RecurringInvoiceList from "./pages/RecurringInvoiceList";
+import PartnerStatementReport from "./pages/PartnerStatementReport";
+
+// Glass Morphism Pages
+import DashboardGlass from "./pages/DashboardGlass";
+import QuoteListGlass from "./pages/QuoteListGlass";
+import InvoiceListGlass from "./pages/InvoiceListGlass";
+import GlassThemeHub from "./pages/GlassThemeHub";
+import QuoteFormGlass from "./pages/QuoteFormGlass";
+import InvoiceFormGlass from "./pages/InvoiceFormGlass";
+import ClientListGlass from "./pages/ClientListGlass";
+import { GlassErrorBoundary } from "./components/glass/GlassErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -46,17 +58,20 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
+            <GlassErrorBoundary>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/quote/public/:id" element={<PublicQuoteView />} />
               <Route path="/invoice/public/:id" element={<PublicInvoiceView />} />
               <Route path="/portal/:accessKey" element={<ClientPortal />} />
+              <Route path="/portal/proyek/:id" element={<ProjectPartnerPortal />} />
+              <Route path="/portal/project/:id" element={<ProjectPartnerPortal />} />
               
               <Route element={<ProtectedRoute />}>
                 <Route element={<SharedLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/quotes" element={<QuoteList />} />
+                  <Route path="/quotes" element={<QuoteListSimple />} />
                   <Route path="/quote/new" element={<QuoteGenerator />} />
                   <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
                   <Route path="/quote/:id" element={<QuoteView />} />
@@ -75,18 +90,34 @@ const App = () => (
                   <Route path="/reports/profitability" element={<ProfitabilityReports />} />
                   <Route path="/reports/expenses" element={<ExpenseReport />} />
                   <Route path="/reports/profit-loss" element={<ProfitLossReport />} />
+                  <Route path="/reports/partner-statement" element={<PartnerStatementReport />} />
+                  <Route path="/reports/partner-statement/:clientId" element={<PartnerStatementReport />} />
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
                   <Route path="/automation" element={<Automation />} />
                   <Route path="/calendar" element={<ProjectCalendar />} />
+                  
+                  {/* Glass Morphism Pages */}
+                  <Route path="/glass" element={<GlassThemeHub />} />
+                  <Route path="/dashboard-glass" element={<DashboardGlass />} />
+                  <Route path="/quotes-glass" element={<QuoteListGlass />} />
+                  <Route path="/quote-glass/new" element={<QuoteFormGlass />} />
+                  <Route path="/quote-glass/edit/:id" element={<QuoteFormGlass />} />
+                  <Route path="/quote-glass/:id" element={<QuoteFormGlass />} />
+                  <Route path="/invoices-glass" element={<InvoiceListGlass />} />
+                  <Route path="/invoice-glass/new" element={<InvoiceFormGlass />} />
+                  <Route path="/invoice-glass/edit/:id" element={<InvoiceFormGlass />} />
+                  <Route path="/invoice-glass/:id" element={<InvoiceFormGlass />} />
+                  <Route path="/clients-glass" element={<ClientListGlass />} />
                 </Route>
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+          </GlassErrorBoundary>
+        </AuthProvider>
+      </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

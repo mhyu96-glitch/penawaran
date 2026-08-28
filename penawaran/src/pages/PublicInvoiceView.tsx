@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Download, FileText, Smartphone, CreditCard, Copy, Wallet, QrCode, Zap } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal } from '@/lib/utils';
+import { formatCurrency, safeFormat, calculateSubtotal, calculateTotal, calculateItemTotal, getCleanTerms } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -128,12 +128,13 @@ const PublicInvoiceView = () => {
   const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
   const total = useMemo(() => calculateTotal(subtotal, discountAmount, taxAmount), [subtotal, discountAmount, taxAmount]);
   
-  const totalPaid = useMemo(() => {
-    const paymentsAmount = invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0;
-    return paymentsAmount + (invoice?.down_payment_amount || 0);
-  }, [invoice]);
+  const settledPayments = useMemo(
+    () => invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0,
+    [invoice]
+  );
+  const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice]);
 
-  const balanceDue = useMemo(() => total - totalPaid, [total, totalPaid]);
+  const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
   const handleWhatsAppClick = () => {
     if (!invoice) return;
@@ -146,7 +147,7 @@ const PublicInvoiceView = () => {
     const phoneNumber = invoice.company_phone.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('0') ? '62' + phoneNumber.slice(1) : phoneNumber;
 
-    let messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
+    const messageTemplate = invoice.whatsapp_invoice_template || 'Halo {client_name}, saya ingin mengonfirmasi pembayaran untuk Faktur #{number} sebesar {amount}. Berikut saya lampirkan bukti transfernya.';
     
     const message = messageTemplate
       .replace(/{client_name}/g, invoice.to_client)
@@ -209,6 +210,7 @@ const PublicInvoiceView = () => {
   };
 
   const visiblePayments = useMemo(() => invoice?.payments?.filter(p => p.status === 'Lunas') || [], [invoice]);
+  const cleanTerms = useMemo(() => getCleanTerms(invoice?.terms), [invoice?.terms]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -378,16 +380,51 @@ const PublicInvoiceView = () => {
                     </Alert>
                 )}
             </div>
-            <div className="w-full max-w-xs space-y-2 self-end">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Diskon</span><span>- {formatCurrency(discountAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>+ {formatCurrency(taxAmount)}</span></div>
-              <Separator />
-              <div className="flex justify-between font-bold text-lg"><span>Total Tagihan</span><span>{formatCurrency(total)}</span></div>
-              {invoice.down_payment_amount > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Uang Muka (DP)</span><span>{formatCurrency(invoice.down_payment_amount)}</span></div>)}
-              <div className="flex justify-between"><span className="text-muted-foreground">Telah Dibayar</span><span>- {formatCurrency(totalPaid)}</span></div>
-              <Separator />
-              <div className="flex justify-between font-bold text-lg"><span>Sisa Tagihan</span><span>{formatCurrency(balanceDue)}</span></div>
+            <div className="w-full max-w-xs space-y-1.5 self-end text-xs">
+              <div className="flex justify-between font-medium">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-rose-600 dark:text-rose-400">
+                  <span>Diskon</span>
+                  <span>- {formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {taxAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pajak</span>
+                  <span>+ {formatCurrency(taxAmount)}</span>
+                </div>
+              )}
+              <Separator className="my-1" />
+              <div className="flex justify-between text-sm sm:text-base font-extrabold text-foreground">
+                <span>Total Tagihan</span>
+                <span className="text-primary">{formatCurrency(total)}</span>
+              </div>
+              {invoice.down_payment_amount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Uang Muka (DP)</span>
+                  <span>- {formatCurrency(invoice.down_payment_amount)}</span>
+                </div>
+              )}
+              {settledPayments > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Pembayaran Tercatat</span>
+                  <span>- {formatCurrency(settledPayments)}</span>
+                </div>
+              )}
+              {(settledPayments > 0 || invoice.down_payment_amount > 0) && invoice.status !== 'Lunas' && (
+                <>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between text-sm font-extrabold">
+                    <span>Sisa Tagihan</span>
+                    <span className={balanceDue > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600"}>
+                      {formatCurrency(balanceDue)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           
@@ -421,12 +458,12 @@ const PublicInvoiceView = () => {
             </div>
           </div>
 
-          {invoice.terms && (
+          {cleanTerms ? (
             <div>
                 <h3 className="font-semibold text-gray-500 mb-2">Syarat & Ketentuan:</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.terms}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{cleanTerms}</p>
             </div>
-          )}
+          ) : null}
           {invoice.attachments && invoice.attachments.length > 0 && (
             <div className="no-pdf">
               <h3 className="font-semibold text-gray-500 mb-2">Lampiran:</h3>

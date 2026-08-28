@@ -1,3 +1,6 @@
+/* Import Glass Morphism Theme FIRST */
+@import './styles/glass-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +38,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 210 22% 96%;
-
     --sidebar-foreground: 220 25% 20%;
-
     --sidebar-primary: 220 38% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 0 0% 100%;
-
     --sidebar-accent-foreground: 184 70% 18%;
-
     --sidebar-border: 214 18% 86%;
-
     --sidebar-ring: 184 78% 24%;
   }
 
@@ -106,6 +102,29 @@
 }
 
 @layer utilities {
+  .sidebar-scrollbar {
+    scrollbar-color: hsl(var(--sidebar-border) / 0.5) transparent;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-border) / 0.6);
+    border-radius: 999px;
+    transition: background-color 0.2s ease;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
+
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
@@ -113,4 +132,277 @@
   .bottom-safe {
     bottom: env(safe-area-inset-bottom);
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Hilangkan spinner panah default browser pada input type number */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
+
+/* ========================================================================= */
+/* UNIVERSAL PRINT & PDF STYLES (1 SHEET FULL - ZERO PAGE SPLIT)            */
+/* ========================================================================= */
+@media print {
+  @page {
+    /* Auto size / F4 / A4 dengan margin presisi */
+    size: auto;
+    margin: 6mm 10mm !important;
+  }
+
+  *, *::before, *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body, #root, #root *, .min-h-screen, .min-h-screen * {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important; /* slate-900 */
+  }
+
+  body {
+    font-size: 9.5pt !important;
+    line-height: 1.25 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Sembunyikan navigasi & tombol aplikasi */
+  header, nav, aside, footer:not(.document-footer), .print\:hidden, [role="navigation"], .bottom-navbar {
+    display: none !important;
+  }
+
+  /* Container Dokumen Cetak 1 Sheet Full */
+  .document-print-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .document-print-root * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .document-print-root .text-muted-foreground {
+    color: #475569 !important; /* slate-600 */
+  }
+
+  /* Header Surat */
+  .document-print-root .card-header,
+  .document-print-root > div:first-child {
+    padding: 8px 12px !important;
+    background-color: #f8fafc !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .document-print-root h1 {
+    font-size: 16pt !important;
+    line-height: 1.2 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  .document-print-root h2 {
+    font-size: 20pt !important;
+    line-height: 1.15 !important;
+    color: #e11d48 !important;
+    font-weight: 900 !important;
+  }
+
+  .document-print-root h3, 
+  .document-print-root h4 {
+    font-size: 10pt !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  .document-print-root p {
+    font-size: 9.5pt !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Tabel Cetak 1 Sheet Full */
+  .mobile-document-items {
+    display: none !important;
+  }
+
+  .desktop-document-table {
+    display: block !important;
+    overflow: visible !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    margin: 8px 0 !important;
+    background: #ffffff !important;
+  }
+
+  .desktop-document-table table {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-collapse: collapse !important;
+    background: #ffffff !important;
+  }
+
+  .desktop-document-table th {
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    font-size: 9pt !important;
+    padding: 6px 8px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  .desktop-document-table td {
+    padding: 4px 8px !important;
+    font-size: 9pt !important;
+    line-height: 1.25 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .desktop-document-table tr.section-header-row td {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    border-top: 1px solid #cbd5e1 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  /* Hindari Pemotongan Baris */
+  .print-avoid-break,
+  .print-signature,
+  .print-terms,
+  table,
+  tr,
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Spasi Antar Bagian */
+  .document-print-root .space-y-8 > * + * {
+    margin-top: 8px !important;
+  }
+
+  .document-print-root .space-y-5 > * + * {
+    margin-top: 6px !important;
+  }
+
+  .document-print-root .p-8 {
+    padding: 8px !important;
+  }
+
+  .document-print-root .p-4 {
+    padding: 6px !important;
+  }
+
+  /* QRIS dan Tanda Tangan */
+  .document-print-root img {
+    max-height: 60px !important;
+    width: auto !important;
+  }
+
+  .print-signature img {
+    max-height: 50px !important;
+  }
+}
+
+/* Helper class for PDF Export Mode */
+.pdf-exporting {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+}
+
+.pdf-exporting * {
+  color: #0f172a !important;
+}
+
+.pdf-exporting .text-muted-foreground {
+  color: #475569 !important;
+}
+
+.pdf-exporting .bg-muted\/10,
+.pdf-exporting .bg-muted\/20,
+.pdf-exporting .bg-muted\/30,
+.pdf-exporting .bg-muted\/40,
+.pdf-exporting .bg-card {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.pdf-exporting .mobile-document-items {
+  display: none !important;
+}
+
+.pdf-exporting .desktop-document-table {
+  display: block !important;
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+}
+
+.pdf-exporting .desktop-document-table th {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  font-weight: 800 !important;
+}
+
+.pdf-exporting .desktop-document-table td {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+.pdf-exporting .desktop-document-table tr.section-header-row td {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-top: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  font-weight: 800 !important;
+}
+

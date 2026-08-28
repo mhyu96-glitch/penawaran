@@ -43,6 +43,7 @@ const SendDocumentDialog = ({
 }: SendDocumentDialogProps) => {
   const { user } = useAuth();
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -52,11 +53,12 @@ const SendDocumentDialog = ({
   useEffect(() => {
     if (isOpen) {
       setEmail(clientEmail || '');
+      setPhone(clientPhone || '');
       const typeLabel = docType === 'invoice' ? 'Faktur' : 'Penawaran';
       setSubject(`${typeLabel} #${docNumber} dari ${user?.email?.split('@')[0] || 'Kami'}`); // Fallback name
       setMessage(`Halo ${clientName},\n\nTerlampir adalah ${typeLabel.toLowerCase()} #${docNumber} untuk Anda tinjau.\n\nSilakan klik tautan berikut untuk melihat detailnya:\n${publicLink}\n\nTerima kasih.`);
     }
-  }, [isOpen, clientEmail, docNumber, docType, clientName, publicLink, user]);
+  }, [isOpen, clientEmail, clientPhone, docNumber, docType, clientName, publicLink, user]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);
@@ -104,17 +106,21 @@ const SendDocumentDialog = ({
   };
 
   const handleWhatsApp = () => {
-    if (!clientPhone) {
+    if (!phone.trim()) {
         showError("Nomor telepon klien tidak tersedia.");
         return;
     }
     
     // Clean phone number
-    let phone = clientPhone.replace(/\D/g, '');
-    if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) formattedPhone = '62' + formattedPhone.slice(1);
+    if (!formattedPhone) {
+      showError("Format nomor telepon klien tidak valid.");
+      return;
+    }
 
     const encodedMsg = encodeURIComponent(message);
-    window.open(`https://wa.me/${phone}?text=${encodedMsg}`, '_blank');
+    window.open(`https://wa.me/${formattedPhone}?text=${encodedMsg}`, '_blank');
     
     // Log activity for WA too
     supabase.from('document_activities').insert({
@@ -159,6 +165,16 @@ const SendDocumentDialog = ({
                     <Input id="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@klien.com" />
                 </div>
                 <div className="space-y-1">
+                    <Label htmlFor="phone">Nomor WhatsApp Klien</Label>
+                    <Input
+                      id="phone"
+                      inputMode="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="Contoh: 081234567890"
+                    />
+                </div>
+                <div className="space-y-1">
                     <Label htmlFor="subject">Subjek</Label>
                     <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} />
                 </div>
@@ -170,7 +186,7 @@ const SendDocumentDialog = ({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-            {clientPhone && (
+            {phone.trim() && (
                 <Button variant="outline" onClick={handleWhatsApp} className="w-full sm:w-auto">
                     <Smartphone className="mr-2 h-4 w-4" /> WhatsApp
                 </Button>

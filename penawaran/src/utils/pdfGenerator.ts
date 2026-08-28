@@ -1,21 +1,31 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 
 type GeneratePdfOptions = {
   fitToOnePage?: boolean;
-  format?: 'a4' | 'letter';
+  format?: 'a4' | 'letter' | 'f4' | [number, number];
+  continuous?: boolean;
 };
 
+/**
+ * Standard PDF Generator for Invoices and Quotes (Full F4 / Folio 215x330mm Support)
+ */
 export const generatePdf = async (element: HTMLElement, fileName: string, options: GeneratePdfOptions = {}) => {
   const originalWidth = element.style.width;
   const originalHeight = element.style.height;
   const originalOverflow = element.style.overflow;
   const originalBackground = element.style.backgroundColor;
 
+  // Temporarily remove dark class for pristine clean white PDF export
+  const isDark = document.documentElement.classList.contains('dark');
+  if (isDark) {
+    document.documentElement.classList.remove('dark');
+  }
+
   try {
-    // Force an A4-friendly content width. 720px maps cleanly into A4 with margins.
-    element.style.width = '720px';
+    // Force a crisp content width. 760px maps cleanly into F4/A4 with margins.
+    element.style.width = '760px';
     element.style.height = 'auto';
     element.style.overflow = 'visible';
     element.style.backgroundColor = '#ffffff';
@@ -26,84 +36,30 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
 
     // Wait a brief moment for DOM layout updates
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 80));
 
     const canvas = await html2canvas(element, {
-      scale: 2, // Higher scale for better quality
-      useCORS: true, // Allow loading cross-origin images (like Supabase storage logos)
+      scale: 2, // Higher scale for crystal-clear quality
+      useCORS: true, // Allow loading cross-origin images
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 720
+      windowWidth: 760
     });
 
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', options.format || 'letter');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const margin = options.fitToOnePage ? 6 : 10;
+    
+    // Standar Ukuran Kertas F4 Indonesia: 215mm x 330mm
+    const pdfWidth = options.format === 'a4' ? 210 : 215;
+    const pdfHeight = options.format === 'a4' ? 297 : 330;
+    const margin = 8;
     const contentWidth = pdfWidth - margin * 2;
-    const contentHeight = pdfHeight - margin * 2;
 
-    const pageCanvas = document.createElement('canvas');
-    const pageContext = pageCanvas.getContext('2d');
+    // SINGLE CONTINUOUS LONG PDF (NO PAGE BREAKS)
+    const renderedHeight = (canvas.height * contentWidth) / canvas.width;
+    const continuousHeight = Math.max(renderedHeight + margin * 2, pdfHeight);
+    const pdf = new jsPDF('p', 'mm', [pdfWidth, continuousHeight]);
 
-    if (!pageContext) {
-      throw new Error('Canvas context is unavailable');
-    }
-
-    if (options.fitToOnePage) {
-      const fullHeight = (canvas.height * contentWidth) / canvas.width;
-      const fittedHeight = Math.min(fullHeight, contentHeight);
-      const fittedWidth = fullHeight > contentHeight ? (canvas.width * fittedHeight) / canvas.height : contentWidth;
-      const x = margin + (contentWidth - fittedWidth) / 2;
-
-      pdf.addImage(imgData, 'PNG', x, margin, fittedWidth, fittedHeight);
-      pdf.save(fileName);
-
-      elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
-      element.classList.remove('pdf-exporting');
-      element.style.width = originalWidth;
-      element.style.height = originalHeight;
-      element.style.overflow = originalOverflow;
-      element.style.backgroundColor = originalBackground;
-
-      return true;
-    }
-
-    const pageCanvasHeight = Math.floor((contentHeight * canvas.width) / contentWidth);
-    pageCanvas.width = canvas.width;
-    pageCanvas.height = pageCanvasHeight;
-
-    let renderedHeight = 0;
-    let pageIndex = 0;
-
-    while (renderedHeight < canvas.height) {
-      const sliceHeight = Math.min(pageCanvasHeight, canvas.height - renderedHeight);
-      pageContext.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-      pageContext.fillStyle = '#ffffff';
-      pageContext.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      pageContext.drawImage(
-        canvas,
-        0,
-        renderedHeight,
-        canvas.width,
-        sliceHeight,
-        0,
-        0,
-        canvas.width,
-        sliceHeight,
-      );
-
-      const pageImgData = pageCanvas.toDataURL('image/png');
-      const pageImgHeight = (sliceHeight * contentWidth) / canvas.width;
-
-      if (pageIndex > 0) pdf.addPage();
-      pdf.addImage(pageImgData, 'PNG', margin, margin, contentWidth, pageImgHeight);
-
-      renderedHeight += sliceHeight;
-      pageIndex += 1;
-    }
-
+    pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, renderedHeight);
     pdf.save(fileName);
 
     // Restore original styles
@@ -113,6 +69,10 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     element.style.height = originalHeight;
     element.style.overflow = originalOverflow;
     element.style.backgroundColor = originalBackground;
+
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
 
     return true;
   } catch (err) {
@@ -128,6 +88,42 @@ export const generatePdf = async (element: HTMLElement, fileName: string, option
     element.style.overflow = originalOverflow;
     element.style.backgroundColor = originalBackground;
     
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+
+    return false;
+  }
+};
+
+/**
+ * Export Full Page Long Screenshot (PNG) - Jadi 1 Gambar Utuh Memanjang ke Bawah
+ */
+export const exportLongImage = async (element: HTMLElement, fileName: string) => {
+  try {
+    const elementsToHide = element.querySelectorAll('.no-pdf, .no-screenshot');
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = 'none');
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#090d16',
+      windowWidth: element.scrollWidth,
+    });
+
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    elementsToHide.forEach(el => (el as HTMLElement).style.display = '');
+    return true;
+  } catch (err) {
+    console.error("Error generating image", err);
+    showError("Gagal menyimpan gambar.");
     return false;
   }
 };

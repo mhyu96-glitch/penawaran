@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, UploadCloud } from 'lucide-react';
-import { cn, formatCurrency, safeFormat } from '@/lib/utils';
+import { cn, formatCurrency, safeFormat, formatNumberWithDots, parseDotsToNumber } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -81,7 +81,18 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="amount">Jumlah Dibayar (IDR)</Label>
-            <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3 text-xs font-bold text-muted-foreground select-none">Rp</span>
+              <Input 
+                id="amount" 
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatNumberWithDots(amount)} 
+                onChange={(e) => setAmount(String(parseDotsToNumber(e.target.value)))} 
+                className="pl-9 font-bold tabular-nums"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Tanggal Pembayaran</Label>
@@ -98,11 +109,11 @@ const PaymentSubmissionDialog = ({ isOpen, setIsOpen, invoiceId, totalDue }: Pay
           <div className="space-y-2">
             <Label htmlFor="proof">Unggah Bukti Pembayaran</Label>
             <div className="flex items-center justify-center w-full">
-                <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                <label htmlFor="dropzone-file" className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed bg-muted/35 transition-colors hover:bg-muted/55">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <UploadCloud className="w-8 h-8 mb-2 text-gray-500" />
-                        <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Klik untuk unggah</span> atau seret file</p>
-                        <p className="text-xs text-gray-500">PNG, JPG, atau PDF</p>
+                        <UploadCloud className="mb-2 h-8 w-8 text-muted-foreground" />
+                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Klik untuk unggah</span> atau seret file</p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG, atau PDF</p>
                     </div>
                     <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/png, image/jpeg, application/pdf" />
                 </label>
