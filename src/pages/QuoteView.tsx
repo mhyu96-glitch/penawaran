@@ -115,7 +115,7 @@ const QuoteView = () => {
   const [isCreateInvoiceDialogOpen, setIsCreateInvoiceDialogOpen] = useState(false);
   const [invoiceDpPercent, setInvoiceDpPercent] = useState<string>('50');
   const [invoiceDpAmount, setInvoiceDpAmount] = useState<number>(0);
-  const [recordAsPayment, setRecordAsPayment] = useState<boolean>(true);
+  const [recordAsPayment, setRecordAsPayment] = useState<boolean>(false);
   const [activePhotoPreview, setActivePhotoPreview] = useState<{ url: string; title: string } | null>(null);
   
   const quoteRef = useRef<HTMLDivElement>(null);
@@ -558,7 +558,7 @@ const QuoteView = () => {
                     htmlFor="recordPayment"
                     className="text-xs text-muted-foreground leading-tight cursor-pointer font-medium select-none"
                   >
-                    Catat langsung penerimaan DP ini sebagai <strong className="text-foreground">Kas Masuk & Pembayaran Lunas</strong> di riwayat faktur dan keuangan proyek.
+                    Uang DP sudah benar-benar diterima saat ini (catat langsung sebagai pembayaran lunas). Jika faktur ini baru akan ditagihkan ke klien, <strong className="text-foreground">biarkan tidak dicentang</strong> agar tidak terjadi pencatatan ganda.
                   </label>
                 </div>
               )}

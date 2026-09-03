@@ -186,6 +186,13 @@ const InvoiceView = () => {
             showError('Gagal menghapus pembayaran.');
         } else {
             showSuccess('Pembayaran berhasil dihapus.');
+            if (id) {
+                const { data: remainingPayments } = await supabase.from('payments').select('amount').eq('invoice_id', id).eq('status', 'Lunas');
+                const newTotalPaid = remainingPayments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+                if (newTotalPaid < total && invoice?.status === 'Lunas') {
+                    await supabase.from('invoices').update({ status: 'Terkirim' }).eq('id', id);
+                }
+            }
             fetchInvoiceData();
         }
     };
@@ -221,10 +228,13 @@ const InvoiceView = () => {
     const cleanTerms = useMemo(() => getCleanTerms(invoice?.terms), [invoice?.terms]);
 
     useEffect(() => {
-        if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas' && settledPayments > 0) {
+        if (!invoice) return;
+        if (balanceDue <= 0 && invoice.status !== 'Lunas' && settledPayments > 0) {
             supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoice.id).then(() => fetchInvoiceData());
+        } else if (balanceDue > 0 && invoice.status === 'Lunas') {
+            supabase.from('invoices').update({ status: 'Terkirim' }).eq('id', invoice.id).then(() => fetchInvoiceData());
         }
-    }, [balanceDue, invoice, settledPayments]);
+    }, [balanceDue, invoice?.status, settledPayments]);
 
     if (loading) {
         return (
@@ -449,16 +459,31 @@ const InvoiceView = () => {
                                         <span className="tabular-nums print:text-black">{formatCurrency(invoice.down_payment_amount)}</span>
                                     </div>
                                 )}
-                                {invoice.status !== 'Lunas' && (
+                                {balanceDue > 0 ? (
                                     <>
                                         <Separator className="my-1 print:border-slate-300" />
                                         <div className="flex justify-between text-sm font-extrabold">
                                             <span>Sisa Tagihan</span>
-                                            <span className={balanceDue > 0 ? "text-rose-600 dark:text-rose-400 font-black tabular-nums print:text-black" : "text-emerald-600 font-black tabular-nums print:text-black"}>
+                                            <span className="text-rose-600 dark:text-rose-400 font-black tabular-nums print:text-black">
                                                 {formatCurrency(balanceDue)}
                                             </span>
                                         </div>
                                     </>
+                                ) : (
+                                    settledPayments >= total && total > 0 && (
+                                        <>
+                                            <Separator className="my-1 print:border-slate-300" />
+                                            <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+                                                <span>Status Tagihan</span>
+                                                <span className="uppercase tracking-wider font-extrabold">LUNAS</span>
+                                            </div>
+                                        </>
+                                    )
+                                )}
+                                {settledPayments > total && (
+                                    <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-2 text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                                        <span className="font-bold">Perhatian:</span> Total pembayaran diterima ({formatCurrency(settledPayments)}) melebihi tagihan ({formatCurrency(total)}) sebesar {formatCurrency(settledPayments - total)}. Periksa riwayat pembayaran di bawah jika terdapat pencatatan ganda.
+                                    </div>
                                 )}
                             </div>
                         </div>

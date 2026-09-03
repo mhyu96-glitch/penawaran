@@ -175,6 +175,8 @@ const PaymentForm = ({
 
       if (totalPaid >= invoiceTotal) {
         await supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoiceId);
+      } else {
+        await supabase.from('invoices').update({ status: 'Terkirim' }).eq('id', invoiceId);
       }
       
       showSuccess(`Pembayaran berhasil ${payment ? 'diperbarui' : 'dicatat'}!`);

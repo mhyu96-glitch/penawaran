@@ -414,16 +414,26 @@ const PublicInvoiceView = () => {
                   <span>{formatCurrency(invoice.down_payment_amount)}</span>
                 </div>
               )}
-              {invoice.status !== 'Lunas' && (
+              {balanceDue > 0 ? (
                 <>
                   <Separator className="my-1" />
                   <div className="flex justify-between text-sm font-extrabold">
                     <span>Sisa Tagihan</span>
-                    <span className={balanceDue > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600"}>
+                    <span className="text-rose-600 dark:text-rose-400">
                       {formatCurrency(balanceDue)}
                     </span>
                   </div>
                 </>
+              ) : (
+                settledPayments >= total && total > 0 && (
+                  <>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+                      <span>Status Tagihan</span>
+                      <span className="uppercase tracking-wider font-extrabold">LUNAS</span>
+                    </div>
+                  </>
+                )
               )}
             </div>
           </div>
