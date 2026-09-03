@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, 
+  Printer, ArrowLeft, Pencil, Trash2, Download, Receipt, FilePlus2,
   FileText, Send, FolderKanban, MoreVertical, CheckCircle2,
   Building2, MapPin, Phone, Globe, ShieldCheck, History, TrendingUp, Sparkles,
   Landmark, CreditCard, Clock, Camera, Eye, X, Paperclip
@@ -607,6 +607,11 @@ const QuoteView = () => {
             <>
               <Button onClick={handleOpenCreateInvoiceDialog} disabled={isCreatingInvoice} className="rounded-xl h-11 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
                 <Receipt className="mr-1.5 h-4 w-4" /> Buat Faktur (DP)
+              </Button>
+              <Button asChild className="rounded-xl h-11 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs">
+                <Link to={`/quotes/new?addendumFor=${quote.id}&projectId=${quote.project_id || ''}&clientId=${quote.client_id || ''}`}>
+                  <FilePlus2 className="mr-1.5 h-4 w-4" /> Buat Addendum
+                </Link>
               </Button>
               <Button onClick={handleCreateProject} className="rounded-xl h-11 px-4 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs">
                 <FolderKanban className="mr-1.5 h-4 w-4" /> Buat Proyek

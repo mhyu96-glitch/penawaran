@@ -743,6 +743,8 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
       return sum + calculateTotal(subtotal, inv.discount_amount, inv.tax_amount);
     }, 0);
 
+    const invoicedQuoteIds = new Set(invoices.map(inv => inv.quote_id).filter(Boolean));
+
     const acceptedQuotesTotal = quotes
       .filter(q => q.status === 'Diterima' || q.status === 'accepted')
       .reduce((sum, q) => {
@@ -750,9 +752,19 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
         return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
       }, 0);
 
-    // Total pendapatan proyek (Nilai Kontrak)
-    const totalRevenue = allInvoicesTotal > 0 
-      ? allInvoicesTotal 
+    // Penawaran tambahan yang sudah diterima tapi belum dibuatkan faktur
+    const unInvoicedAcceptedQuotesTotal = quotes
+      .filter(q => (q.status === 'Diterima' || q.status === 'accepted') && !invoicedQuoteIds.has(q.id))
+      .reduce((sum, q) => {
+        const subtotal = (q.quote_items || []).reduce((s, it) => s + calculateItemTotal(it.quantity, it.unit_price || 0), 0);
+        return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
+      }, 0);
+
+    // Total pendapatan proyek (Nilai Kontrak Riil):
+    // Semua faktur yang sudah diterbitkan + penawaran yang sudah disetujui tapi belum difakturkan
+    const combinedRevenue = allInvoicesTotal + unInvoicedAcceptedQuotesTotal;
+    const totalRevenue = combinedRevenue > 0 
+      ? combinedRevenue 
       : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (project?.budget || 0));
 
     // Total Uang Masuk Riil dari Klien (DP + Termin + Pelunasan)
@@ -2307,10 +2319,15 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
             <div className="grid md:grid-cols-2 gap-6">
               {/* Penawaran */}
               <Card className="rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden">
-                <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20">
+                <CardHeader className="p-4 sm:p-6 border-b border-border/70 bg-muted/20 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" /> Penawaran Terkait
                   </CardTitle>
+                  <Button asChild size="sm" variant="outline" className="rounded-xl h-8 text-xs font-semibold gap-1.5 border-border/80 hover:bg-muted">
+                    <Link to={`/quotes/new?projectId=${id}&clientId=${project?.client_id || ''}`}>
+                      <Plus className="h-3.5 w-3.5" /> Penawaran Baru
+                    </Link>
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   {quotes.length > 0 ? (

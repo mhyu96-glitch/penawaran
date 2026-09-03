@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -454,6 +454,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
 
   // Sensors for DnD
@@ -538,6 +539,60 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     };
     fetchDependencies();
   }, [user]);
+
+  // Handle URL query parameters for new documents (e.g. Addendum / new quote for a project)
+  useEffect(() => {
+    if (isEditMode || !user) return;
+
+    const addendumFor = searchParams.get('addendumFor');
+    const paramProjectId = searchParams.get('projectId');
+    const paramClientId = searchParams.get('clientId');
+
+    if (paramProjectId) {
+      setSelectedProjectId(paramProjectId);
+    }
+
+    if (paramClientId) {
+      setSelectedClientId(paramClientId);
+      supabase
+        .from('clients')
+        .select('*')
+        .eq('id', paramClientId)
+        .single()
+        .then(({ data: cData }) => {
+          if (cData) {
+            setToClient(cData.name || '');
+            setToAddress(cData.address || '');
+            setToPhone(cData.phone || '');
+          }
+        });
+    }
+
+    if (addendumFor) {
+      supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', addendumFor)
+        .single()
+        .then(({ data: qData }) => {
+          if (qData) {
+            if (qData.project_id) setSelectedProjectId(qData.project_id);
+            if (qData.client_id) setSelectedClientId(qData.client_id);
+            if (qData.to_client) setToClient(qData.to_client);
+            if (qData.to_address) setToAddress(qData.to_address);
+            if (qData.to_phone) setToPhone(qData.to_phone);
+            if (qData.from_company) setFromCompany(qData.from_company);
+            if (qData.from_address) setFromAddress(qData.from_address);
+            if (qData.from_website) setFromWebsite(qData.from_website);
+
+            const baseTitle = qData.title || `Penawaran #${qData.quote_number}`;
+            setDocTitle(`Addendum: ${baseTitle}`);
+            
+            showSuccess(`Membuat Addendum untuk Penawaran #${qData.quote_number}`);
+          }
+        });
+    }
+  }, [isEditMode, user, searchParams]);
 
   useEffect(() => {
     const generateNewDocNumber = async () => {
@@ -953,32 +1008,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       }
     }
 
-    // Jika faktur ini terhubung ke penawaran (quote_id), sinkronkan item dan total ke penawaran terkait
-    if (docType === 'invoice' && linkedQuoteId) {
-      try {
-        await supabase.from('quote_items').delete().eq('quote_id', linkedQuoteId);
-        const quoteItemsPayload = items
-          .filter(item => item.description && item.description.trim())
-          .map((item: any) => ({
-            description: item.description.trim(),
-            quantity: Number(item.quantity) || 0,
-            unit: item.unit || '',
-            unit_price: Number(item.unit_price) || 0,
-            cost_price: Number(item.cost_price) || 0,
-            quote_id: linkedQuoteId,
-            ...(item.item_id ? { item_id: item.item_id } : {})
-          }));
-        if (quoteItemsPayload.length > 0) {
-          await supabase.from('quote_items').insert(quoteItemsPayload);
-        }
-        await supabase.from('quotes').update({
-          discount_amount: discountAmount,
-          tax_amount: taxAmount,
-        }).eq('id', linkedQuoteId);
-      } catch (syncErr) {
-        console.error('Gagal menyinkronkan item ke penawaran:', syncErr);
-      }
-    }
+
 
     if (docType === 'quote' && status === 'Diterima' && currentDocId) {
       const invoiceResult = await convertQuoteToInvoice({
