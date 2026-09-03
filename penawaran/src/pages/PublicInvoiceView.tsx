@@ -132,7 +132,7 @@ const PublicInvoiceView = () => {
     () => invoice?.payments?.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0) || 0,
     [invoice]
   );
-  const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice]);
+  const totalPaid = useMemo(() => settledPayments, [settledPayments]);
 
   const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
@@ -402,19 +402,19 @@ const PublicInvoiceView = () => {
                 <span>Total Tagihan</span>
                 <span className="text-primary">{formatCurrency(total)}</span>
               </div>
-              {invoice.down_payment_amount > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Uang Muka (DP)</span>
-                  <span>- {formatCurrency(invoice.down_payment_amount)}</span>
-                </div>
-              )}
               {settledPayments > 0 && (
-                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Pembayaran Tercatat</span>
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span>Jumlah yang Diterima</span>
                   <span>- {formatCurrency(settledPayments)}</span>
                 </div>
               )}
-              {(settledPayments > 0 || invoice.down_payment_amount > 0) && invoice.status !== 'Lunas' && (
+              {invoice.down_payment_amount > 0 && (
+                <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                  <span>Ketentuan Uang Muka (DP)</span>
+                  <span>{formatCurrency(invoice.down_payment_amount)}</span>
+                </div>
+              )}
+              {invoice.status !== 'Lunas' && (
                 <>
                   <Separator className="my-1" />
                   <div className="flex justify-between text-sm font-extrabold">

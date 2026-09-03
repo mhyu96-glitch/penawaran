@@ -30,11 +30,22 @@ interface PaymentFormProps {
   setIsOpen: (isOpen: boolean) => void;
   invoiceId: string;
   invoiceTotal: number;
+  remainingBalance?: number;
+  downPaymentAmount?: number;
   payment: PaymentForForm | null;
   onSave: () => void;
 }
 
-const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSave }: PaymentFormProps) => {
+const PaymentForm = ({ 
+  isOpen, 
+  setIsOpen, 
+  invoiceId, 
+  invoiceTotal, 
+  remainingBalance,
+  downPaymentAmount,
+  payment, 
+  onSave 
+}: PaymentFormProps) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [percent, setPercent] = useState('');
@@ -54,8 +65,20 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
       setPaymentDate(new Date(payment.payment_date));
       setNotes(payment.notes || '');
     } else if (!payment && isOpen) {
-      // Default: set DP 50%
-      if (invoiceTotal > 0) {
+      if (typeof remainingBalance === 'number' && remainingBalance < invoiceTotal && remainingBalance > 0) {
+        // Sudah ada pembayaran sebelumnya -> default ke sisa pelunasan
+        setAmount(String(remainingBalance));
+        const p = ((remainingBalance / invoiceTotal) * 100).toFixed(1);
+        setPercent(p.endsWith('.0') ? p.slice(0, -2) : p);
+        setNotes('Pelunasan (Sisa Tagihan)');
+      } else if (downPaymentAmount && downPaymentAmount > 0 && downPaymentAmount <= invoiceTotal) {
+        // Pembayaran awal dengan ketentuan DP
+        setAmount(String(downPaymentAmount));
+        const p = ((downPaymentAmount / invoiceTotal) * 100).toFixed(1);
+        const cleanP = p.endsWith('.0') ? p.slice(0, -2) : p;
+        setPercent(cleanP);
+        setNotes(`Uang Muka (DP ${cleanP}%)`);
+      } else if (invoiceTotal > 0) {
         const defaultAmt = Math.round(invoiceTotal * 0.5);
         setAmount(String(defaultAmt));
         setPercent('50');
@@ -67,7 +90,7 @@ const PaymentForm = ({ isOpen, setIsOpen, invoiceId, invoiceTotal, payment, onSa
       }
       setPaymentDate(new Date());
     }
-  }, [payment, isOpen, invoiceTotal]);
+  }, [payment, isOpen, invoiceTotal, remainingBalance, downPaymentAmount]);
 
   const handleApplyPreset = (percentage: number) => {
     const pVal = percentage * 100;

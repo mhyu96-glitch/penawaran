@@ -62,6 +62,28 @@ type QuoteItem = {
   cost_price: number;
 };
 
+type InvoiceItem = {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  cost_price: number;
+};
+
+type ProcurementItem = {
+  id: string;
+  source_id: string;
+  source_type: 'invoice' | 'quote';
+  doc_number: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  cost_price: number;
+};
+
 type Quote = { 
   id: string; 
   quote_number: string; 
@@ -74,13 +96,15 @@ type Quote = {
 
 type Invoice = { 
   id: string; 
+  quote_id?: string | null;
   invoice_number: string; 
   created_at: string; 
   status: string; 
-  invoice_items: { quantity: number; unit_price: number }[]; 
+  invoice_items: InvoiceItem[]; 
   discount_amount: number; 
   tax_amount: number; 
   down_payment_amount?: number;
+  project_id?: string | null;
 };
 
 type Payment = {
@@ -328,20 +352,36 @@ const ProjectDetail = () => {
     setLoading(true);
 
     try {
-      const [projectRes, quotesRes, invoicesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
+      const [projectRes, quotesRes, expensesRes, tasksRes, timeEntriesRes] = await Promise.all([
         supabase.from('projects').select('*, clients(name, phone)').eq('id', id).single(),
         supabase.from('quotes').select('*, quote_items(*)').eq('project_id', id),
-        supabase.from('invoices').select('*, invoice_items(*)').eq('project_id', id),
         supabase.from('expenses').select('*').eq('project_id', id).order('expense_date', { ascending: false }),
         supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at', { ascending: true }),
         supabase.from('time_entries').select('*').eq('project_id', id).order('entry_date', { ascending: false })
       ]);
 
+      const quotesData = (quotesRes.data as Quote[]) || [];
+      const quoteIds = quotesData.map(q => q.id);
+
+      let invoiceQuery = supabase.from('invoices').select('*, invoice_items(*)');
+      if (quoteIds.length > 0) {
+        invoiceQuery = invoiceQuery.or(`project_id.eq.${id},quote_id.in.(${quoteIds.join(',')})`);
+      } else {
+        invoiceQuery = invoiceQuery.eq('project_id', id);
+      }
+      const invoicesRes = await invoiceQuery;
+
       if (projectRes.data) setProject(projectRes.data as ProjectDetails);
-      if (quotesRes.data) setQuotes(quotesRes.data as Quote[]);
+      if (quotesRes.data) setQuotes(quotesData);
       if (invoicesRes.data) {
         const invList = invoicesRes.data as Invoice[];
         setInvoices(invList);
+
+        // Auto link if invoice was created from this project's quote but missing project_id
+        const unlinkedInvoices = invList.filter(inv => !inv.project_id);
+        if (unlinkedInvoices.length > 0) {
+          supabase.from('invoices').update({ project_id: id }).in('id', unlinkedInvoices.map(i => i.id)).then(() => {});
+        }
 
         const invIds = invList.map(inv => inv.id);
         if (invIds.length > 0) {
@@ -369,6 +409,24 @@ const ProjectDetail = () => {
     fetchProjectData();
   }, [id]);
 
+  // Realtime subscription to keep project data up-to-date
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`project_detail_realtime_${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => fetchProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoice_items' }, () => fetchProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => fetchProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => fetchProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchProjectData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   // Toggle item purchased status
   const handleTogglePurchased = (itemId: string) => {
     setPurchasedItemIds(prev => {
@@ -386,19 +444,20 @@ const ProjectDetail = () => {
   };
 
   // Start editing item cost price
-  const handleStartEditCost = (item: QuoteItem) => {
+  const handleStartEditCost = (item: ProcurementItem) => {
     setEditingItemId(item.id);
     setEditingCostPrice(String(item.cost_price || 0));
   };
 
   // Save updated cost price directly to Supabase
-  const handleSaveCostPrice = async (itemId: string, quoteId: string) => {
+  const handleSaveCostPrice = async (itemId: string, sourceId: string, sourceType: 'invoice' | 'quote' = 'quote') => {
     const numPrice = Number(editingCostPrice) || 0;
     setIsSavingCost(true);
 
     try {
+      const table = sourceType === 'invoice' ? 'invoice_items' : 'quote_items';
       const { error } = await supabase
-        .from('quote_items')
+        .from(table)
         .update({ cost_price: numPrice })
         .eq('id', itemId);
 
@@ -406,13 +465,23 @@ const ProjectDetail = () => {
         showError(`Gagal menyimpan harga: ${error.message}`);
       } else {
         showSuccess('Harga beli berhasil diperbarui!');
-        setQuotes(prevQuotes => prevQuotes.map(q => {
-          if (q.id !== quoteId) return q;
-          return {
-            ...q,
-            quote_items: (q.quote_items || []).map(it => it.id === itemId ? { ...it, cost_price: numPrice } : it)
-          };
-        }));
+        if (sourceType === 'invoice') {
+          setInvoices(prevInvoices => prevInvoices.map(inv => {
+            if (inv.id !== sourceId) return inv;
+            return {
+              ...inv,
+              invoice_items: (inv.invoice_items || []).map(it => it.id === itemId ? { ...it, cost_price: numPrice } : it)
+            };
+          }));
+        } else {
+          setQuotes(prevQuotes => prevQuotes.map(q => {
+            if (q.id !== sourceId) return q;
+            return {
+              ...q,
+              quote_items: (q.quote_items || []).map(it => it.id === itemId ? { ...it, cost_price: numPrice } : it)
+            };
+          }));
+        }
         setEditingItemId(null);
       }
     } catch (err: any) {
@@ -538,21 +607,60 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
   return serviceKeywords.some(kw => desc.startsWith(kw) || desc.includes(` ${kw}`) || desc === kw) || desc.startsWith('jasa ');
 };
 
-  // Flatten all procurement items from linked quotes, filtering out headers and services
+  // Flatten all procurement items from linked invoices (latest/active) and quotes, filtering out headers and services
   const procurementItems = useMemo(() => {
-    const list: (QuoteItem & { quote_number: string })[] = [];
+    const list: ProcurementItem[] = [];
+    const handledQuoteIds = new Set<string>();
+
+    // 1. Prioritaskan item dari faktur tagihan yang terhubung ke proyek ini
+    // (Faktur adalah acuan deliverables aktif yang diedit/ditambah oleh pengguna)
+    invoices.forEach(inv => {
+      if (inv.quote_id) {
+        handledQuoteIds.add(inv.quote_id);
+      }
+      (inv.invoice_items || []).forEach(item => {
+        if (isHeaderOrDivider(item) || isServiceItem(item)) return;
+
+        list.push({
+          id: item.id,
+          source_id: inv.id,
+          source_type: 'invoice',
+          doc_number: inv.invoice_number,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          cost_price: item.cost_price,
+        });
+      });
+    });
+
+    // 2. Jika ada penawaran yang belum dibuatkan faktur, muat item dari penawaran
     quotes.forEach(q => {
+      // Jika penawaran ini sudah ada fakturnya, lewati agar item tidak terduplikasi
+      if (handledQuoteIds.has(q.id)) return;
+      // Jika proyek hanya punya 1 penawaran dan 1 faktur tanpa quote_id terisi, faktur menggantikan penawaran
+      if (invoices.length === 1 && quotes.length === 1 && !invoices[0].quote_id) return;
+
       (q.quote_items || []).forEach(item => {
         if (isHeaderOrDivider(item) || isServiceItem(item)) return;
 
         list.push({
-          ...item,
-          quote_number: q.quote_number
+          id: item.id,
+          source_id: q.id,
+          source_type: 'quote',
+          doc_number: q.quote_number,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          cost_price: item.cost_price,
         });
       });
     });
+
     return list;
-  }, [quotes]);
+  }, [quotes, invoices]);
 
   // Procurement summary calculations
   const procurementStats = useMemo(() => {
@@ -660,11 +768,11 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
     const unpaidReceivables = Math.max(0, totalRevenue - actualCashIn);
 
     // Biaya modal barang fisik (HPP BOM) - excluding pembatas & jasa
-    const costOfGoodsSold = quotes
-      .filter(q => q.status === 'Diterima' || q.status === 'accepted')
-      .reduce((sum, q) => sum + (q.quote_items || [])
-        .filter(item => !isHeaderOrDivider(item) && !isServiceItem(item))
-        .reduce((acc, item) => acc + calculateItemTotal(item.quantity, item.cost_price || 0), 0), 0);
+    // Dihitung langsung dari procurementItems proyek agar selalu selaras 100% dengan item belanja riil/faktur
+    const costOfGoodsSold = procurementItems.reduce(
+      (sum, item) => sum + calculateItemTotal(item.quantity, item.cost_price || 0), 
+      0
+    );
 
     // Total pengeluaran operasional (bensin, makan, gaji teknisi, dll)
     const totalOperationalExpenses = expenseBreakdown.totalOperational;
@@ -1102,7 +1210,7 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                                   {item.description || 'Item Tanpa Nama'}
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
-                                  <span>{item.quote_number}</span>
+                                  <span>{item.source_type === 'invoice' ? 'Faktur' : 'Penawaran'}: {item.doc_number}</span>
                                   {itemCost > 0 && itemPrice > itemCost && (
                                     <>
                                       <span>•</span>
@@ -1161,14 +1269,14 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                                     autoFocus
                                     placeholder="0"
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveCostPrice(item.id, item.quote_id);
+                                      if (e.key === 'Enter') handleSaveCostPrice(item.id, item.source_id, item.source_type);
                                       if (e.key === 'Escape') setEditingItemId(null);
                                     }}
                                   />
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    onClick={() => handleSaveCostPrice(item.id, item.quote_id)}
+                                    onClick={() => handleSaveCostPrice(item.id, item.source_id, item.source_type)}
                                     disabled={isSavingCost}
                                     className="h-7 w-7 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 shrink-0"
                                     title="Simpan"
@@ -1263,7 +1371,7 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                                     {item.description || 'Item Tanpa Nama'}
                                   </span>
                                   <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-                                    <span>Penawaran: {item.quote_number}</span>
+                                    <span>{item.source_type === 'invoice' ? 'Faktur' : 'Penawaran'}: {item.doc_number}</span>
                                     {itemCost > 0 && itemPrice > itemCost && (
                                       <>
                                         <span>•</span>
@@ -1299,14 +1407,14 @@ const isServiceItem = (item: { description?: string | null; unit?: string | null
                                       autoFocus
                                       placeholder="0"
                                       onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSaveCostPrice(item.id, item.quote_id);
+                                        if (e.key === 'Enter') handleSaveCostPrice(item.id, item.source_id, item.source_type);
                                         if (e.key === 'Escape') setEditingItemId(null);
                                       }}
                                     />
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      onClick={() => handleSaveCostPrice(item.id, item.quote_id)}
+                                      onClick={() => handleSaveCostPrice(item.id, item.source_id, item.source_type)}
                                       disabled={isSavingCost}
                                       className="h-8 w-8 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25"
                                       title="Simpan"

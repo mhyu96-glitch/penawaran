@@ -208,7 +208,7 @@ const InvoiceView = () => {
         () => payments.filter(p => p.status === 'Lunas').reduce((acc, p) => acc + p.amount, 0),
         [payments]
     );
-    const totalPaid = useMemo(() => settledPayments + (invoice?.down_payment_amount || 0), [settledPayments, invoice?.down_payment_amount]);
+    const totalPaid = useMemo(() => settledPayments, [settledPayments]);
     const balanceDue = useMemo(() => Math.max(0, total - totalPaid), [total, totalPaid]);
 
     const isPartnerService = useMemo(() => {
@@ -221,10 +221,10 @@ const InvoiceView = () => {
     const cleanTerms = useMemo(() => getCleanTerms(invoice?.terms), [invoice?.terms]);
 
     useEffect(() => {
-        if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas') {
+        if (invoice && balanceDue <= 0 && invoice.status !== 'Lunas' && settledPayments > 0) {
             supabase.from('invoices').update({ status: 'Lunas' }).eq('id', invoice.id).then(() => fetchInvoiceData());
         }
-    }, [balanceDue, invoice]);
+    }, [balanceDue, invoice, settledPayments]);
 
     if (loading) {
         return (
@@ -244,6 +244,8 @@ const InvoiceView = () => {
                 setIsOpen={setIsPaymentFormOpen}
                 invoiceId={invoice.id}
                 invoiceTotal={total}
+                remainingBalance={balanceDue}
+                downPaymentAmount={invoice.down_payment_amount}
                 payment={selectedPayment}
                 onSave={() => {
                     setIsPaymentFormOpen(false);
@@ -435,19 +437,19 @@ const InvoiceView = () => {
                                     <span>Total Tagihan</span>
                                     <span className="text-primary tabular-nums print:text-black">{formatCurrency(total)}</span>
                                 </div>
-                                {invoice.down_payment_amount > 0 && (
-                                    <div className="flex justify-between text-muted-foreground font-semibold print:text-slate-600">
-                                        <span>Uang Muka (DP)</span>
-                                        <span>- {formatCurrency(invoice.down_payment_amount)}</span>
-                                    </div>
-                                )}
                                 {settledPayments > 0 && (
                                     <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold print:text-black">
-                                        <span>Pembayaran Tercatat</span>
-                                        <span>- {formatCurrency(settledPayments)}</span>
+                                        <span>Jumlah yang Diterima</span>
+                                        <span className="tabular-nums print:text-black">- {formatCurrency(settledPayments)}</span>
                                     </div>
                                 )}
-                                {(settledPayments > 0 || invoice.down_payment_amount > 0) && invoice.status !== 'Lunas' && (
+                                {invoice.down_payment_amount > 0 && (
+                                    <div className="flex justify-between text-xs text-muted-foreground font-medium print:text-slate-500 pt-0.5">
+                                        <span>Ketentuan Uang Muka (DP)</span>
+                                        <span className="tabular-nums print:text-black">{formatCurrency(invoice.down_payment_amount)}</span>
+                                    </div>
+                                )}
+                                {invoice.status !== 'Lunas' && (
                                     <>
                                         <Separator className="my-1 print:border-slate-300" />
                                         <div className="flex justify-between text-sm font-extrabold">

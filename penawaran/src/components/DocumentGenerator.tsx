@@ -484,6 +484,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [downPaymentAmount, setDownPaymentAmount] = useState(0);
+  const [linkedQuoteId, setLinkedQuoteId] = useState<string | null>(null);
   const [downPaymentPercent, setDownPaymentPercent] = useState<string>('');
   const [terms, setTerms] = useState("");
   const [items, setItems] = useState<Item[]>([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
@@ -579,8 +580,24 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       setExpiryDate(data[config.fields[2]] ? parseISO(data[config.fields[2]]) : undefined);
       setStatus(data.status || config.statuses[0]);
       setDiscountAmount(data.discount_amount || 0);
-      setTaxAmount(data.tax_amount || 0);
-      if (docType === 'invoice') setDownPaymentAmount(data.down_payment_amount || 0);
+      if (docType === 'invoice') {
+        setDownPaymentAmount(data.down_payment_amount || 0);
+        if (data.quote_id) setLinkedQuoteId(data.quote_id);
+      }
+
+      // Jika invoice belum terikat project_id tapi memiliki quote_id, ambil project_id dari penawaran terkait
+      if (docType === 'invoice' && !data.project_id && data.quote_id) {
+        supabase
+          .from('quotes')
+          .select('project_id')
+          .eq('id', data.quote_id)
+          .single()
+          .then(({ data: qData }) => {
+            if (qData?.project_id) {
+              setSelectedProjectId(qData.project_id);
+            }
+          });
+      }
       
       const loadedTerms = data.terms || "";
       const isPartner = loadedTerms.includes('[CATEGORY:partner_service]');
@@ -936,6 +953,33 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       }
     }
 
+    // Jika faktur ini terhubung ke penawaran (quote_id), sinkronkan item dan total ke penawaran terkait
+    if (docType === 'invoice' && linkedQuoteId) {
+      try {
+        await supabase.from('quote_items').delete().eq('quote_id', linkedQuoteId);
+        const quoteItemsPayload = items
+          .filter(item => item.description && item.description.trim())
+          .map((item: any) => ({
+            description: item.description.trim(),
+            quantity: Number(item.quantity) || 0,
+            unit: item.unit || '',
+            unit_price: Number(item.unit_price) || 0,
+            cost_price: Number(item.cost_price) || 0,
+            quote_id: linkedQuoteId,
+            ...(item.item_id ? { item_id: item.item_id } : {})
+          }));
+        if (quoteItemsPayload.length > 0) {
+          await supabase.from('quote_items').insert(quoteItemsPayload);
+        }
+        await supabase.from('quotes').update({
+          discount_amount: discountAmount,
+          tax_amount: taxAmount,
+        }).eq('id', linkedQuoteId);
+      } catch (syncErr) {
+        console.error('Gagal menyinkronkan item ke penawaran:', syncErr);
+      }
+    }
+
     if (docType === 'quote' && status === 'Diterima' && currentDocId) {
       const invoiceResult = await convertQuoteToInvoice({
         quoteId: currentDocId,
@@ -951,7 +995,6 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     } else {
       showSuccess(`${config.title} berhasil ${isEditMode ? 'diperbarui' : 'dibuat'}!`);
     }
-
     setIsSubmitting(false);
     if (currentDocId) navigate(config.navigateTo(currentDocId));
   };
