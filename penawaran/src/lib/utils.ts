@@ -105,3 +105,11 @@ export const parseDotsToNumber = (val: string | number | null | undefined): numb
   return isNaN(num) ? 0 : num;
 };
 
+// Safe fallback for crypto.randomUUID in non-secure or older web environments
+export const safeUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'uid-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9);
+};
+

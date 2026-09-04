@@ -219,11 +219,12 @@ const ExpenseForm = ({ isOpen, setIsOpen, expense, onSave, defaultProjectId }: E
 
           <div className="space-y-1.5">
             <Label htmlFor="project" className="text-xs font-bold">Proyek Terkait</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
+            <Select value={projectId || "none"} onValueChange={(val) => setProjectId(val === "none" ? undefined : val)}>
               <SelectTrigger className="h-10 rounded-xl text-xs">
                 <SelectValue placeholder="Pilih proyek terkait" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">-- Tanpa Proyek --</SelectItem>
                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>

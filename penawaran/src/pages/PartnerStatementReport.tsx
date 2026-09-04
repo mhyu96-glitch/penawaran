@@ -353,7 +353,7 @@ const PartnerStatementReport = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
               Pilih Mitra / Toko:
             </span>
-            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+            <Select value={selectedClientId || undefined} onValueChange={setSelectedClientId}>
               <SelectTrigger className="h-10 rounded-xl text-xs font-bold bg-background">
                 <SelectValue placeholder="Pilih Toko / Partner" />
               </SelectTrigger>

@@ -36,7 +36,7 @@ import {
 import { 
   formatCurrency, safeFormat, calculateSubtotal, calculateTotal, 
   calculateItemTotal, getStatusVariant, cn,
-  formatNumberWithDots, parseDotsToNumber
+  formatNumberWithDots, parseDotsToNumber, safeUUID
 } from '@/lib/utils';
 import { showError, showSuccess } from '@/utils/toast';
 import ProjectTaskList, { Task } from '@/components/ProjectTaskList';
@@ -298,7 +298,7 @@ const ProjectDetail = () => {
       }
 
       const newPhotoItem: ProjectDocPhoto = {
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         url: finalImageUrl,
         title: newPhotoTitle.trim(),
         stage: newPhotoStage,

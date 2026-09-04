@@ -84,6 +84,7 @@ const App = () => (
                   <Route path="/invoices" element={<InvoiceList />} />
                   <Route path="/invoices/recurring" element={<RecurringInvoiceList />} />
                   <Route path="/invoice/new" element={<InvoiceGenerator />} />
+                  <Route path="/invoices/new" element={<InvoiceGenerator />} />
                   <Route path="/invoice/edit/:id" element={<InvoiceGenerator />} />
                   <Route path="/invoice/:id" element={<InvoiceView />} />
                   <Route path="/expenses" element={<ExpenseList />} />

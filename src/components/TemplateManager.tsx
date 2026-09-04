@@ -145,7 +145,7 @@ const TemplateManager = ({ type, currentData, onApplyTemplate }: TemplateManager
             <DialogDescription>Pilih template untuk mengisi form secara otomatis.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+            <Select value={selectedTemplateId || undefined} onValueChange={setSelectedTemplateId}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih template..." />
               </SelectTrigger>

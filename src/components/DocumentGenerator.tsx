@@ -87,6 +87,17 @@ const parseDotsToNumber = (val: string): number => {
   return clean === '' ? 0 : parseInt(clean, 10);
 };
 
+const safeUUID = (): string => {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // fallback
+  }
+  return 'uid-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9);
+};
+
 // Sortable Row Component
 const SortableItemRow = ({ 
   item, 
@@ -459,7 +470,11 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
 
   // Sensors for DnD
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -488,7 +503,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const [linkedQuoteId, setLinkedQuoteId] = useState<string | null>(null);
   const [downPaymentPercent, setDownPaymentPercent] = useState<string>('');
   const [terms, setTerms] = useState("");
-  const [items, setItems] = useState<Item[]>([{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ uid: safeUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isItemLibraryOpen, setIsItemLibraryOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -536,9 +551,28 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       
       const { data: projectData } = await supabase.from('projects').select('*').eq('user_id', user.id);
       if (projectData) setProjects(projectData);
+
+      // Pre-fill company profile and default settings for new documents
+      if (!isEditMode) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (profile) {
+          setFromCompany(prev => prev || profile.company_name || '');
+          setFromAddress(prev => prev || profile.company_address || '');
+          setFromWebsite(prev => prev || profile.company_website || '');
+          if (profile.default_terms) {
+            setTerms(prev => prev || profile.default_terms || '');
+          }
+          if (profile.default_tax_amount !== undefined && profile.default_tax_amount !== null) {
+            setTaxAmount(prev => prev === 0 ? (Number(profile.default_tax_amount) || 0) : prev);
+          }
+          if (profile.default_discount_amount !== undefined && profile.default_discount_amount !== null) {
+            setDiscountAmount(prev => prev === 0 ? (Number(profile.default_discount_amount) || 0) : prev);
+          }
+        }
+      }
     };
     fetchDependencies();
-  }, [user]);
+  }, [user, isEditMode]);
 
   // Handle URL query parameters for new documents (e.g. Addendum / new quote for a project)
   useEffect(() => {
@@ -668,7 +702,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       if (fetchedItems && fetchedItems.length > 0) {
         setItems(fetchedItems.map((item: any) => ({
           ...item,
-          uid: crypto.randomUUID(),
+          uid: safeUUID(),
           is_store_unit: isPartner && (
             Boolean(item.is_store_unit) ||
             (item.description || '').toLowerCase().includes('bawaan toko') ||
@@ -732,7 +766,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
     if (Array.isArray(templateItems) && templateItems.length > 0) {
       setItems(
         templateItems.map((item: any) => ({
-          uid: crypto.randomUUID(),
+          uid: safeUUID(),
           description: item.description || '',
           quantity: item.quantity !== undefined ? Number(item.quantity) : 1,
           unit: item.unit || '',
@@ -764,13 +798,13 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   };
 
   const addItem = () => {
-    setItems(prev => [...prev, { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0, is_store_unit: false }]);
+    setItems(prev => [...prev, { uid: safeUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0, is_store_unit: false }]);
   };
 
   const addSectionHeader = () => {
     setItems(prev => {
       const base = isInitialPristineBlank(prev) ? [] : prev;
-      return [...base, { uid: crypto.randomUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }];
+      return [...base, { uid: safeUUID(), description: "", quantity: 0, unit: "", unit_price: 0, cost_price: 0 }];
     });
   };
 
@@ -779,17 +813,17 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       const base = isInitialPristineBlank(prev) ? [] : prev;
 
       if (type === 'install') {
-        return [...base, { uid: crypto.randomUUID(), description: "Jasa Instalasi & Konfigurasi Teknis Perangkat", quantity: 1, unit: "Titik", unit_price: 150000, cost_price: 0 }];
+        return [...base, { uid: safeUUID(), description: "Jasa Instalasi & Konfigurasi Teknis Perangkat", quantity: 1, unit: "Titik", unit_price: 150000, cost_price: 0 }];
       } else if (type === 'transport') {
-        return [...base, { uid: crypto.randomUUID(), description: "Biaya Transportasi, BBM & Operasional Lapangan", quantity: 1, unit: "Trip", unit_price: 250000, cost_price: 150000 }];
+        return [...base, { uid: safeUUID(), description: "Biaya Transportasi, BBM & Operasional Lapangan", quantity: 1, unit: "Trip", unit_price: 250000, cost_price: 150000 }];
       } else if (type === 'accommodation') {
-        return [...base, { uid: crypto.randomUUID(), description: "Akomodasi Penginapan & Konsumsi Tim Lapangan", quantity: 1, unit: "Hari", unit_price: 200000, cost_price: 150000 }];
+        return [...base, { uid: safeUUID(), description: "Akomodasi Penginapan & Konsumsi Tim Lapangan", quantity: 1, unit: "Hari", unit_price: 200000, cost_price: 150000 }];
       } else if (type === 'tool') {
-        return [...base, { uid: crypto.randomUUID(), description: "Sewa Alat Kerja Bantu / Scaffolding / Tangga", quantity: 1, unit: "Set", unit_price: 100000, cost_price: 50000 }];
+        return [...base, { uid: safeUUID(), description: "Sewa Alat Kerja Bantu / Scaffolding / Tangga", quantity: 1, unit: "Set", unit_price: 100000, cost_price: 50000 }];
       } else if (type === 'store_hardware_header') {
         return [
           ...base,
-          { uid: crypto.randomUUID(), description: "", quantity: 1, unit: "Unit", unit_price: 0, cost_price: 0, is_store_unit: true }
+          { uid: safeUUID(), description: "", quantity: 1, unit: "Unit", unit_price: 0, cost_price: 0, is_store_unit: true }
         ];
       }
       return base;
@@ -799,13 +833,13 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
   const removeItem = (index: number) => {
     setItems(prev => {
       if (prev.length > 1) return prev.filter((_, i) => i !== index);
-      return [{ uid: crypto.randomUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }];
+      return [{ uid: safeUUID(), description: "", quantity: 1, unit: "", unit_price: 0, cost_price: 0 }];
     });
   };
 
   const handleAddItemsFromLibrary = (libraryItems: any[]) => {
     const newItems = libraryItems.map(item => ({
-        uid: crypto.randomUUID(),
+        uid: safeUUID(),
         item_id: item.id, 
         description: item.description, 
         quantity: 1, 
@@ -933,7 +967,7 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       user_id: user.id, from_company: fromCompany, from_address: fromAddress, from_website: fromWebsite,
       to_client: toClient, to_address: toAddress, to_phone: toPhone,
       discount_amount: discountAmount, tax_amount: taxAmount, terms: packedTerms, status: status,
-      client_id: finalClientId, project_id: selectedProjectId,
+      client_id: finalClientId || null, project_id: selectedProjectId || null,
       attachments: attachments,
       title: docTitle, 
     };
@@ -994,9 +1028,19 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       });
     
     if (itemsPayload.length > 0) {
-      const { error: insertError } = await supabase
+      let { error: insertError } = await supabase
         .from(config.itemTable)
         .insert(itemsPayload);
+
+      // If insert failed and items have item_id (e.g. FK constraint or schema mismatch), fallback without item_id
+      if (insertError && itemsPayload.some((it: any) => it.item_id)) {
+        console.warn('Retrying item insert without item_id:', insertError);
+        const fallbackItems = itemsPayload.map(({ item_id, ...rest }: any) => rest);
+        const retryResult = await supabase
+          .from(config.itemTable)
+          .insert(fallbackItems);
+        insertError = retryResult.error;
+      }
 
       if (insertError) {
         if (createdNewDocument && currentDocId) {
@@ -1272,7 +1316,18 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           </div>
           <Separator />
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Proyek Terkait (Opsional)</Label><Select value={selectedProjectId} onValueChange={setSelectedProjectId}><SelectTrigger className="h-11 rounded-xl text-sm"><SelectValue placeholder="Pilih proyek" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Proyek Terkait (Opsional)</Label>
+              <Select value={selectedProjectId || "none"} onValueChange={(val) => setSelectedProjectId(val === "none" ? undefined : val)}>
+                <SelectTrigger className="h-11 rounded-xl text-sm">
+                  <SelectValue placeholder="Pilih proyek" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Tanpa Proyek --</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Status Dokumen</Label><Select value={status} onValueChange={setStatus}><SelectTrigger className="h-11 rounded-xl text-sm"><SelectValue placeholder="Pilih status" /></SelectTrigger><SelectContent>{config.statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
           </div>
           <div className="space-y-2">
