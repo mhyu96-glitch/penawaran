@@ -558,6 +558,7 @@ const QuoteView = () => {
                     htmlFor="recordPayment"
                     className="text-xs text-muted-foreground leading-tight cursor-pointer font-medium select-none"
                   >
+                    Catat langsung penerimaan DP ini sebagai <strong className="text-foreground">Kas Masuk & Pembayaran Lunas</strong> di riwayat faktur dan keuangan proyek.
                     Uang DP sudah benar-benar diterima saat ini (catat langsung sebagai pembayaran lunas). Jika faktur ini baru akan ditagihkan ke klien, <strong className="text-foreground">biarkan tidak dicentang</strong> agar tidak terjadi pencatatan ganda.
                   </label>
                 </div>

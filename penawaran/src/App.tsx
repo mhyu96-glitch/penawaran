@@ -73,6 +73,7 @@ const App = () => (
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/quotes" element={<QuoteListSimple />} />
                   <Route path="/quote/new" element={<QuoteGenerator />} />
+                  <Route path="/quotes/new" element={<QuoteGenerator />} />
                   <Route path="/quote/edit/:id" element={<QuoteGenerator />} />
                   <Route path="/quote/:id" element={<QuoteView />} />
                   <Route path="/profile" element={<Profile />} />

@@ -47,10 +47,10 @@ export class GlassErrorBoundary extends Component<Props, State> {
               We encountered an error while loading this page. Please try refreshing or contact support if the problem persists.
             </p>
             
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="glass-light rounded-lg p-4 mb-6 text-left">
-                <div className="text-xs text-text-tertiary mb-2">Error Details:</div>
-                <div className="text-xs font-mono text-red-400 break-all">
+            {this.state.error && (
+              <div className="glass-light rounded-lg p-4 mb-6 text-left max-h-48 overflow-y-auto">
+                <div className="text-xs text-text-tertiary mb-2 font-bold">Detail Error:</div>
+                <div className="text-xs font-mono text-red-400 break-all whitespace-pre-wrap">
                   {this.state.error.message}
                 </div>
               </div>
