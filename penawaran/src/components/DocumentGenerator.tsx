@@ -626,7 +626,47 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           }
         });
     }
-  }, [isEditMode, user, searchParams]);
+
+    const fromQuote = searchParams.get('fromQuote') || searchParams.get('quoteId');
+    if (fromQuote && docType === 'invoice') {
+      supabase
+        .from('quotes')
+        .select('*, quote_items(*)')
+        .eq('id', fromQuote)
+        .single()
+        .then(({ data: qData }) => {
+          if (qData) {
+            setLinkedQuoteId(qData.id);
+            if (qData.project_id) setSelectedProjectId(qData.project_id);
+            if (qData.client_id) setSelectedClientId(qData.client_id);
+            if (qData.to_client) setToClient(qData.to_client);
+            if (qData.to_address) setToAddress(qData.to_address);
+            if (qData.to_phone) setToPhone(qData.to_phone);
+            if (qData.from_company) setFromCompany(qData.from_company);
+            if (qData.from_address) setFromAddress(qData.from_address);
+            if (qData.from_website) setFromWebsite(qData.from_website);
+            if (qData.discount_amount) setDiscountAmount(Number(qData.discount_amount) || 0);
+            if (qData.tax_amount) setTaxAmount(Number(qData.tax_amount) || 0);
+            if (qData.terms) setTerms(qData.terms);
+            if (qData.title) setDocTitle(`Faktur: ${qData.title}`);
+
+            if (qData.quote_items && qData.quote_items.length > 0) {
+              setItems(qData.quote_items.map((it: any) => ({
+                uid: safeUUID(),
+                item_id: it.item_id || undefined,
+                description: it.description || '',
+                quantity: Number(it.quantity) || 1,
+                unit: it.unit || '',
+                unit_price: Number(it.unit_price) || 0,
+                cost_price: Number(it.cost_price) || 0,
+                is_store_unit: false,
+              })));
+            }
+            showSuccess(`Memuat rincian dari Penawaran #${qData.quote_number || ''}`);
+          }
+        });
+    }
+  }, [isEditMode, user, searchParams, docType]);
 
   useEffect(() => {
     const generateNewDocNumber = async () => {
@@ -709,6 +749,25 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             (item.description || '').toLowerCase().includes('unit toko')
           )
         })));
+      } else if (docType === 'invoice' && data.quote_id) {
+        // Self-healing: if an invoice has 0 items but was created from a quote, recover items from source quote
+        const { data: qWithItems } = await supabase
+          .from('quotes')
+          .select('quote_items(*)')
+          .eq('id', data.quote_id)
+          .single();
+
+        if (qWithItems?.quote_items && qWithItems.quote_items.length > 0) {
+          setItems(qWithItems.quote_items.map((item: any) => ({
+            ...item,
+            uid: safeUUID(),
+            is_store_unit: isPartner && (
+              Boolean(item.is_store_unit) ||
+              (item.description || '').toLowerCase().includes('bawaan toko') ||
+              (item.description || '').toLowerCase().includes('unit toko')
+            )
+          })));
+        }
       }
       setLoading(false);
     };

@@ -26,6 +26,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { safeFormat, formatCurrency, cn } from '@/lib/utils';
+import { convertQuoteToInvoice } from '@/utils/quoteToInvoice';
 
 type QuoteItem = {
   quantity: number;
@@ -99,17 +100,23 @@ const QuoteListSimple = () => {
   };
 
   const handleAcceptQuote = async (quote: Quote) => {
+    if (!user) return;
     try {
-      const { error } = await supabase
-        .from('quotes')
-        .update({ status: 'Diterima' })
-        .eq('id', quote.id);
+      const result = await convertQuoteToInvoice({
+        quoteId: quote.id,
+        userId: user.id,
+        autoUpdateStatus: true,
+      });
 
-      if (error) {
-        showError(`Gagal memperbarui status: ${error.message}`);
-      } else {
-        showSuccess(`Penawaran ${quote.quote_number || ''} berhasil diterima!`);
+      if (result.success) {
         setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, status: 'Diterima' } : q));
+        if (result.invoiceNumber && !result.alreadyExisted) {
+          showSuccess(`Penawaran #${quote.quote_number || ''} diterima & Faktur #${result.invoiceNumber} otomatis dibuat dengan seluruh item!`);
+        } else {
+          showSuccess(`Penawaran #${quote.quote_number || ''} berhasil diterima!`);
+        }
+      } else {
+        showError(`Gagal memperbarui status: ${result.error || 'Terjadi kesalahan'}`);
       }
     } catch (err: any) {
       console.error('Accept quote error:', err);
@@ -121,42 +128,24 @@ const QuoteListSimple = () => {
     if (!user) return;
 
     try {
-      const { data: quoteData, error: quoteError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('id', quote.id)
-        .single();
+      const result = await convertQuoteToInvoice({
+        quoteId: quote.id,
+        userId: user.id,
+        autoUpdateStatus: true,
+      });
 
-      if (quoteError) {
-        showError('Gagal memuat data penawaran.');
-        return;
-      }
-
-      const { data: newInvoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert({
-          user_id: user.id,
-          quote_id: quote.id,
-          from_company: quoteData.from_company,
-          from_address: quoteData.from_address,
-          to_client: quoteData.to_client,
-          to_address: quoteData.to_address,
-          title: quoteData.title,
-          status: 'Draf',
-          invoice_number: `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-          invoice_date: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (invoiceError) {
-        showError('Gagal membuat faktur.');
-        console.error(invoiceError);
+      if (result.success && result.invoiceId) {
+        setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, status: 'Diterima' } : q));
+        if (result.alreadyExisted) {
+          showSuccess(`Membuka Faktur #${result.invoiceNumber} untuk penawaran ini.`);
+        } else {
+          showSuccess(`Faktur #${result.invoiceNumber} berhasil dibuat dengan seluruh rincian penawaran!`);
+        }
+        navigate(`/invoice/edit/${result.invoiceId}`);
       } else {
-        showSuccess('Faktur berhasil dibuat!');
-        navigate(`/invoice/edit/${newInvoice.id}`);
+        showError(result.error || 'Gagal membuat faktur dari penawaran.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create invoice error:', err);
       showError('Terjadi kesalahan saat membuat faktur.');
     }

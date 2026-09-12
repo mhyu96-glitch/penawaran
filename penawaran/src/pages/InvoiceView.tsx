@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText, Send, MoreVertical, History, CreditCard, Building2 } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Trash2, Download, Landmark, Share2, Check, X, ExternalLink, Info, FileText, Send, MoreVertical, History, CreditCard, Building2, Copy } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
     AlertDialog,
@@ -207,6 +207,94 @@ const InvoiceView = () => {
         }
     };
 
+    const handleDuplicateInvoice = async () => {
+        if (!invoice) return;
+        try {
+            const year = new Date().getFullYear();
+            const { data: latestInvoices } = await supabase
+                .from('invoices')
+                .select('invoice_number')
+                .eq('user_id', invoice.user_id)
+                .like('invoice_number', `INV-${year}-%`)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            let nextNumber = 1;
+            if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0]?.invoice_number) {
+                const parts = latestInvoices[0].invoice_number.split('-');
+                const lastNum = parts[parts.length - 1];
+                if (lastNum && !Number.isNaN(Number.parseInt(lastNum, 10))) {
+                    nextNumber = Number.parseInt(lastNum, 10) + 1;
+                }
+            }
+            const newInvoiceNumber = `INV-${year}-${String(nextNumber).padStart(3, '0')}`;
+
+            const { 
+                id: _id, 
+                created_at: _created_at, 
+                updated_at: _updated_at, 
+                invoice_number: _invoice_number, 
+                view_count: _view_count, 
+                last_viewed_at: _last_viewed_at, 
+                payments: _payments, 
+                invoice_items: originalItems,
+                clients: _clients,
+                ...cleanInvoiceData 
+            } = invoice as any;
+
+            const payload: Record<string, any> = {
+                ...cleanInvoiceData,
+                user_id: invoice.user_id,
+                invoice_number: newInvoiceNumber,
+                status: 'Draf',
+                invoice_date: new Date().toISOString(),
+                due_date: invoice.due_date || null,
+                title: invoice.title ? `${invoice.title} (Salinan)` : `Salinan Faktur #${invoice.invoice_number}`,
+                view_count: 0,
+                last_viewed_at: null,
+            };
+
+            const { data: newInvoice, error: insertError } = await supabase
+                .from('invoices')
+                .insert(payload)
+                .select()
+                .single();
+
+            if (insertError || !newInvoice) {
+                console.error('Duplicate invoice error:', insertError);
+                showError(`Gagal membuat duplikat faktur: ${insertError?.message || 'Error'}`);
+                return;
+            }
+
+            if (originalItems && originalItems.length > 0) {
+                const newItems = originalItems.map(({ id: _itemId, invoice_id: _invId, created_at: _cAt, ...item }: any) => ({
+                    ...item,
+                    invoice_id: newInvoice.id,
+                }));
+
+                let { error: itemsError } = await supabase.from('invoice_items').insert(newItems);
+
+                if (itemsError && newItems.some((it: any) => it.item_id)) {
+                    const fallbackItems = newItems.map(({ item_id, ...rest }: any) => rest);
+                    const retryResult = await supabase.from('invoice_items').insert(fallbackItems);
+                    itemsError = retryResult.error;
+                }
+
+                if (itemsError) {
+                    console.error('Duplicate items error:', itemsError);
+                    showError(`Gagal menyalin item faktur: ${itemsError.message}`);
+                    return;
+                }
+            }
+
+            showSuccess(`Faktur #${newInvoice.invoice_number} berhasil diduplikasi!`);
+            navigate(`/invoice/edit/${newInvoice.id}`);
+        } catch (err: any) {
+            console.error('Duplicate error:', err);
+            showError('Terjadi kesalahan saat menduplikasi faktur.');
+        }
+    };
+
     const subtotal = useMemo(() => calculateSubtotal(invoice?.invoice_items || []), [invoice]);
     const discountAmount = useMemo(() => invoice?.discount_amount || 0, [invoice]);
     const taxAmount = useMemo(() => invoice?.tax_amount || 0, [invoice]);
@@ -322,6 +410,10 @@ const InvoiceView = () => {
 
                     <Button asChild variant="outline" className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted">
                         <Link to={`/invoice/edit/${id}`}><Pencil className="mr-1.5 h-4 w-4" /> Edit</Link>
+                    </Button>
+
+                    <Button variant="outline" onClick={handleDuplicateInvoice} className="rounded-xl h-11 px-3 text-xs font-bold border-border/80 hover:bg-muted" title="Duplikasi Faktur">
+                        <Copy className="mr-1.5 h-4 w-4" /> Duplikat
                     </Button>
 
                     <AlertDialog>

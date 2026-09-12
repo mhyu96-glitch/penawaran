@@ -35,19 +35,48 @@ export async function convertQuoteToInvoice({
     if (!allowDuplicate) {
       const { data: existingInvoices } = await supabase
         .from('invoices')
-        .select('id, invoice_number')
+        .select('id, invoice_number, invoice_items(id)')
         .eq('quote_id', quoteId)
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (existingInvoices && existingInvoices.length > 0) {
+        const existingInv = existingInvoices[0] as any;
+        const existingItemsCount = existingInv.invoice_items?.length || 0;
+
+        // Self-healing: if an invoice was previously created with 0 items, copy items from quote now
+        if (existingItemsCount === 0) {
+          const { data: quoteWithItems } = await supabase
+            .from('quotes')
+            .select('*, quote_items(*)')
+            .eq('id', quoteId)
+            .single();
+
+          if (quoteWithItems?.quote_items && quoteWithItems.quote_items.length > 0) {
+            const repairPayload = quoteWithItems.quote_items.map((item: any) => ({
+              invoice_id: existingInv.id,
+              item_id: item.item_id || null,
+              description: item.description || '',
+              quantity: Number(item.quantity) || 1,
+              unit: item.unit || 'Unit',
+              unit_price: Number(item.unit_price) || 0,
+              cost_price: Number(item.cost_price) || 0,
+            }));
+            let repairRes = await supabase.from('invoice_items').insert(repairPayload);
+            if (repairRes.error && repairPayload.some((it: any) => it.item_id)) {
+              const fallback = repairPayload.map(({ item_id, ...rest }: any) => rest);
+              await supabase.from('invoice_items').insert(fallback);
+            }
+          }
+        }
+
         if (autoUpdateStatus) {
           await supabase.from('quotes').update({ status: 'Diterima' }).eq('id', quoteId);
         }
         return {
           success: true,
-          invoiceId: existingInvoices[0].id,
-          invoiceNumber: existingInvoices[0].invoice_number,
+          invoiceId: existingInv.id,
+          invoiceNumber: existingInv.invoice_number,
           alreadyExisted: true,
         };
       }
@@ -152,8 +181,10 @@ export async function convertQuoteToInvoice({
         .from('invoice_items')
         .insert(newInvoiceItemsPayload);
 
-      if (isMissingColumnError(itemsResult.error)) {
-        const compatibleItems = newInvoiceItemsPayload.map(({ item_id, ...item }) => item);
+      // Robust fallback: if insert failed and payload includes item_id, retry without item_id
+      if (itemsResult.error && newInvoiceItemsPayload.some((it: any) => it.item_id)) {
+        console.warn('Retrying invoice items insert without item_id:', itemsResult.error);
+        const compatibleItems = newInvoiceItemsPayload.map(({ item_id, ...item }: any) => item);
         itemsResult = await supabase
           .from('invoice_items')
           .insert(compatibleItems);

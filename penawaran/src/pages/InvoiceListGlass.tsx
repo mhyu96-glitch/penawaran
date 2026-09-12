@@ -222,47 +222,69 @@ const InvoiceListGlass = () => {
         }
       }
 
+      const { 
+        id: _id, 
+        created_at: _created_at, 
+        updated_at: _updated_at, 
+        invoice_number: _invoice_number, 
+        view_count: _view_count, 
+        last_viewed_at: _last_viewed_at, 
+        payments: _payments, 
+        invoice_items: originalItems,
+        ...cleanInvoiceData 
+      } = invoiceData as any;
+
       const newInvoicePayload = {
-        ...invoiceData,
-        id: undefined,
+        ...cleanInvoiceData,
+        user_id: user.id,
         invoice_number: `INV-${year}-${String(nextNumber).padStart(3, '0')}`,
         invoice_date: new Date().toISOString(),
-        status: 'Draft',
-        created_at: undefined,
-        updated_at: undefined,
+        due_date: invoiceData.due_date || null,
+        title: invoiceData.title ? `${invoiceData.title} (Salinan)` : `Salinan Faktur #${invoiceData.invoice_number}`,
+        status: 'Draf',
+        view_count: 0,
+        last_viewed_at: null,
       };
 
       const { data: newInvoice, error: insertError } = await supabase
         .from('invoices')
         .insert(newInvoicePayload)
-        .select('id')
+        .select('id, invoice_number')
         .single();
 
       if (insertError || !newInvoice) {
-        showError('Gagal menduplikasi faktur.');
+        console.error('Duplicate invoice glass error:', insertError);
+        showError(`Gagal menduplikasi faktur: ${insertError?.message || 'Error'}`);
         return;
       }
 
-      if (invoiceData.invoice_items && invoiceData.invoice_items.length > 0) {
-        const newItems = invoiceData.invoice_items.map(({ id, invoice_id, created_at, ...item }) => ({
+      if (originalItems && originalItems.length > 0) {
+        const newItems = originalItems.map(({ id: _itemId, invoice_id: _invId, created_at: _cAt, ...item }: any) => ({
           ...item,
           invoice_id: newInvoice.id,
         }));
 
-        const { error: itemsError } = await supabase
+        let { error: itemsError } = await supabase
           .from('invoice_items')
           .insert(newItems);
 
+        if (itemsError && newItems.some((it: any) => it.item_id)) {
+          const fallbackItems = newItems.map(({ item_id, ...rest }: any) => rest);
+          const retryResult = await supabase.from('invoice_items').insert(fallbackItems);
+          itemsError = retryResult.error;
+        }
+
         if (itemsError) {
-          showError('Gagal menyalin item.');
+          showError(`Gagal menyalin item: ${itemsError.message}`);
           await supabase.from('invoices').delete().match({ id: newInvoice.id });
           return;
         }
       }
 
-      showSuccess('Faktur berhasil diduplikasi.');
+      showSuccess(`Faktur #${newInvoice.invoice_number} berhasil diduplikasi.`);
       navigate(`/invoice-glass/edit/${newInvoice.id}`);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Duplicate error:', error);
       showError('Terjadi kesalahan saat menduplikasi.');
     }
   };

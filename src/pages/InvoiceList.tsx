@@ -229,55 +229,110 @@ const InvoiceList = () => {
   };
 
   const handleDuplicateInvoice = async (invoiceId: string) => {
-    const { data: originalInvoice, error } = await supabase
-      .from('invoices')
-      .select('*, invoice_items(*)')
-      .eq('id', invoiceId)
-      .single();
+    if (!user) return;
+    try {
+      const { data: originalInvoice, error } = await supabase
+        .from('invoices')
+        .select('*, invoice_items(*)')
+        .eq('id', invoiceId)
+        .single();
 
-    if (error || !originalInvoice) {
-      showError('Gagal memuat data untuk duplikasi.');
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, created_at, invoice_number, view_count, last_viewed_at, payments, ...newInvoiceData } = originalInvoice;
-
-    const payload = {
-      ...newInvoiceData,
-      status: 'Draf',
-      invoice_date: new Date().toISOString(),
-      due_date: null,
-      invoice_number: null,
-      view_count: 0,
-      last_viewed_at: null,
-    };
-
-    const { data: newInvoice, error: insertError } = await supabase
-      .from('invoices')
-      .insert(payload)
-      .select()
-      .single();
-
-    if (insertError || !newInvoice) {
-      showError('Gagal membuat duplikat faktur.');
-      return;
-    }
-
-    if (originalInvoice.invoice_items && originalInvoice.invoice_items.length > 0) {
-      const newItems = originalInvoice.invoice_items.map(({ id: itemId, invoice_id, ...item }: any) => ({
-        ...item,
-        invoice_id: newInvoice.id,
-      }));
-      const { error: itemsError } = await supabase.from('invoice_items').insert(newItems);
-      if (itemsError) {
-        showError('Gagal menduplikasi item faktur.');
+      if (error || !originalInvoice) {
+        showError('Gagal memuat data untuk duplikasi.');
         return;
       }
-    }
 
-    showSuccess('Faktur berhasil diduplikasi.');
-    navigate(`/invoice/edit/${newInvoice.id}`);
+      // Generate sequential invoice number (INV-YYYY-XXX)
+      const year = new Date().getFullYear();
+      const { data: latestInvoices } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('user_id', user.id)
+        .like('invoice_number', `INV-${year}-%`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let nextNumber = 1;
+      if (latestInvoices && latestInvoices.length > 0 && latestInvoices[0]?.invoice_number) {
+        const parts = latestInvoices[0].invoice_number.split('-');
+        const lastNum = parts[parts.length - 1];
+        if (lastNum && !Number.isNaN(Number.parseInt(lastNum, 10))) {
+          nextNumber = Number.parseInt(lastNum, 10) + 1;
+        }
+      }
+      const newInvoiceNumber = `INV-${year}-${String(nextNumber).padStart(3, '0')}`;
+
+      // Clean payload: strip joined relations, IDs, and auto-managed timestamp columns
+      const { 
+        id: _id, 
+        created_at: _created_at, 
+        updated_at: _updated_at, 
+        invoice_number: _invoice_number, 
+        view_count: _view_count, 
+        last_viewed_at: _last_viewed_at, 
+        payments: _payments, 
+        invoice_items: originalItems,
+        ...cleanInvoiceData 
+      } = originalInvoice;
+
+      const payload: Record<string, any> = {
+        ...cleanInvoiceData,
+        user_id: user.id,
+        invoice_number: newInvoiceNumber,
+        status: 'Draf',
+        invoice_date: new Date().toISOString(),
+        due_date: originalInvoice.due_date || null,
+        title: originalInvoice.title ? `${originalInvoice.title} (Salinan)` : `Salinan Faktur #${originalInvoice.invoice_number}`,
+        view_count: 0,
+        last_viewed_at: null,
+      };
+
+      let { data: newInvoice, error: insertError } = await supabase
+        .from('invoices')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Insert duplicated invoice error:', insertError);
+        showError(`Gagal membuat duplikat faktur: ${insertError.message}`);
+        return;
+      }
+
+      if (!newInvoice) {
+        showError('Gagal membuat duplikat faktur.');
+        return;
+      }
+
+      if (originalItems && originalItems.length > 0) {
+        const newItems = originalItems.map(({ id: _itemId, invoice_id: _invId, created_at: _cAt, ...item }: any) => ({
+          ...item,
+          invoice_id: newInvoice.id,
+        }));
+
+        let { error: itemsError } = await supabase.from('invoice_items').insert(newItems);
+
+        // Fallback retry without item_id if constraint error
+        if (itemsError && newItems.some((it: any) => it.item_id)) {
+          const fallbackItems = newItems.map(({ item_id, ...rest }: any) => rest);
+          const retryResult = await supabase.from('invoice_items').insert(fallbackItems);
+          itemsError = retryResult.error;
+        }
+
+        if (itemsError) {
+          console.error('Duplicate items insert error:', itemsError);
+          showError(`Gagal menduplikasi item faktur: ${itemsError.message}`);
+          return;
+        }
+      }
+
+      showSuccess(`Faktur #${newInvoice.invoice_number} berhasil diduplikasi!`);
+      setInvoices(prev => [newInvoice, ...prev]);
+      navigate(`/invoice/edit/${newInvoice.id}`);
+    } catch (err: any) {
+      console.error('Duplicate invoice error:', err);
+      showError('Terjadi kesalahan saat menduplikasi faktur.');
+    }
   };
 
   // Statistics calculation

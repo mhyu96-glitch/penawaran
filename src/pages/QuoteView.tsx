@@ -281,7 +281,9 @@ const QuoteView = () => {
 
         let itemsResult = await supabase.from('invoice_items').insert(newInvoiceItemsPayload);
 
-        if (isMissingColumnError(itemsResult.error)) {
+        // Robust fallback: if insert failed and payload includes item_id, retry without item_id
+        if (itemsResult.error && newInvoiceItemsPayload.some((it: any) => it.item_id)) {
+          console.warn('Retrying invoice items insert without item_id in QuoteView:', itemsResult.error);
           const compatibleItemsPayload = newInvoiceItemsPayload.map(({ item_id, ...item }) => item);
           itemsResult = await supabase.from('invoice_items').insert(compatibleItemsPayload);
         }
