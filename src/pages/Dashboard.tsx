@@ -581,44 +581,54 @@ const Dashboard = () => {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* KPI 1: Business Health */}
         <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
-          <CardContent className="p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Kesehatan Bisnis</span>
-              <div className={cn("flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl border shrink-0",
-                businessScore >= 75 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
-                businessScore >= 50 ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400" :
-                "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-              )}>
-                {performanceTrend === 'up' ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
-                 performanceTrend === 'down' ? <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
-                 <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+          <CardContent className="p-3 sm:p-4.5 lg:p-5 flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Kesehatan Bisnis</span>
+                <div className={cn("flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg sm:rounded-xl border shrink-0",
+                  businessScore >= 75 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
+                  businessScore >= 50 ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400" :
+                  "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                )}>
+                  {performanceTrend === 'up' ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
+                   performanceTrend === 'down' ? <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> :
+                   <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between gap-1 flex-wrap">
+                <h3 className="text-base min-[380px]:text-lg sm:text-2xl md:text-3xl font-black text-foreground tabular-nums leading-tight">
+                  {businessScore}<span className="text-xs sm:text-sm font-normal text-muted-foreground">/100</span>
+                </h3>
+                <Badge className={cn("text-[9px] sm:text-xs font-bold px-1.5 py-0.2 sm:px-2.5 sm:py-0.5 border",
+                  businessScore >= 75 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                  businessScore >= 50 ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                  "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                )}>
+                  {businessScore >= 75 ? 'Optimal' : businessScore >= 50 ? 'Stabil' : 'Perhatian'}
+                </Badge>
               </div>
             </div>
-            <div className="flex items-baseline justify-between gap-1 flex-wrap">
-              <h3 className="text-lg sm:text-3xl font-extrabold text-foreground tabular-nums">{businessScore}<span className="text-xs sm:text-sm font-normal text-muted-foreground">/100</span></h3>
-              <Badge className={cn("text-[9px] sm:text-xs font-bold px-1.5 py-0.2 sm:px-2.5 sm:py-0.5 border",
-                businessScore >= 75 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
-                businessScore >= 50 ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
-                "bg-rose-500/10 text-rose-600 border-rose-500/20"
-              )}>
-                {businessScore >= 75 ? 'Optimal' : businessScore >= 50 ? 'Stabil' : 'Perhatian'}
-              </Badge>
+            <div>
+              <Progress value={businessScore} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
+              <p className="mt-1.5 text-[10px] text-muted-foreground font-medium truncate hidden sm:block">Berdasarkan konversi & piutang aktif</p>
             </div>
-            <Progress value={businessScore} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
-            <p className="mt-1.5 text-[10px] text-muted-foreground font-medium truncate hidden sm:block">Berdasarkan konversi & piutang aktif</p>
           </CardContent>
         </Card>
 
         {/* KPI 2: Revenue */}
         <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
-          <CardContent className="p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Pendapatan</span>
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shrink-0">
-                <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <CardContent className="p-3 sm:p-4.5 lg:p-5 flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Pendapatan</span>
+                <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg sm:rounded-xl bg-primary/10 border border-primary/20 text-primary shrink-0">
+                  <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </div>
               </div>
+              <h3 className="text-xs min-[360px]:text-sm min-[400px]:text-base sm:text-xl md:text-2xl font-black text-foreground tracking-tight tabular-nums leading-tight">
+                {formatCurrency(totalRevenue)}
+              </h3>
             </div>
-            <h3 className="text-base sm:text-2xl font-extrabold text-foreground tracking-tight tabular-nums truncate">{formatCurrency(totalRevenue)}</h3>
             <div className="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs gap-1">
               <span className={cn("inline-flex items-center gap-0.5 sm:gap-1 font-bold px-1.5 py-0.5 rounded-md border text-[9px] sm:text-xs",
                 periodComparison.revChange >= 0 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-rose-500/10 text-rose-600 border-rose-500/20"
@@ -626,25 +636,29 @@ const Dashboard = () => {
                 {periodComparison.revChange >= 0 ? <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <ArrowDownRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                 {periodComparison.revChange >= 0 ? `+${periodComparison.revChange}%` : `${periodComparison.revChange}%`}
               </span>
-              <span className="text-muted-foreground font-medium truncate">{payments.length > 0 ? 'Kas Masuk' : 'Faktur Lunas'}</span>
+              <span className="text-muted-foreground font-medium text-[9px] sm:text-xs truncate">{payments.length > 0 ? 'Kas Masuk' : 'Faktur Lunas'}</span>
             </div>
           </CardContent>
         </Card>
 
         {/* KPI 3: Profit Margin */}
         <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
-          <CardContent className="p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Margin Keuntungan</span>
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0">
-                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <CardContent className="p-3 sm:p-4.5 lg:p-5 flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Margin Keuntungan</span>
+                <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg sm:rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0">
+                  <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </div>
               </div>
-            </div>
-            <div className="flex items-baseline justify-between gap-1 flex-wrap">
-              <h3 className="text-base sm:text-2xl font-extrabold text-foreground tracking-tight tabular-nums">{profitMarginPercent.toFixed(1)}%</h3>
-              <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20 text-[9px] sm:text-xs font-bold px-1.5 py-0.2">
-                Laba {compactNumber.format(netProfit)}
-              </Badge>
+              <div className="flex items-baseline justify-between gap-1 flex-wrap">
+                <h3 className="text-xs min-[360px]:text-sm min-[400px]:text-base sm:text-xl md:text-2xl font-black text-foreground tracking-tight tabular-nums leading-tight">
+                  {profitMarginPercent.toFixed(1)}%
+                </h3>
+                <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20 text-[9px] sm:text-xs font-bold px-1.5 py-0.2">
+                  Laba {compactNumber.format(netProfit)}
+                </Badge>
+              </div>
             </div>
             <div className="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs gap-1">
               <span className={cn("inline-flex items-center gap-0.5 sm:gap-1 font-bold px-1.5 py-0.5 rounded-md border text-[9px] sm:text-xs",
@@ -653,40 +667,46 @@ const Dashboard = () => {
                 {periodComparison.profitChange >= 0 ? <ArrowUpRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <ArrowDownRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                 {periodComparison.profitChange >= 0 ? `+${periodComparison.profitChange}%` : `${periodComparison.profitChange}%`}
               </span>
-              <span className="text-muted-foreground font-medium truncate">Laba Bersih</span>
+              <span className="text-muted-foreground font-medium text-[9px] sm:text-xs truncate">Laba Bersih</span>
             </div>
           </CardContent>
         </Card>
 
         {/* KPI 4: Revenue Target */}
         <Card className="relative overflow-hidden border border-border/80 bg-card rounded-2xl shadow-xs">
-          <CardContent className="p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Target Omset</span>
-              {!isEditingGoal ? (
-                <Button variant="ghost" size="sm" className="h-6 w-6 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:bg-amber-500/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
-                  <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                </Button>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    value={tempGoal}
-                    onChange={(e) => setTempGoal(e.target.value)}
-                    className="h-6 w-16 sm:h-7 sm:w-24 text-[10px] sm:text-xs font-semibold p-1 bg-background"
-                    placeholder="Target"
-                  />
-                  <Button size="sm" className="h-6 px-1.5 sm:h-7 sm:px-2 text-[10px] sm:text-xs" onClick={updateGoal}>
-                    <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <CardContent className="p-3 sm:p-4.5 lg:p-5 flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">Target Omset</span>
+                {!isEditingGoal ? (
+                  <Button variant="ghost" size="sm" className="h-6 w-6 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:bg-amber-500/10" onClick={() => { setTempGoal(String(revenueGoal)); setIsEditingGoal(true); }}>
+                    <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </Button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={tempGoal}
+                      onChange={(e) => setTempGoal(e.target.value)}
+                      className="h-6 w-16 sm:h-7 sm:w-24 text-[10px] sm:text-xs font-semibold p-1 bg-background"
+                      placeholder="Target"
+                    />
+                    <Button size="sm" className="h-6 px-1.5 sm:h-7 sm:px-2 text-[10px] sm:text-xs" onClick={updateGoal}>
+                      <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <h3 className="text-xs min-[360px]:text-sm min-[400px]:text-base sm:text-xl md:text-2xl font-black text-foreground tabular-nums leading-tight">
+                {goalProgress.toFixed(0)}%
+              </h3>
             </div>
-            <h3 className="text-base sm:text-2xl font-extrabold text-foreground tabular-nums">{goalProgress.toFixed(0)}%</h3>
-            <Progress value={goalProgress} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
-            <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 font-semibold">
-              <span>{compactNumber.format(totalRevenue)}</span>
-              <span>Target: {compactNumber.format(revenueGoal)}</span>
+            <div>
+              <Progress value={goalProgress} className="h-1.5 sm:h-2 mt-2 sm:mt-3" />
+              <div className="flex justify-between text-[9px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 font-semibold">
+                <span>{compactNumber.format(totalRevenue)}</span>
+                <span>Target: {compactNumber.format(revenueGoal)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -744,23 +764,30 @@ const Dashboard = () => {
       )}
 
       {/* Financial Metric Row */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
         {[
-          { label: 'Laba bersih', value: formatCurrency(netProfit), helper: 'Pendapatan - HPP - biaya', icon: DollarSign, tone: 'text-emerald-600' },
-          { label: 'Total biaya', value: formatCurrency(totalCostOfGoods + totalExpenses), helper: 'HPP + pengeluaran', icon: Wallet, tone: 'text-rose-600' },
-          { label: 'Belum dibayar', value: formatCurrency(invoiceStats.unpaidAmount), helper: `${activeInvoiceCount} faktur aktif`, icon: Clock, tone: 'text-sky-600' },
-          { label: 'Overdue', value: formatCurrency(invoiceStats.overdueAmount), helper: `${overdueInvoicesCount} faktur`, icon: AlertCircle, tone: 'text-amber-600' },
-          { label: 'Konversi', value: `${quoteConversionRate.toFixed(1)}%`, helper: 'Penawaran diterima', icon: TrendingUp, tone: 'text-teal-600' },
-        ].map((item) => (
-          <Card key={item.label} className="overflow-hidden border border-border">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <p className="mt-2 truncate text-lg font-bold tabular-nums sm:text-xl text-foreground">{item.value}</p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{item.helper}</p>
+          { label: 'Laba Bersih', value: formatCurrency(netProfit), helper: 'Pendapatan − HPP − Biaya', icon: DollarSign, tone: 'text-emerald-600 dark:text-emerald-400', bgTone: 'bg-emerald-500/10 border-emerald-500/20' },
+          { label: 'Total Biaya', value: formatCurrency(totalCostOfGoods + totalExpenses), helper: 'HPP + Pengeluaran', icon: Wallet, tone: 'text-rose-600 dark:text-rose-400', bgTone: 'bg-rose-500/10 border-rose-500/20' },
+          { label: 'Belum Dibayar', value: formatCurrency(invoiceStats.unpaidAmount), helper: `${activeInvoiceCount} faktur aktif`, icon: Clock, tone: 'text-sky-600 dark:text-sky-400', bgTone: 'bg-sky-500/10 border-sky-500/20' },
+          { label: 'Overdue', value: formatCurrency(invoiceStats.overdueAmount), helper: `${overdueInvoicesCount} faktur tempo`, icon: AlertCircle, tone: 'text-amber-600 dark:text-amber-400', bgTone: 'bg-amber-500/10 border-amber-500/20' },
+          { label: 'Tingkat Konversi', value: `${quoteConversionRate.toFixed(1)}%`, helper: 'Penawaran disetujui', icon: TrendingUp, tone: 'text-teal-600 dark:text-teal-400', bgTone: 'bg-teal-500/10 border-teal-500/20' },
+        ].map((item, index) => (
+          <Card key={item.label} className={cn(
+            "overflow-hidden border border-border/80 bg-card rounded-xl sm:rounded-2xl shadow-xs",
+            index === 4 && "col-span-2 sm:col-span-1 lg:col-span-1"
+          )}>
+            <CardContent className="p-3 sm:p-4 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between gap-1.5 mb-1.5 sm:mb-2">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate">{item.label}</span>
+                <div className={cn("flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border shrink-0", item.bgTone)}>
+                  <item.icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", item.tone)} />
                 </div>
-                <item.icon className={cn("h-5 w-5 shrink-0", item.tone)} />
+              </div>
+              <div>
+                <h4 className="text-xs min-[360px]:text-sm min-[400px]:text-base sm:text-lg font-black text-foreground tabular-nums tracking-tight leading-tight">
+                  {item.value}
+                </h4>
+                <p className="mt-1 text-[9px] sm:text-[11px] text-muted-foreground font-medium truncate">{item.helper}</p>
               </div>
             </CardContent>
           </Card>
