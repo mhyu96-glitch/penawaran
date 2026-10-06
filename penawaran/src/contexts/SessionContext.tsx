@@ -18,11 +18,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
+    // Safety timeout: ensure loading state never hangs indefinitely if auth refresh is delayed or rate-limited
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 2500);
+
     // Use ONLY onAuthStateChange as the single source of truth.
-    // Supabase guarantees it fires INITIAL_SESSION on subscribe,
-    // so we don't need a separate getSession() call which causes race conditions.
+    // Supabase guarantees it fires INITIAL_SESSION on subscribe.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!isMounted) return;
+      clearTimeout(safetyTimer);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
@@ -30,6 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);

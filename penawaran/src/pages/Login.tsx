@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
+import { supabase, purgeStaleAuthStorage } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { showError, showSuccess } from '@/utils/toast';
 import { 
   Eye, EyeOff, Lock, Mail, ArrowRight, Loader2, KeyRound, 
-  Sparkles, ShieldCheck, CheckCircle2, Zap, ArrowLeft, RefreshCw
+  Sparkles, ShieldCheck, CheckCircle2, Zap, ArrowLeft, RefreshCw,
+  Clock, AlertTriangle
 } from 'lucide-react';
 import { AnimatedLoginMascot } from '@/components/AnimatedLoginMascot';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
   
   // Animation Focus States for Mascot & Feedback
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -29,6 +31,15 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Rate limit countdown effect
+  useEffect(() => {
+    if (rateLimitCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
 
   // If already authenticated and not loading, redirect to dashboard
   if (session && !authLoading) {
@@ -69,6 +80,11 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (rateLimitCountdown > 0) {
+      triggerError(`Mohon tunggu ${rateLimitCountdown} detik sebelum mencoba login kembali.`);
+      return;
+    }
+
     if (!email || (!password && mode !== 'forgot')) {
       triggerError('Mohon lengkapi alamat email dan kata sandi.');
       return;
@@ -91,7 +107,9 @@ const Login = () => {
 
         if (error) {
           if (error.message.toLowerCase().includes('rate') || error.status === 429) {
-            triggerError('Terlalu banyak percobaan login. Mohon tunggu beberapa saat lalu coba lagi.');
+            purgeStaleAuthStorage();
+            setRateLimitCountdown(60);
+            triggerError('Terlalu banyak permintaan (Rate Limit 429). Cache lama dibersihkan. Harap tunggu 60 detik.');
           } else if (error.message.toLowerCase().includes('invalid')) {
             triggerError('Email atau kata sandi yang Anda masukkan salah.');
           } else {
@@ -239,6 +257,19 @@ const Login = () => {
 
 
           <CardContent className="px-6 pt-2 pb-4">
+            {rateLimitCountdown > 0 && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1.5 animate-pulse">
+                <div className="flex items-center gap-2 font-bold text-amber-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Batas Keamanan Supabase (Rate Limit 429)</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Terlalu banyak permintaan otentikasi. Sesi lama Anda telah dibersihkan otomatis. Supabase sedang menerapkan jeda cooldown. Mohon tunggu{' '}
+                  <strong className="text-amber-400 font-bold">{rateLimitCountdown} detik</strong> sebelum mencoba masuk kembali.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Field 1: Email / Username */}
               <div className="space-y-1.5">
@@ -373,15 +404,22 @@ const Login = () => {
               {/* Submit Button with Animated State */}
               <Button
                 type="submit"
-                disabled={isSubmitting || isSuccess}
+                disabled={isSubmitting || isSuccess || rateLimitCountdown > 0}
                 className={cn(
                   "w-full h-11 rounded-xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.98]",
-                  isSuccess 
+                  rateLimitCountdown > 0
+                    ? "bg-amber-600/80 cursor-not-allowed text-amber-200"
+                    : isSuccess 
                     ? "bg-emerald-600 shadow-emerald-600/30" 
                     : "bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 shadow-teal-600/30"
                 )}
               >
-                {isSubmitting ? (
+                {rateLimitCountdown > 0 ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Clock className="h-4 w-4 animate-spin text-amber-200" />
+                    <span>Jeda Keamanan ({rateLimitCountdown}s)</span>
+                  </span>
+                ) : isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-white" />
                     <span>Memverifikasi Akses...</span>
@@ -430,16 +468,11 @@ const Login = () => {
             <button
               type="button"
               onClick={() => {
-                try {
-                  Object.keys(localStorage).forEach((k) => {
-                    if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
-                      localStorage.removeItem(k);
-                    }
-                  });
+                purgeStaleAuthStorage();
+                showSuccess('Cache sesi berhasil dibersihkan.');
+                setTimeout(() => {
                   window.location.reload();
-                } catch {
-                  window.location.reload();
-                }
+                }, 400);
               }}
               className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 mt-1"
             >
