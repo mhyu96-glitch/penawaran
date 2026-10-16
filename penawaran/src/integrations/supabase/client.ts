@@ -45,9 +45,9 @@ if (typeof window !== 'undefined' && window.localStorage) {
         if (item) {
           try {
             const parsed = JSON.parse(item);
-            // 7 days in milliseconds: 7 * 24 * 60 * 60 * 1000 = 604800000 ms
-            if (parsed && parsed.expires_at && (parsed.expires_at * 1000 < Date.now() - 604800000)) {
-              console.warn('[Supabase Auth] Menghapus token kedaluwarsa usang (>7 hari) untuk mencegah rate-limit.');
+            // 24 hours in milliseconds: 24 * 60 * 60 * 1000 = 86400000 ms
+            if (parsed && parsed.expires_at && (parsed.expires_at * 1000 < Date.now() - 86400000)) {
+              console.warn('[Supabase Auth] Menghapus token kedaluwarsa usang (>24 jam) untuk mencegah rate-limit.');
               localStorage.removeItem(key);
             }
           } catch {

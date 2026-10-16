@@ -7,6 +7,27 @@
     <meta name="description" content="Aplikasi manajemen penawaran dan faktur profesional." />
     <link rel="apple-touch-icon" href="/placeholder.svg" />
     <title>QuoteApp</title>
+    <script>
+      // Emergency unregister: forcibly remove any stale Service Workers and clear browser CacheStorage
+      (function() {
+        if (typeof window !== 'undefined') {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+            }).catch(function() {});
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              for (var i = 0; i < names.length; i++) {
+                caches.delete(names[i]);
+              }
+            }).catch(function() {});
+          }
+        }
+      })();
+    </script>
   </head>
 
   <body>
