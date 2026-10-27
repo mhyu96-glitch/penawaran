@@ -23,15 +23,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (isMounted) {
         setLoading(false);
       }
-    }, 2500);
+    }, 2000);
 
     // Use ONLY onAuthStateChange as the single source of truth.
-    // Supabase guarantees it fires INITIAL_SESSION on subscribe.
+    // Stabilize object references so token refreshes do not cause components with useEffect([user]) to re-fetch in a loop.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!isMounted) return;
       clearTimeout(safetyTimer);
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+
+      setSession((prevSession) => {
+        if (!prevSession && !currentSession) return null;
+        if (prevSession && currentSession && prevSession.access_token === currentSession.access_token) {
+          return prevSession;
+        }
+        return currentSession;
+      });
+
+      setUser((prevUser) => {
+        const nextUser = currentSession?.user ?? null;
+        if (!prevUser && !nextUser) return null;
+        if (prevUser && nextUser && prevUser.id === nextUser.id && prevUser.email === nextUser.email) {
+          return prevUser;
+        }
+        return nextUser;
+      });
+
       setLoading(false);
     });
 

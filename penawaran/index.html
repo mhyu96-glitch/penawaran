@@ -7,6 +7,68 @@
     <meta name="description" content="Aplikasi manajemen penawaran dan faktur profesional." />
     <link rel="apple-touch-icon" href="/placeholder.svg" />
     <title>QuoteApp</title>
+    <script>
+      // Emergency unregister & auth shield v4:
+      // 1. One-time cleanup of stale/un-anchored tokens that caused 429 loops on desktop
+      // 2. Forcibly unregister any stale Service Workers and clear CacheStorage
+      (function() {
+        if (typeof window === 'undefined') return;
+        try {
+          var SHIELD_VERSION = 'quoteapp_auth_shield_v4';
+          if (window.localStorage && localStorage.getItem(SHIELD_VERSION) !== '1') {
+            var keysToRemove = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var k = localStorage.key(i);
+              if (k && (k.indexOf('sb-') === 0 || k.indexOf('supabase.auth.token') !== -1)) {
+                try {
+                  var raw = localStorage.getItem(k);
+                  var parsed = raw ? JSON.parse(raw) : null;
+                  // If token is missing _client_anchored_at or already expired on this machine's clock, remove it
+                  if (!parsed || !parsed.access_token || !parsed._client_anchored_at || (parsed.expires_at && parsed.expires_at * 1000 <= Date.now() + 90000)) {
+                    keysToRemove.push(k);
+                  }
+                } catch (e) {
+                  keysToRemove.push(k);
+                }
+              }
+            }
+            for (var j = 0; j < keysToRemove.length; j++) {
+              localStorage.removeItem(keysToRemove[j]);
+            }
+            localStorage.setItem(SHIELD_VERSION, '1');
+          }
+        } catch (e) {}
+
+        try {
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              for (var i = 0; i < names.length; i++) {
+                caches.delete(names[i]);
+              }
+            }).catch(function() {});
+          }
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              var hadRegistrations = registrations && registrations.length > 0;
+              var promises = [];
+              for (var i = 0; i < registrations.length; i++) {
+                promises.push(registrations[i].unregister());
+              }
+              Promise.all(promises).then(function() {
+                if (hadRegistrations && navigator.serviceWorker.controller) {
+                  try {
+                    if (sessionStorage.getItem('sw_purged_reload_v4') !== '1') {
+                      sessionStorage.setItem('sw_purged_reload_v4', '1');
+                      window.location.reload();
+                    }
+                  } catch (e) {}
+                }
+              });
+            }).catch(function() {});
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
 
   <body>

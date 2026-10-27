@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, purgeStaleAuthStorage } from '@/integrations/supabase/client';
+import { supabase, purgeStaleAuthStorage, getAuthRateLimitRemainingSeconds } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(() => getAuthRateLimitRemainingSeconds());
   
   // Animation Focus States for Mascot & Feedback
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -31,6 +31,13 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Stop background token refresh ticks while user is unauthenticated on the Login page
+  useEffect(() => {
+    if (!session) {
+      supabase.auth.stopAutoRefresh().catch(() => {});
+    }
+  }, [session]);
 
   // Rate limit countdown effect
   useEffect(() => {
@@ -120,6 +127,7 @@ const Login = () => {
         }
 
         if (data.session || data.user) {
+          supabase.auth.startAutoRefresh().catch(() => {});
           setIsSuccess(true);
           showSuccess('Login berhasil! Mengalihkan ke Dashboard...');
           setTimeout(() => {
