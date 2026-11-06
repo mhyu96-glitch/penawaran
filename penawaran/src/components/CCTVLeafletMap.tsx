@@ -199,8 +199,19 @@ export const CCTVLeafletMap: React.FC<CCTVLeafletMapProps> = ({
     const layerGroup = markersLayerRef.current;
     layerGroup.clearLayers();
 
-    items.forEach((item) => {
-      if (isNaN(item.lat) || isNaN(item.lng)) return;
+    // Kelompokkan proyek yang berada di lokasi sama (~11 m) agar tidak saling menimpa
+    const groups = new Map<string, MapMarkerItem[]>();
+    items.forEach((it) => {
+      if (isNaN(it.lat) || isNaN(it.lng)) return;
+      const key = `${it.lat.toFixed(4)},${it.lng.toFixed(4)}`;
+      const list = groups.get(key);
+      if (list) list.push(it);
+      else groups.set(key, [it]);
+    });
+
+    groups.forEach((members) => {
+      const item = members.find((m) => m.id === selectedId) || members[0];
+      const groupCount = members.length;
 
       const isDone = item.progress === 100;
       const isWorking = item.progress > 0 && item.progress < 100;
@@ -250,6 +261,11 @@ export const CCTVLeafletMap: React.FC<CCTVLeafletMapProps> = ({
           ">
             ${serviceEmoji}
           </div>
+          ${
+            groupCount > 1
+              ? `<div style="position:absolute; top:-9px; right:-9px; min-width:18px; height:18px; padding:0 4px; border-radius:9999px; background:#0f172a; color:#fff; border:2px solid #fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.35);">${groupCount}</div>`
+              : ''
+          }
         </div>
       `;
 
@@ -320,8 +336,36 @@ export const CCTVLeafletMap: React.FC<CCTVLeafletMapProps> = ({
         </div>
       `;
 
+      let popupContent: string | HTMLElement = popupHtml;
+      if (groupCount > 1) {
+        const el = document.createElement('div');
+        el.style.cssText = 'font-family: system-ui, -apple-system, sans-serif; min-width: 230px; max-width: 265px;';
+        const head = document.createElement('div');
+        head.style.cssText = 'font-weight:800; font-size:12.5px; color:#0f172a; margin-bottom:6px;';
+        head.textContent = `📍 ${groupCount} proyek di lokasi ini`;
+        el.appendChild(head);
+        members.forEach((m) => {
+          const dot = m.progress === 100 ? '#10b981' : m.progress > 0 ? '#f59e0b' : '#f43f5e';
+          const row = document.createElement('button');
+          row.type = 'button';
+          row.style.cssText = `display:flex; align-items:center; gap:6px; width:100%; text-align:left; cursor:pointer; margin-bottom:4px; padding:6px 8px; border-radius:8px; border:1px solid ${m.id === selectedId ? '#0d9488' : '#e2e8f0'}; background:${m.id === selectedId ? '#f0fdfa' : '#ffffff'};`;
+          const d = document.createElement('span');
+          d.style.cssText = `flex:none; width:9px; height:9px; border-radius:9999px; background:${dot};`;
+          const t = document.createElement('span');
+          t.style.cssText = 'flex:1; font-size:11.5px; font-weight:700; color:#0f172a; line-height:1.25;';
+          t.textContent = m.title;
+          const p = document.createElement('span');
+          p.style.cssText = `flex:none; font-size:11px; font-weight:800; color:${dot};`;
+          p.textContent = `${m.progress}%`;
+          row.append(d, t, p);
+          row.onclick = () => onSelectMarker?.(m.id);
+          el.appendChild(row);
+        });
+        popupContent = el;
+      }
+
       const marker = L.marker([item.lat, item.lng], { icon })
-        .bindPopup(popupHtml, {
+        .bindPopup(popupContent, {
           autoPan: true,
           autoPanPaddingTopLeft: [50, 40],
           autoPanPaddingBottomRight: [40, 50],
