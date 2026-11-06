@@ -1,0 +1,509 @@
+// Bot Telegram Borneo Etam: buat penawaran, faktur, proyek + titik peta, update progres.
+// Semua aksi tulis butuh konfirmasi tombol "Ya" dari pemilik.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { DEFAULT_PACKAGES } from './packages.ts';
+
+const env = (k: string) => Deno.env.get(k) ?? '';
+const TOKEN = env('TELEGRAM_BOT_TOKEN');
+const WEBHOOK_SECRET = env('TELEGRAM_WEBHOOK_SECRET');
+const ALLOWED_ID = Number(env('ALLOWED_TELEGRAM_ID'));
+const OWNER_ID = env('OWNER_USER_ID');
+const GEMINI_KEY = env('GEMINI_API_KEY');
+const GEMINI_MODEL = env('GEMINI_MODEL') || 'gemini-2.5-flash';
+const APP_URL = env('APP_BASE_URL').replace(/\/$/, '');
+
+const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
+
+// ------------------------------------------------------------------ util
+const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const rp = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+
+async function tg(method: string, body: Record<string, unknown>) {
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json().catch(() => ({}));
+}
+
+const send = (chat_id: number, text: string, buttons?: { text: string; data: string }[][]) =>
+  tg('sendMessage', {
+    chat_id,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...(buttons ? { reply_markup: { inline_keyboard: buttons.map((r) => r.map((b) => ({ text: b.text, callback_data: b.data }))) } } : {}),
+  });
+
+function nowParts() {
+  const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const [y, m, d] = f.format(new Date()).split('-').map(Number);
+  return { y, m, d, iso: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` };
+}
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+// ------------------------------------------------------------------ paket
+async function loadPackages(): Promise<any[]> {
+  const { data } = await db.from('borneo_packages').select('id,data').eq('user_id', OWNER_ID);
+  if (data && data.length > 0) return data.map((r: any) => ({ ...r.data, id: r.id }));
+  return DEFAULT_PACKAGES;
+}
+
+const cloneItems = (pkg: any) => (pkg?.items ?? []).map((i: any) => ({ ...i }));
+const subtotal = (items: any[]) => items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+// ------------------------------------------------------------------ Gemini
+const SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    intent: { type: 'STRING', enum: ['create_quote', 'create_invoice', 'add_project', 'update_progress', 'modify_pending', 'chat'] },
+    reply: { type: 'STRING', nullable: true },
+    client_name: { type: 'STRING', nullable: true },
+    client_phone: { type: 'STRING', nullable: true },
+    client_address: { type: 'STRING', nullable: true },
+    city: { type: 'STRING', nullable: true },
+    package_id: { type: 'STRING', nullable: true },
+    item_adjustments: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { index: { type: 'INTEGER' }, quantity: { type: 'NUMBER' } }, required: ['index', 'quantity'] },
+    },
+    extra_items: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { description: { type: 'STRING' }, quantity: { type: 'NUMBER' }, unit: { type: 'STRING' }, unit_price: { type: 'NUMBER' } },
+        required: ['description', 'quantity', 'unit_price'],
+      },
+    },
+    discount_amount: { type: 'NUMBER', nullable: true },
+    down_payment_percent: { type: 'NUMBER', nullable: true },
+    down_payment_amount: { type: 'NUMBER', nullable: true },
+    target_text: { type: 'STRING', nullable: true },
+    project_name: { type: 'STRING', nullable: true },
+    service_type: { type: 'STRING', enum: ['CCTV', 'POS', 'BUNDLING'], nullable: true },
+    progress: { type: 'INTEGER', nullable: true },
+    installed_at: { type: 'STRING', nullable: true },
+    sn_nvr: { type: 'STRING', nullable: true },
+    sn_hdd: { type: 'STRING', nullable: true },
+  },
+  required: ['intent'],
+};
+
+async function askGemini(text: string, packages: any[], pending: any | null): Promise<any> {
+  const catalog = packages
+    .map((p) => `- id="${p.id}" | ${p.shortName} | ${p.service_type} | ${rp(p.totalPrice)}\n` +
+      (p.items ?? []).map((it: any, i: number) => `    [${i}] ${it.description} x${it.quantity} @${it.unit_price}`).join('\n'))
+    .join('\n');
+
+  const pendingInfo = pending
+    ? `\nAKSI MENUNGGU KONFIRMASI (jenis=${pending.kind}): ${JSON.stringify(pending.payload).slice(0, 3500)}\n` +
+      (pending.kind === 'quote'
+        ? 'Item saat ini:\n' + (pending.payload.items ?? []).map((it: any, i: number) => `    [${i}] ${it.description} x${it.quantity} @${it.unit_price}`).join('\n')
+        : '')
+    : '';
+
+  const system = `Kamu asisten bot Telegram untuk usaha CCTV & Kasir POS "Borneo Etam" di Kalimantan Timur. Bahasa Indonesia santai.
+Hari ini: ${nowParts().iso}. Tugasmu hanya mengekstrak maksud pesan menjadi JSON sesuai skema.
+Intent:
+- create_quote: minta dibuatkan penawaran. Isi client_name, client_phone, client_address (jika ada), package_id dari katalog (null jika tidak cocok), item_adjustments (index dari item paket + quantity baru) bila minta ubah jumlah, extra_items bila minta tambahan barang/jasa, discount_amount bila ada diskon.
+- create_invoice: minta faktur. target_text = nama klien atau nomor penawaran. Isi down_payment_percent ATAU down_payment_amount jika disebut DP.
+- add_project: catat/tambah proyek atau titik di peta. Isi project_name, client_name, client_phone, client_address, city, service_type, package_id, progress (0-100, "selesai"=100, "belum mulai/survei"=0, "lagi dipasang"=50 bila tak disebut angka), installed_at (YYYY-MM-DD), sn_nvr, sn_hdd.
+- update_progress: ubah progres/SN proyek yang sudah ada. target_text = nama proyek/klien. Isi progress/sn_nvr/sn_hdd/installed_at.
+- modify_pending: pesan hanya merevisi aksi yang MENUNGGU KONFIRMASI (misal "diskon 500rb", "jadi 6 kamera", "DP 30%", "ganti nama jadi ..."). Hanya pakai jika ada aksi menunggu.
+- chat: selain itu; isi reply singkat dan arahkan ke fitur yang tersedia.
+Jangan mengarang angka. Harga/nominal: "500rb"=500000, "1,5jt"=1500000.
+KATALOG PAKET:
+${catalog}${pendingInfo}`;
+
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text }] }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.1 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+  return JSON.parse(raw);
+}
+
+// ------------------------------------------------------------------ geocode
+async function geocode(address: string, city?: string | null): Promise<{ lat: number; lng: number } | null> {
+  const q = [address, city, 'Kalimantan Timur', 'Indonesia'].filter(Boolean).join(', ');
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=${encodeURIComponent(q)}`, {
+      headers: { 'User-Agent': 'BorneoEtamBot/1.0 (penawaran app)' },
+    });
+    const arr = await res.json();
+    if (Array.isArray(arr) && arr[0]) return { lat: Number(arr[0].lat), lng: Number(arr[0].lon) };
+  } catch (_) { /* abaikan */ }
+  return null;
+}
+
+// ------------------------------------------------------------------ pending
+async function savePending(chat_id: number, kind: string, payload: any, status = 'pending') {
+  const { data, error } = await db.from('telegram_pending_actions').insert({ chat_id, kind, payload, status }).select('id').single();
+  if (error) throw new Error('Gagal menyimpan aksi: ' + error.message);
+  return data.id as string;
+}
+
+async function latestPending(chat_id: number, statuses = ['pending', 'need_location']) {
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data } = await db.from('telegram_pending_actions').select('*')
+    .eq('chat_id', chat_id).in('status', statuses).gte('created_at', since)
+    .order('created_at', { ascending: false }).limit(1);
+  return data?.[0] ?? null;
+}
+
+// ------------------------------------------------------------------ ringkasan
+function quoteSummary(p: any): string {
+  const lines = (p.items ?? []).filter((i: any) => Number(i.quantity) > 0)
+    .map((i: any) => `• ${esc(i.description)} ×${i.quantity}`).join('\n');
+  const sub = subtotal(p.items ?? []);
+  const total = sub - (p.discount_amount || 0);
+  return `<b>📄 Konfirmasi Penawaran</b>\nKlien: <b>${esc(p.client_name)}</b>\nAlamat: ${esc(p.client_address || '-')}\nHP: ${esc(p.client_phone || '-')}\nPaket: <b>${esc(p.package_name || 'Custom')}</b>\n\n${lines}\n\n` +
+    (p.discount_amount ? `Subtotal: ${rp(sub)}\nDiskon: -${rp(p.discount_amount)}\n` : '') +
+    `Total: <b>${rp(total)}</b>\n\n<i>Revisi? balas misal "jadi 6 kamera" atau "diskon 500rb".</i>\n<b>Buat sekarang?</b>`;
+}
+
+function projectSummary(p: any): string {
+  const stat = p.progress === 100 ? '100% Selesai' : p.progress > 0 ? `${p.progress}% Pengerjaan` : '0% Antrean survei';
+  return `<b>📍 Konfirmasi Proyek &amp; Titik Peta</b>\nProyek: <b>${esc(p.project_name)}</b>\nKlien: ${esc(p.client_name || '-')} • ${esc(p.client_phone || '-')}\nLayanan: ${esc(p.service_type)}${p.package_name ? ' • ' + esc(p.package_name) : ''}\nAlamat: ${esc(p.address_landmark || '-')}, ${esc(p.city)}\nKoordinat: ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)} <i>(${esc(p.geo_source)})</i>\nProgres: <b>${stat}</b>${p.installed_at ? ' • Pasang: ' + esc(p.installed_at) : ''}\n` +
+    (p.sn_nvr ? `SN NVR: ${esc(p.sn_nvr)}\n` : '') + (p.sn_hdd ? `SN HDD: ${esc(p.sn_hdd)}\n` : '') +
+    `Portofolio publik: <b>${p.is_public ? 'Ya' : 'Tidak'}</b>\n\n<b>Simpan dan tampilkan di peta?</b>`;
+}
+
+async function showPending(chat_id: number, id: string, kind: string, p: any) {
+  if (kind === 'quote') return send(chat_id, quoteSummary(p), [[{ text: '✅ Ya, buat', data: `ok:${id}` }, { text: '❌ Batal', data: `no:${id}` }]]);
+  if (kind === 'invoice') {
+    return send(chat_id,
+      `<b>🧾 Konfirmasi Faktur</b>\nDari penawaran: <code>${esc(p.quote_number)}</code>\nKlien: <b>${esc(p.client_name)}</b>\nTotal: ${rp(p.total)}\nDP: <b>${rp(p.dp_amount)}</b>\nSisa: ${rp(p.total - p.dp_amount)}\n\n<b>Buat faktur?</b>`,
+      [[{ text: '✅ Ya, buat', data: `ok:${id}` }, { text: '❌ Batal', data: `no:${id}` }]]);
+  }
+  if (kind === 'project') {
+    return send(chat_id, projectSummary(p), [
+      [{ text: '✅ Ya, simpan', data: `ok:${id}` }, { text: p.is_public ? '🔒 Jadikan privat' : '🌐 Jadikan publik', data: `pub:${id}` }],
+      [{ text: '❌ Batal', data: `no:${id}` }],
+    ]);
+  }
+  return send(chat_id,
+    `<b>🔄 Konfirmasi Update Proyek</b>\nProyek: <b>${esc(p.project_name)}</b>\n` +
+    (p.progress != null ? `Progres: <b>${p.progress}%</b>\n` : '') + (p.sn_nvr ? `SN NVR: ${esc(p.sn_nvr)}\n` : '') +
+    (p.sn_hdd ? `SN HDD: ${esc(p.sn_hdd)}\n` : '') + (p.installed_at ? `Tgl pasang: ${esc(p.installed_at)}\n` : '') + '\n<b>Simpan perubahan?</b>',
+    [[{ text: '✅ Ya, simpan', data: `ok:${id}` }, { text: '❌ Batal', data: `no:${id}` }]]);
+}
+
+// ------------------------------------------------------------------ intent -> pending
+async function handleText(chat_id: number, text: string) {
+  const packages = await loadPackages();
+  const pending = await latestPending(chat_id);
+  const r = await askGemini(text, packages, pending);
+
+  switch (r.intent) {
+    case 'create_quote': {
+      if (!r.client_name) return send(chat_id, 'Nama klien-nya siapa bro? Contoh: <i>buatkan penawaran atas nama Pak Hendra, Jl. Ahmad Yani 12 Samarinda, paket 8 titik IP cam</i>');
+      const pkg = packages.find((p) => p.id === r.package_id) ?? null;
+      const items = cloneItems(pkg);
+      for (const a of r.item_adjustments ?? []) if (items[a.index]) items[a.index].quantity = a.quantity;
+      for (const e of r.extra_items ?? []) items.push({ description: e.description, quantity: e.quantity, unit: e.unit || 'Unit', unit_price: e.unit_price, cost_price: 0 });
+      if (items.filter((i: any) => Number(i.quantity) > 0).length === 0) {
+        return send(chat_id, `Paketnya yang mana bro?\n${packages.map((p) => `• ${esc(p.shortName)} (${rp(p.totalPrice)})`).join('\n')}`);
+      }
+      const payload = {
+        client_name: r.client_name, client_phone: r.client_phone || '', client_address: r.client_address || '',
+        package_id: pkg?.id ?? null, package_name: pkg?.shortName ?? null, terms: pkg?.defaultTerms ?? '',
+        items, discount_amount: r.discount_amount || 0,
+      };
+      const id = await savePending(chat_id, 'quote', payload);
+      return showPending(chat_id, id, 'quote', payload);
+    }
+
+    case 'modify_pending': {
+      if (!pending || pending.kind !== 'quote') {
+        if (pending && (pending.kind === 'invoice')) {
+          const p = pending.payload;
+          if (r.down_payment_percent != null) p.dp_amount = Math.round(p.total * r.down_payment_percent / 100);
+          if (r.down_payment_amount != null) p.dp_amount = r.down_payment_amount;
+          await db.from('telegram_pending_actions').update({ payload: p }).eq('id', pending.id);
+          return showPending(chat_id, pending.id, 'invoice', p);
+        }
+        if (pending && pending.kind === 'project') {
+          const p = pending.payload;
+          for (const k of ['project_name', 'client_name', 'client_phone', 'city', 'progress', 'installed_at', 'sn_nvr', 'sn_hdd', 'service_type']) {
+            if (r[k] != null) p[k] = r[k];
+          }
+          if (r.client_address) p.address_landmark = r.client_address;
+          await db.from('telegram_pending_actions').update({ payload: p }).eq('id', pending.id);
+          return showPending(chat_id, pending.id, 'project', p);
+        }
+        return send(chat_id, 'Tidak ada yang menunggu konfirmasi. Mau buat apa bro?');
+      }
+      const p = pending.payload;
+      for (const a of r.item_adjustments ?? []) if (p.items[a.index]) p.items[a.index].quantity = a.quantity;
+      for (const e of r.extra_items ?? []) p.items.push({ description: e.description, quantity: e.quantity, unit: e.unit || 'Unit', unit_price: e.unit_price, cost_price: 0 });
+      if (r.discount_amount != null) p.discount_amount = r.discount_amount;
+      if (r.client_name) p.client_name = r.client_name;
+      if (r.client_phone) p.client_phone = r.client_phone;
+      if (r.client_address) p.client_address = r.client_address;
+      await db.from('telegram_pending_actions').update({ payload: p }).eq('id', pending.id);
+      return showPending(chat_id, pending.id, 'quote', p);
+    }
+
+    case 'create_invoice': {
+      const t = (r.target_text || '').trim();
+      let q = db.from('quotes').select('id, quote_number, to_client, discount_amount, quote_items(quantity, unit_price)')
+        .eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+      const { data } = await q;
+      const quote: any = data?.[0];
+      if (!quote) return send(chat_id, `Penawaran untuk "${esc(t || 'terakhir')}" tidak ketemu bro.`);
+      const total = (quote.quote_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
+      let dp = 0;
+      if (r.down_payment_amount != null) dp = r.down_payment_amount;
+      else if (r.down_payment_percent != null) dp = Math.round(total * r.down_payment_percent / 100);
+      const payload = { quote_id: quote.id, quote_number: quote.quote_number, client_name: quote.to_client, total, dp_amount: dp };
+      const id = await savePending(chat_id, 'invoice', payload);
+      return showPending(chat_id, id, 'invoice', payload);
+    }
+
+    case 'add_project': {
+      if (!r.project_name && !r.client_name) return send(chat_id, 'Nama proyek atau kliennya apa bro?');
+      const pkg = packages.find((p) => p.id === r.package_id) ?? null;
+      const payload: any = {
+        project_name: r.project_name || `Proyek ${r.client_name}`,
+        client_name: r.client_name || '', client_phone: r.client_phone || '',
+        address_landmark: r.client_address || '', city: r.city || 'Samarinda',
+        service_type: r.service_type || pkg?.service_type || 'CCTV',
+        package_name: pkg?.shortName ?? '', warranty_months: pkg?.warrantyMonths ?? 12,
+        progress: r.progress ?? 0, installed_at: r.installed_at || null,
+        sn_nvr: r.sn_nvr || '', sn_hdd: r.sn_hdd || '', is_public: false,
+        latitude: null, longitude: null, geo_source: '',
+      };
+      if (payload.progress === 100 && !payload.installed_at) payload.installed_at = nowParts().iso;
+      const geo = payload.address_landmark ? await geocode(payload.address_landmark, payload.city) : null;
+      if (geo) {
+        Object.assign(payload, { latitude: geo.lat, longitude: geo.lng, geo_source: 'dari alamat, cek akurasi' });
+        const id = await savePending(chat_id, 'project', payload);
+        return showPending(chat_id, id, 'project', payload);
+      }
+      await savePending(chat_id, 'project', payload, 'need_location');
+      return send(chat_id, `Titik "<b>${esc(payload.project_name)}</b>" belum ketemu dari alamat. Kirim <b>pin lokasi Telegram</b> (📎 → Lokasi) ya bro.`);
+    }
+
+    case 'update_progress': {
+      const t = (r.target_text || r.project_name || r.client_name || '').trim();
+      if (!t) return send(chat_id, 'Proyek yang mana bro?');
+      const { data } = await db.from('cctv_installations').select('id, project_name')
+        .eq('user_id', OWNER_ID).or(`project_name.ilike.%${t}%,client_name.ilike.%${t}%`)
+        .order('created_at', { ascending: false }).limit(3);
+      if (!data || data.length === 0) return send(chat_id, `Proyek "${esc(t)}" tidak ketemu bro.`);
+      const payload: any = { installation_id: data[0].id, project_name: data[0].project_name, progress: r.progress ?? null, sn_nvr: r.sn_nvr || '', sn_hdd: r.sn_hdd || '', installed_at: r.installed_at || null };
+      if (payload.progress === 100 && !payload.installed_at) payload.installed_at = nowParts().iso;
+      const id = await savePending(chat_id, 'progress', payload);
+      return showPending(chat_id, id, 'progress', payload);
+    }
+
+    default:
+      return send(chat_id, esc(r.reply || 'Saya bisa: buat penawaran, buat faktur, tambah proyek + titik peta, dan update progres proyek.'));
+  }
+}
+
+// ------------------------------------------------------------------ eksekusi
+async function nextQuoteNumber(): Promise<string> {
+  const { y, m } = nowParts();
+  const prefix = `QUO/BE-CCTV/${ROMAN[m - 1]}/${y}/`;
+  const { data } = await db.from('quotes').select('quote_number').eq('user_id', OWNER_ID).like('quote_number', `${prefix}%`);
+  const max = (data ?? []).reduce((mx: number, r: any) => Math.max(mx, parseInt(String(r.quote_number).split('/').pop() || '0', 10) || 0), 0);
+  return `${prefix}${String(max + 1).padStart(3, '0')}`;
+}
+
+async function execQuote(p: any): Promise<string> {
+  const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
+  let clientId: string | null = null;
+  const name = p.client_name.trim();
+  const { data: ex } = await db.from('clients').select('id').eq('user_id', OWNER_ID).ilike('name', name).limit(1).maybeSingle();
+  if (ex?.id) clientId = ex.id;
+  else {
+    const { data: nc } = await db.from('clients').insert({ user_id: OWNER_ID, name, address: p.client_address || '', phone: p.client_phone || '' }).select('id').single();
+    clientId = nc?.id ?? null;
+  }
+  const number = await nextQuoteNumber();
+  const valid = new Date(Date.now() + 14 * 86400000).toISOString();
+  const { data: quote, error } = await db.from('quotes').insert({
+    user_id: OWNER_ID, quote_number: number, status: 'Draf', client_id: clientId,
+    from_company: profile?.company_name || 'Borneo Etam', from_address: profile?.company_address || '', from_website: profile?.company_website || '',
+    to_client: name, to_address: p.client_address || '', to_phone: p.client_phone || '',
+    title: `Penawaran ${p.package_name || 'Custom'} - ${name}`,
+    discount_amount: p.discount_amount || 0, tax_amount: 0,
+    terms: p.terms || profile?.default_terms || '', attachments: [],
+    created_at: new Date().toISOString(), valid_until: valid,
+  }).select('id').single();
+  if (error || !quote) throw new Error('Gagal membuat penawaran: ' + (error?.message ?? ''));
+  const rows = p.items.filter((i: any) => i.description?.trim()).map((i: any) => ({
+    quote_id: quote.id, description: i.description.trim(), quantity: Number(i.quantity) || 0,
+    unit: i.unit || '', unit_price: Number(i.unit_price) || 0, cost_price: Number(i.cost_price) || 0,
+  }));
+  const { error: ie } = await db.from('quote_items').insert(rows);
+  if (ie) { await db.from('quotes').delete().eq('id', quote.id); throw new Error('Gagal menyimpan item: ' + ie.message); }
+  const link = APP_URL ? `\n📄 Lihat &amp; unduh PDF:\n${APP_URL}/quote/public/${quote.id}` : '';
+  return `<b>✅ Penawaran dibuat</b>\nNo: <code>${esc(number)}</code>\nTotal: <b>${rp(subtotal(p.items) - (p.discount_amount || 0))}</b>\nStatus: Draf${link}`;
+}
+
+async function execInvoice(p: any): Promise<string> {
+  const { data: quote } = await db.from('quotes').select('*, quote_items(*)').eq('id', p.quote_id).single();
+  if (!quote) throw new Error('Penawaran sumber tidak ditemukan.');
+  const { data: existing } = await db.from('invoices').select('id, invoice_number').eq('quote_id', quote.id).limit(1);
+  if (existing && existing.length > 0) return `Faktur untuk penawaran ini sudah ada: <code>${esc(existing[0].invoice_number)}</code>. Tidak dibuat ulang.`;
+  const { y } = nowParts();
+  const { data: last } = await db.from('invoices').select('invoice_number').eq('user_id', OWNER_ID).like('invoice_number', `INV-${y}-%`).order('created_at', { ascending: false }).limit(1);
+  const lastNum = parseInt(String(last?.[0]?.invoice_number || '').split('-').pop() || '0', 10) || 0;
+  const number = `INV-${y}-${String(lastNum + 1).padStart(3, '0')}`;
+  let payload: Record<string, any> = {
+    user_id: OWNER_ID, quote_id: quote.id, client_id: quote.client_id || null, project_id: quote.project_id || null,
+    from_company: quote.from_company || '', from_address: quote.from_address || '', from_website: quote.from_website || '',
+    to_client: quote.to_client || '', to_address: quote.to_address || '', to_phone: quote.to_phone || '',
+    title: quote.title || `Faktur dari ${quote.quote_number}`, discount_amount: quote.discount_amount || 0, tax_amount: quote.tax_amount || 0,
+    terms: quote.terms || '', status: 'Draf', invoice_number: number, invoice_date: new Date().toISOString(),
+    due_date: quote.valid_until || null, down_payment_amount: p.dp_amount || 0, attachments: quote.attachments || [],
+  };
+  let res = await db.from('invoices').insert(payload).select('id, invoice_number').single();
+  for (const drop of ['invoice_date', 'project_id', 'down_payment_amount']) {
+    if (!res.error || !/column/i.test(res.error.message)) break;
+    delete payload[drop];
+    res = await db.from('invoices').insert(payload).select('id, invoice_number').single();
+  }
+  if (res.error || !res.data) throw new Error('Gagal membuat faktur: ' + (res.error?.message ?? ''));
+  const rows = (quote.quote_items ?? []).map((i: any) => ({
+    invoice_id: res.data.id, description: i.description || '', quantity: Number(i.quantity) || 0,
+    unit: i.unit || 'Unit', unit_price: Number(i.unit_price) || 0, cost_price: Number(i.cost_price) || 0,
+  }));
+  if (rows.length) {
+    const { error: ie } = await db.from('invoice_items').insert(rows);
+    if (ie) { await db.from('invoices').delete().eq('id', res.data.id); throw new Error('Gagal menyalin item faktur: ' + ie.message); }
+  }
+  await db.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
+  const link = APP_URL ? `\n🧾 Lihat &amp; unduh PDF:\n${APP_URL}/invoice/public/${res.data.id}` : '';
+  return `<b>✅ Faktur dibuat</b>\nNo: <code>${esc(res.data.invoice_number)}</code>\nDP: ${rp(p.dp_amount)} • Sisa: ${rp(p.total - p.dp_amount)}\nPenawaran ${esc(quote.quote_number)} ditandai Diterima.${link}`;
+}
+
+async function execProject(p: any): Promise<string> {
+  const { error } = await db.from('cctv_installations').insert({
+    user_id: OWNER_ID, project_name: p.project_name,
+    public_display_name: `Instalasi ${p.service_type} - Area ${p.city}`,
+    client_name: p.client_name, client_phone: p.client_phone, address_landmark: p.address_landmark,
+    service_type: p.service_type, package_name: p.package_name, city: p.city,
+    latitude: p.latitude, longitude: p.longitude, progress: p.progress,
+    sn_nvr: p.sn_nvr, sn_hdd: p.sn_hdd, installed_at: p.installed_at, warranty_months: p.warranty_months,
+    is_public_portfolio: !!p.is_public, notes: 'Dibuat via bot Telegram', photos: [],
+  });
+  if (error) throw new Error('Gagal menyimpan proyek: ' + error.message);
+  return `<b>✅ Titik sudah masuk peta</b>\n${esc(p.project_name)} muncul di Command Center${p.progress === 100 ? ' dan Monitor Garansi' : ''}.`;
+}
+
+async function execProgress(p: any): Promise<string> {
+  const patch: Record<string, any> = {};
+  if (p.progress != null) patch.progress = p.progress;
+  if (p.sn_nvr) patch.sn_nvr = p.sn_nvr;
+  if (p.sn_hdd) patch.sn_hdd = p.sn_hdd;
+  if (p.installed_at) patch.installed_at = p.installed_at;
+  if (Object.keys(patch).length === 0) return 'Tidak ada perubahan yang disebutkan.';
+  patch.updated_at = new Date().toISOString();
+  const { error } = await db.from('cctv_installations').update(patch).eq('id', p.installation_id).eq('user_id', OWNER_ID);
+  if (error) throw new Error('Gagal update proyek: ' + error.message);
+  return `<b>✅ Proyek diperbarui</b>\n${esc(p.project_name)}`;
+}
+
+async function handleCallback(cb: any) {
+  const chat_id = cb.message.chat.id;
+  const [action, id] = String(cb.data).split(':');
+  await tg('answerCallbackQuery', { callback_query_id: cb.id });
+
+  const { data: row } = await db.from('telegram_pending_actions').select('*').eq('id', id).maybeSingle();
+  if (!row || row.chat_id !== chat_id) return;
+
+  if (action === 'pub' && row.status === 'pending') {
+    row.payload.is_public = !row.payload.is_public;
+    await db.from('telegram_pending_actions').update({ payload: row.payload }).eq('id', id);
+    await tg('editMessageReplyMarkup', { chat_id, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+    return showPending(chat_id, id, 'project', row.payload);
+  }
+
+  await tg('editMessageReplyMarkup', { chat_id, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } });
+
+  if (action === 'no') {
+    await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', id).in('status', ['pending', 'need_location']);
+    return send(chat_id, 'Oke, dibatalkan. Tidak ada data yang disimpan.');
+  }
+
+  if (action === 'ok') {
+    // klaim atomik agar klik ganda / retry tidak membuat data dobel
+    const { data: claimed } = await db.from('telegram_pending_actions').update({ status: 'done' }).eq('id', id).eq('status', 'pending').select('id');
+    if (!claimed || claimed.length === 0) return send(chat_id, 'Aksi ini sudah diproses atau kedaluwarsa.');
+    try {
+      const msg = row.kind === 'quote' ? await execQuote(row.payload)
+        : row.kind === 'invoice' ? await execInvoice(row.payload)
+        : row.kind === 'project' ? await execProject(row.payload)
+        : await execProgress(row.payload);
+      return send(chat_id, msg);
+    } catch (e) {
+      await db.from('telegram_pending_actions').update({ status: 'pending' }).eq('id', id);
+      return send(chat_id, `⚠️ ${esc((e as Error).message)}\nTekan Ya lagi untuk coba ulang.`, [[{ text: '✅ Coba lagi', data: `ok:${id}` }, { text: '❌ Batal', data: `no:${id}` }]]);
+    }
+  }
+}
+
+async function handleLocation(chat_id: number, loc: { latitude: number; longitude: number }) {
+  const row = await latestPending(chat_id, ['need_location', 'pending']);
+  if (!row || row.kind !== 'project') return send(chat_id, 'Lokasi diterima, tapi belum ada proyek yang menunggu titik. Ketik dulu: <i>tambah proyek ...</i>');
+  const p = row.payload;
+  Object.assign(p, { latitude: loc.latitude, longitude: loc.longitude, geo_source: 'dari pin Telegram' });
+  await db.from('telegram_pending_actions').update({ payload: p, status: 'pending' }).eq('id', row.id);
+  return showPending(chat_id, row.id, 'project', p);
+}
+
+// ------------------------------------------------------------------ webhook
+Deno.serve(async (req) => {
+  if (req.method !== 'POST') return new Response('ok');
+  if (!WEBHOOK_SECRET || req.headers.get('x-telegram-bot-api-secret-token') !== WEBHOOK_SECRET) {
+    return new Response('forbidden', { status: 401 });
+  }
+  let update: any;
+  try { update = await req.json(); } catch { return new Response('ok'); }
+
+  const from = update.message?.from?.id ?? update.callback_query?.from?.id;
+  if (!ALLOWED_ID || from !== ALLOWED_ID) return new Response('ok'); // diam untuk orang lain
+
+  try {
+    if (update.callback_query) {
+      await handleCallback(update.callback_query);
+    } else if (update.message) {
+      const m = update.message;
+      const chat_id = m.chat.id;
+      if (m.location) await handleLocation(chat_id, m.location);
+      else if (m.text) {
+        const t = String(m.text).trim();
+        if (t === '/start' || t === '/help') {
+          await send(chat_id, '<b>Borneo Etam Assistant</b>\nContoh perintah:\n• <i>buatkan penawaran atas nama Pak Hendra, Jl. Ahmad Yani 12 Samarinda, paket 8 titik IP cam</i>\n• <i>buatkan faktur Pak Hendra DP 50%</i>\n• <i>tambah proyek Kopi Tepian Tenggarong, sudah selesai, SN NVR ...</i>\n• <i>proyek Kopi Tepian jadi 80%</i>\n\nSemua aksi minta konfirmasi dulu. /batal untuk membatalkan.');
+        } else if (t === '/batal') {
+          const row = await latestPending(chat_id);
+          if (row) await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', row.id);
+          await send(chat_id, row ? 'Dibatalkan.' : 'Tidak ada yang menunggu.');
+        } else {
+          await handleText(chat_id, t);
+        }
+      } else {
+        await send(chat_id, 'Untuk saat ini saya paham teks dan pin lokasi. Foto belum didukung.');
+      }
+    }
+  } catch (e) {
+    console.error('bot error', e);
+    const chat = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
+    if (chat) await send(chat, `⚠️ Ada error: ${esc((e as Error).message).slice(0, 300)}`);
+  }
+  return new Response('ok');
+});
