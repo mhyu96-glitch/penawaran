@@ -1,7 +1,9 @@
 // Bot Telegram Borneo Etam: buat penawaran, faktur, proyek + titik peta, update progres.
 // Semua aksi tulis butuh konfirmasi tombol "Ya" dari pemilik.
+// File PDF resmi otomatis di-generate dan dikirim langsung ke chat Telegram!
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { DEFAULT_PACKAGES } from './packages.ts';
+import { generateBorneoDocumentPdf } from './pdf.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const TOKEN = env('TELEGRAM_BOT_TOKEN');
@@ -36,6 +38,20 @@ const send = (chat_id: number, text: string, buttons?: { text: string; data: str
     ...(buttons ? { reply_markup: { inline_keyboard: buttons.map((r) => r.map((b) => ({ text: b.text, callback_data: b.data }))) } } : {}),
   });
 
+async function sendDocument(chat_id: number, bytes: Uint8Array, filename: string, caption?: string) {
+  const blob = new Blob([bytes as any], { type: 'application/pdf' });
+  const form = new FormData();
+  form.append('chat_id', String(chat_id));
+  form.append('document', blob, filename);
+  if (caption) form.append('caption', caption);
+  form.append('parse_mode', 'HTML');
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendDocument`, {
+    method: 'POST',
+    body: form,
+  });
+  return res.json().catch(() => ({}));
+}
+
 function nowParts() {
   const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' });
   const [y, m, d] = f.format(new Date()).split('-').map(Number);
@@ -58,7 +74,7 @@ const subtotal = (items: any[]) => items.reduce((s, i) => s + (Number(i.quantity
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
-    intent: { type: 'STRING', enum: ['create_quote', 'create_invoice', 'add_project', 'update_progress', 'modify_pending', 'chat'] },
+    intent: { type: 'STRING', enum: ['create_quote', 'create_invoice', 'add_project', 'update_progress', 'modify_pending', 'get_pdf', 'chat'] },
     reply: { type: 'STRING', nullable: true },
     client_name: { type: 'STRING', nullable: true },
     client_phone: { type: 'STRING', nullable: true },
@@ -112,6 +128,7 @@ Intent:
 - add_project: catat/tambah proyek atau titik di peta. Isi project_name, client_name, client_phone, client_address, city, service_type, package_id, progress (0-100, "selesai"=100, "belum mulai/survei"=0, "lagi dipasang"=50 bila tak disebut angka), installed_at (YYYY-MM-DD), sn_nvr, sn_hdd.
 - update_progress: ubah progres/SN proyek yang sudah ada. target_text = nama proyek/klien. Isi progress/sn_nvr/sn_hdd/installed_at.
 - modify_pending: pesan hanya merevisi aksi yang MENUNGGU KONFIRMASI (misal "diskon 500rb", "jadi 6 kamera", "DP 30%", "ganti nama jadi ..."). Hanya pakai jika ada aksi menunggu.
+- get_pdf: minta dokumen atau file PDF penawaran/faktur yang sudah pernah dibuat (misal "mana penawarannya pdf ya", "kirim pdf penawaran", "minta pdf Pak Suhabuddin", "download pdf", "mana filenya"). target_text = nama klien atau nomor dokumen jika disebut.
 - chat: selain itu; isi reply singkat dan arahkan ke fitur yang tersedia.
 Jangan mengarang angka. Harga/nominal: "500rb"=500000, "1,5jt"=1500000.
 KATALOG PAKET:
@@ -205,6 +222,37 @@ async function handleText(chat_id: number, text: string) {
   const r = await askGemini(text, packages, pending);
 
   switch (r.intent) {
+    case 'get_pdf': {
+      const t = (r.target_text || '').trim();
+      let q = db.from('quotes').select('*, quote_items(*)')
+        .eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+      const { data } = await q;
+      const quote: any = data?.[0];
+      if (!quote) return send(chat_id, `Dokumen penawaran untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
+
+      const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
+      const pdfBytes = generateBorneoDocumentPdf({
+        type: 'quote',
+        docNumber: quote.quote_number,
+        dateStr: quote.created_at ? quote.created_at.slice(0, 10) : nowParts().iso,
+        clientName: quote.to_client,
+        clientPhone: quote.to_phone,
+        clientAddress: quote.to_address,
+        companyName: profile?.company_name || quote.from_company || 'Borneo Etam CCTV & Komputer Kasir',
+        companyPhone: profile?.company_phone || '082251314646',
+        companyWebsite: profile?.company_website || 'Borneoetam.com',
+        paymentInstructions: profile?.payment_instructions || 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+        terms: quote.terms,
+        items: quote.quote_items || [],
+        discountAmount: quote.discount_amount || 0,
+      });
+
+      const safeName = `Penawaran-${(quote.to_client || 'Klien').replace(/[^a-zA-Z0-9]/g, '_')}-${quote.quote_number.replace(/\//g, '-')}.pdf`;
+      const tot = (quote.quote_items || []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
+      return sendDocument(chat_id, pdfBytes, safeName, `📄 <b>PDF Penawaran Resmi</b>: <code>${esc(quote.quote_number)}</code>\nKlien: <b>${esc(quote.to_client)}</b>\nTotal: <b>${rp(tot)}</b>`);
+    }
+
     case 'create_quote': {
       if (!r.client_name) return send(chat_id, 'Nama klien-nya siapa bro? Contoh: <i>buatkan penawaran atas nama Pak Hendra, Jl. Ahmad Yani 12 Samarinda, paket 8 titik IP cam</i>');
       const pkg = packages.find((p) => p.id === r.package_id) ?? null;
@@ -309,7 +357,7 @@ async function handleText(chat_id: number, text: string) {
     }
 
     default:
-      return send(chat_id, esc(r.reply || 'Saya bisa: buat penawaran, buat faktur, tambah proyek + titik peta, dan update progres proyek.'));
+      return send(chat_id, esc(r.reply || 'Saya bisa: buat penawaran, kirim PDF, buat faktur, tambah proyek + titik peta, dan update progres proyek.'));
   }
 }
 
@@ -322,7 +370,7 @@ async function nextQuoteNumber(): Promise<string> {
   return `${prefix}${String(max + 1).padStart(3, '0')}`;
 }
 
-async function execQuote(p: any): Promise<string> {
+async function execQuote(chat_id: number, p: any): Promise<void> {
   const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
   let clientId: string | null = null;
   const name = p.client_name.trim();
@@ -350,15 +398,43 @@ async function execQuote(p: any): Promise<string> {
   }));
   const { error: ie } = await db.from('quote_items').insert(rows);
   if (ie) { await db.from('quotes').delete().eq('id', quote.id); throw new Error('Gagal menyimpan item: ' + ie.message); }
-  const link = APP_URL ? `\n📄 Lihat &amp; unduh PDF:\n${APP_URL}/quote/public/${quote.id}` : '';
-  return `<b>✅ Penawaran dibuat</b>\nNo: <code>${esc(number)}</code>\nTotal: <b>${rp(subtotal(p.items) - (p.discount_amount || 0))}</b>\nStatus: Draf${link}`;
+
+  const tot = subtotal(p.items) - (p.discount_amount || 0);
+  const link = APP_URL ? `\n📄 Web: ${APP_URL}/quote/public/${quote.id}` : '';
+  await send(chat_id, `<b>✅ Penawaran berhasil dibuat &amp; tersimpan di sistem!</b>\nNo: <code>${esc(number)}</code>\nKlien: <b>${esc(name)}</b>\nTotal: <b>${rp(tot)}</b>\nStatus: Draf${link}`);
+
+  // Otomatis buatkan & kirimkan file PDF resmi langsung ke chat Telegram
+  try {
+    const pdfBytes = generateBorneoDocumentPdf({
+      type: 'quote',
+      docNumber: number,
+      dateStr: nowParts().iso,
+      clientName: name,
+      clientPhone: p.client_phone,
+      clientAddress: p.client_address,
+      companyName: profile?.company_name || 'Borneo Etam CCTV & Komputer Kasir',
+      companyPhone: profile?.company_phone || '082251314646',
+      companyWebsite: profile?.company_website || 'Borneoetam.com',
+      paymentInstructions: profile?.payment_instructions || 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+      terms: p.terms || profile?.default_terms,
+      items: p.items,
+      discountAmount: p.discount_amount || 0,
+    });
+    const safeName = `Penawaran-${name.replace(/[^a-zA-Z0-9]/g, '_')}-${number.replace(/\//g, '-')}.pdf`;
+    await sendDocument(chat_id, pdfBytes, safeName, `📄 <b>PDF Surat Penawaran Resmi</b> untuk <b>${esc(name)}</b>`);
+  } catch (err) {
+    console.error('Failed generating PDF in execQuote:', err);
+  }
 }
 
-async function execInvoice(p: any): Promise<string> {
+async function execInvoice(chat_id: number, p: any): Promise<void> {
   const { data: quote } = await db.from('quotes').select('*, quote_items(*)').eq('id', p.quote_id).single();
   if (!quote) throw new Error('Penawaran sumber tidak ditemukan.');
   const { data: existing } = await db.from('invoices').select('id, invoice_number').eq('quote_id', quote.id).limit(1);
-  if (existing && existing.length > 0) return `Faktur untuk penawaran ini sudah ada: <code>${esc(existing[0].invoice_number)}</code>. Tidak dibuat ulang.`;
+  if (existing && existing.length > 0) {
+    await send(chat_id, `Faktur untuk penawaran ini sudah ada: <code>${esc(existing[0].invoice_number)}</code>.`);
+    return;
+  }
   const { y } = nowParts();
   const { data: last } = await db.from('invoices').select('invoice_number').eq('user_id', OWNER_ID).like('invoice_number', `INV-${y}-%`).order('created_at', { ascending: false }).limit(1);
   const lastNum = parseInt(String(last?.[0]?.invoice_number || '').split('-').pop() || '0', 10) || 0;
@@ -387,8 +463,34 @@ async function execInvoice(p: any): Promise<string> {
     if (ie) { await db.from('invoices').delete().eq('id', res.data.id); throw new Error('Gagal menyalin item faktur: ' + ie.message); }
   }
   await db.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
-  const link = APP_URL ? `\n🧾 Lihat &amp; unduh PDF:\n${APP_URL}/invoice/public/${res.data.id}` : '';
-  return `<b>✅ Faktur dibuat</b>\nNo: <code>${esc(res.data.invoice_number)}</code>\nDP: ${rp(p.dp_amount)} • Sisa: ${rp(p.total - p.dp_amount)}\nPenawaran ${esc(quote.quote_number)} ditandai Diterima.${link}`;
+
+  const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
+  const link = APP_URL ? `\n🧾 Web: ${APP_URL}/invoice/public/${res.data.id}` : '';
+  await send(chat_id, `<b>✅ Faktur berhasil dibuat &amp; tersimpan!</b>\nNo: <code>${esc(res.data.invoice_number)}</code>\nDP: ${rp(p.dp_amount)} • Sisa: ${rp(p.total - p.dp_amount)}\nPenawaran ${esc(quote.quote_number)} ditandai Diterima.${link}`);
+
+  // Otomatis buatkan & kirimkan file PDF Faktur resmi ke chat Telegram
+  try {
+    const pdfBytes = generateBorneoDocumentPdf({
+      type: 'invoice',
+      docNumber: res.data.invoice_number,
+      dateStr: nowParts().iso,
+      clientName: quote.to_client,
+      clientPhone: quote.to_phone,
+      clientAddress: quote.to_address,
+      companyName: profile?.company_name || 'Borneo Etam CCTV & Komputer Kasir',
+      companyPhone: profile?.company_phone || '082251314646',
+      companyWebsite: profile?.company_website || 'Borneoetam.com',
+      paymentInstructions: profile?.payment_instructions || 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+      terms: quote.terms,
+      items: quote.quote_items || [],
+      discountAmount: quote.discount_amount || 0,
+      downPaymentAmount: p.dp_amount || 0,
+    });
+    const safeName = `Faktur-${quote.to_client.replace(/[^a-zA-Z0-9]/g, '_')}-${res.data.invoice_number.replace(/\//g, '-')}.pdf`;
+    await sendDocument(chat_id, pdfBytes, safeName, `🧾 <b>PDF Faktur Resmi</b> untuk <b>${esc(quote.to_client)}</b>`);
+  } catch (err) {
+    console.error('Failed generating PDF in execInvoice:', err);
+  }
 }
 
 async function execProject(p: any): Promise<string> {
@@ -445,11 +547,17 @@ async function handleCallback(cb: any) {
     const { data: claimed } = await db.from('telegram_pending_actions').update({ status: 'done' }).eq('id', id).eq('status', 'pending').select('id');
     if (!claimed || claimed.length === 0) return send(chat_id, 'Aksi ini sudah diproses atau kedaluwarsa.');
     try {
-      const msg = row.kind === 'quote' ? await execQuote(row.payload)
-        : row.kind === 'invoice' ? await execInvoice(row.payload)
-        : row.kind === 'project' ? await execProject(row.payload)
-        : await execProgress(row.payload);
-      return send(chat_id, msg);
+      if (row.kind === 'quote') {
+        await execQuote(chat_id, row.payload);
+      } else if (row.kind === 'invoice') {
+        await execInvoice(chat_id, row.payload);
+      } else if (row.kind === 'project') {
+        const msg = await execProject(row.payload);
+        await send(chat_id, msg);
+      } else {
+        const msg = await execProgress(row.payload);
+        await send(chat_id, msg);
+      }
     } catch (e) {
       await db.from('telegram_pending_actions').update({ status: 'pending' }).eq('id', id);
       return send(chat_id, `⚠️ ${esc((e as Error).message)}\nTekan Ya lagi untuk coba ulang.`, [[{ text: '✅ Coba lagi', data: `ok:${id}` }, { text: '❌ Batal', data: `no:${id}` }]]);
@@ -488,7 +596,7 @@ Deno.serve(async (req) => {
       else if (m.text) {
         const t = String(m.text).trim();
         if (t === '/start' || t === '/help') {
-          await send(chat_id, '<b>Borneo Etam Assistant</b>\nContoh perintah:\n• <i>buatkan penawaran atas nama Pak Hendra, Jl. Ahmad Yani 12 Samarinda, paket 8 titik IP cam</i>\n• <i>buatkan faktur Pak Hendra DP 50%</i>\n• <i>tambah proyek Kopi Tepian Tenggarong, sudah selesai, SN NVR ...</i>\n• <i>proyek Kopi Tepian jadi 80%</i>\n\nSemua aksi minta konfirmasi dulu. /batal untuk membatalkan.');
+          await send(chat_id, '<b>Borneo Etam Assistant</b>\nContoh perintah:\n• <i>buatkan penawaran atas nama Pak Hendra, Jl. Ahmad Yani 12 Samarinda, paket 8 titik IP cam</i>\n• <i>mana penawarannya pdf ya</i> (atau <i>kirim pdf Pak Suhabuddin</i>)\n• <i>buatkan faktur Pak Hendra DP 50%</i>\n• <i>tambah proyek Kopi Tepian Tenggarong, sudah selesai, SN NVR ...</i>\n• <i>proyek Kopi Tepian jadi 80%</i>\n\nSemua aksi minta konfirmasi dulu. /batal untuk membatalkan.');
         } else if (t === '/batal') {
           const row = await latestPending(chat_id);
           if (row) await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', row.id);
@@ -497,7 +605,7 @@ Deno.serve(async (req) => {
           await handleText(chat_id, t);
         }
       } else {
-        await send(chat_id, 'Untuk saat ini saya paham teks dan pin lokasi. Foto belum didukung.');
+        await send(chat_id, 'Untuk saat ini saya paham teks dan pin lokasi.');
       }
     }
   } catch (e) {
