@@ -440,6 +440,8 @@ const QuoteView = () => {
         docType="quote"
         docId={quote.id}
         docNumber={quote.quote_number}
+        docTitle={quote.title}
+        totalAmount={total}
         clientName={quote.to_client}
         clientEmail={quote.clients?.email}
         clientPhone={quote.clients?.phone || quote.to_phone}

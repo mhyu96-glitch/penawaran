@@ -334,7 +334,7 @@ const QuoteListSimple = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 sm:space-y-4 px-3 py-2 sm:px-6 lg:px-8 lg:py-4">
+    <div className="mx-auto w-full max-w-[1600px] space-y-3.5 px-2 py-2 sm:px-4 lg:py-3">
       {/* Executive Command Header Banner */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/80 text-white p-3 sm:p-4 shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -483,11 +483,11 @@ const QuoteListSimple = () => {
             </div>
 
             {/* Filter Tabs Segmented Control (Smooth Scrollable) */}
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 overflow-x-auto no-scrollbar max-w-full">
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border/70 overflow-x-auto no-scrollbar max-w-full">
               {[
                 { key: 'all', label: 'Semua', count: stats.totalCount },
-                { key: 'partner_service', label: '🏢 Toko / Jasa', count: stats.partnerCount, badgeColor: 'bg-violet-500/15 text-violet-600 dark:text-violet-400' },
-                { key: 'standard', label: '👤 Mandiri', count: stats.standardCount, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
+                { key: 'partner_service', label: 'Toko / Jasa', count: stats.partnerCount, badgeColor: 'bg-violet-500/15 text-violet-600 dark:text-violet-400' },
+                { key: 'standard', label: 'Mandiri', count: stats.standardCount, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
                 { key: 'terkirim', label: 'Terkirim', count: stats.totalSent, badgeColor: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' },
                 { key: 'draf', label: 'Draf', count: stats.totalDraft, badgeColor: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
                 { key: 'diterima', label: 'Diterima', count: stats.totalAccepted, badgeColor: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
@@ -498,16 +498,16 @@ const QuoteListSimple = () => {
                     key={tab.key}
                     onClick={() => setStatusFilter(tab.key)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none",
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap select-none border",
                       isActive
-                        ? "bg-background text-foreground shadow-xs border border-border/70 font-black"
-                        : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                        ? "bg-teal-600 text-white border-teal-500 shadow-xs font-extrabold"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-background/50"
                     )}
                   >
                     <span>{tab.label}</span>
                     <span className={cn(
-                      "px-1.5 py-0.2 rounded-full text-[10px] font-extrabold",
-                      isActive ? "bg-primary/10 text-primary" : (tab.badgeColor || "bg-muted text-muted-foreground")
+                      "px-1.5 py-0.5 rounded-full text-[10px] font-extrabold leading-none tabular-nums",
+                      isActive ? "bg-black/25 text-white" : (tab.badgeColor || "bg-muted text-muted-foreground")
                     )}>
                       {tab.count}
                     </span>
@@ -698,16 +698,28 @@ const QuoteListSimple = () => {
               {/* ========================================================================= */}
               {/* 2. DESKTOP RICH TABLE VIEW (hidden md:block) */}
               {/* ========================================================================= */}
-              <div className="hidden md:block overflow-x-auto">
-                <Table className="w-full">
-                  <TableHeader className="bg-muted/40">
+              <div className="hidden md:block w-full">
+                <Table className="w-full table-fixed">
+                  <TableHeader className="bg-muted/35">
                     <TableRow className="hover:bg-transparent border-b border-border/80">
-                      <TableHead className="w-[140px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-left">Nomor</TableHead>
-                      <TableHead className="px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-left">Nama Klien</TableHead>
-                      <TableHead className="w-[200px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Nominal Total</TableHead>
-                      <TableHead className="w-[140px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Status</TableHead>
-                      <TableHead className="w-[150px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-center">Tanggal Buat</TableHead>
-                      <TableHead className="w-[220px] px-5 py-4 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Aksi</TableHead>
+                      <TableHead className="w-[12%] px-3.5 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-left whitespace-nowrap">
+                        Nomor
+                      </TableHead>
+                      <TableHead className="w-[30%] px-3 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-left whitespace-nowrap">
+                        Nama Klien & Perihal
+                      </TableHead>
+                      <TableHead className="w-[14%] px-3 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">
+                        Nominal Total
+                      </TableHead>
+                      <TableHead className="w-[11%] px-2 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">
+                        Status
+                      </TableHead>
+                      <TableHead className="w-[11%] px-2 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">
+                        Tanggal Buat
+                      </TableHead>
+                      <TableHead className="w-[22%] px-3.5 py-3 font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">
+                        Aksi
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border/60">
@@ -720,41 +732,42 @@ const QuoteListSimple = () => {
                       return (
                         <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors group">
                           {/* Nomor */}
-                          <TableCell className="px-5 py-4">
+                          <TableCell className="px-3.5 py-3 whitespace-nowrap">
                             <Link 
                               to={`/quote/${quote.id}`}
-                              className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/20 transition-all hover:scale-105"
+                              className="inline-flex items-center gap-1 font-mono font-bold text-[11.5px] text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg border border-primary/20 transition-all whitespace-nowrap"
                             >
                               <span>{quote.quote_number || 'N/A'}</span>
                             </Link>
                           </TableCell>
                           
                           {/* Nama Klien */}
-                          <TableCell className="px-5 py-4">
-                            <div className="flex items-center gap-3">
+                          <TableCell className="px-3 py-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <div className={cn(
                                 "w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 border shadow-2xs",
                                 isPartner 
                                   ? "bg-violet-500/15 text-violet-400 border-violet-500/30" 
-                                  : "bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                                  : "bg-gradient-to-br from-teal-500/15 to-emerald-500/20 text-teal-600 dark:text-teal-300 border-teal-500/30"
                               )}>
-                                {isPartner ? '🏢' : clientName.substring(0, 1).toUpperCase()}
+                                {clientName.substring(0, 1).toUpperCase()}
                               </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
                                   <Link 
                                     to={`/quote/${quote.id}`}
-                                    className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs"
+                                    className="font-extrabold text-[13px] text-foreground hover:text-primary transition-colors truncate"
                                   >
                                     {clientName}
                                   </Link>
                                   {isPartner && (
-                                    <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 rounded-md bg-violet-500/10 text-violet-400 border-violet-500/20 shrink-0">
-                                      🏢 Jasa Toko
+                                    <Badge variant="outline" className="text-[9.5px] font-bold px-1.5 py-0 rounded-md bg-violet-500/10 text-violet-400 border-violet-500/20 shrink-0">
+                                      Jasa Toko
                                     </Badge>
                                   )}
                                 </div>
                                 <span className="text-[11px] text-muted-foreground block truncate">
+                                  {quote.title ? `${quote.title} • ` : ''}
                                   {itemCount > 0 ? `${itemCount} item ${isPartner ? 'jasa/akomodasi' : 'barang/jasa'}` : 'Penawaran proyek'}
                                 </span>
                               </div>
@@ -762,40 +775,40 @@ const QuoteListSimple = () => {
                           </TableCell>
 
                           {/* Nominal Total */}
-                          <TableCell className="px-5 py-4 text-right">
-                            <span className="font-black text-sm text-emerald-600 dark:text-emerald-400 whitespace-nowrap tabular-nums tracking-tight">
+                          <TableCell className="px-3 py-3 text-right whitespace-nowrap">
+                            <span className="font-black text-[13px] text-emerald-600 dark:text-emerald-400 whitespace-nowrap tabular-nums tracking-tight">
                               {formatCurrency(totalVal)}
                             </span>
                           </TableCell>
 
                           {/* Status */}
-                          <TableCell className="px-5 py-4 text-center">
+                          <TableCell className="px-2 py-3 text-center whitespace-nowrap">
                             <div className="flex justify-center">
                               {getStatusBadge(quote.status)}
                             </div>
                           </TableCell>
 
                           {/* Tanggal */}
-                          <TableCell className="px-5 py-4 text-center whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                          <TableCell className="px-2 py-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground font-medium whitespace-nowrap">
+                              <CalendarIcon className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                               <span>{safeFormat(quote.created_at, 'd MMM yyyy')}</span>
                             </div>
                           </TableCell>
 
-                          {/* Aksi */}
-                          <TableCell className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Aksi (100% Utuh di Dalam Kartu Tanpa Terpotong) */}
+                          <TableCell className="px-3.5 py-3 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
                               {/* Tombol Terima Penawaran jika belum diterima */}
                               {quote.status?.toLowerCase() !== 'diterima' && quote.status?.toLowerCase() !== 'accepted' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
                                   onClick={() => handleAcceptQuote(quote)}
-                                  className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold text-xs gap-1 transition-all"
+                                  className="h-7 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] gap-1 transition-all whitespace-nowrap shrink-0"
                                   title="Tandai Penawaran Diterima"
                                 >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <CheckCircle2 className="h-3 w-3 shrink-0" />
                                   <span>Terima</span>
                                 </Button>
                               )}
@@ -807,10 +820,10 @@ const QuoteListSimple = () => {
                                     variant="ghost" 
                                     size="sm" 
                                     onClick={() => handleCreateInvoice(quote)} 
-                                    className="h-8 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-bold text-xs gap-1 transition-all" 
+                                    className="h-7 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] gap-1 transition-all whitespace-nowrap shrink-0" 
                                     title="Buat Faktur Tagihan"
                                   >
-                                    <Receipt className="h-3.5 w-3.5" />
+                                    <Receipt className="h-3 w-3 shrink-0" />
                                     <span>Faktur</span>
                                   </Button>
 
@@ -818,40 +831,43 @@ const QuoteListSimple = () => {
                                     variant="ghost" 
                                     size="sm" 
                                     onClick={() => handleCreateProject(quote)} 
-                                    className="h-8 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 font-bold text-xs gap-1 transition-all" 
+                                    className="h-7 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold text-[11px] gap-1 transition-all whitespace-nowrap shrink-0" 
                                     title="Buat Proyek Baru"
                                   >
-                                    <FolderKanban className="h-3.5 w-3.5" />
+                                    <FolderKanban className="h-3 w-3 shrink-0" />
                                     <span>Proyek</span>
                                   </Button>
                                 </>
                               )}
 
-                              <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" title="Lihat">
-                                <Link to={`/quote/${quote.id}`}><Eye className="h-4 w-4" /></Link>
-                              </Button>
-                              <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" title="Edit">
-                                <Link to={`/quote/edit/${quote.id}`}><Pencil className="h-4 w-4" /></Link>
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" title="Hapus">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-2xl border border-border/80 shadow-2xl">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-lg font-bold">Hapus Penawaran?</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-sm text-muted-foreground">
-                                      Penawaran {quote.quote_number} untuk {clientName} akan dihapus permanen.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter className="gap-2">
-                                    <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteQuote(quote.id)} className="rounded-xl bg-destructive text-destructive-foreground">Ya, Hapus</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              {/* Grup Tombol Ikon (Lihat, Edit, Hapus) */}
+                              <div className="inline-flex items-center rounded-lg border border-border/70 bg-muted/25 p-0.5 shrink-0">
+                                <Button asChild variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-background" title="Lihat Detail Penawaran">
+                                  <Link to={`/quote/${quote.id}`}><Eye className="h-3.5 w-3.5" /></Link>
+                                </Button>
+                                <Button asChild variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-background" title="Edit Penawaran">
+                                  <Link to={`/quote/edit/${quote.id}`}><Pencil className="h-3.5 w-3.5" /></Link>
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md text-rose-500 hover:bg-rose-500/15 hover:text-rose-400" title="Hapus Penawaran">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="rounded-2xl border border-border/80 shadow-2xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle className="text-lg font-bold">Hapus Penawaran?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-sm text-muted-foreground">
+                                        Penawaran {quote.quote_number} untuk {clientName} akan dihapus permanen.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="gap-2">
+                                      <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteQuote(quote.id)} className="rounded-xl bg-destructive text-destructive-foreground">Ya, Hapus</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>

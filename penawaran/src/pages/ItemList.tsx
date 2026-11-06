@@ -20,8 +20,10 @@ import {
   TrendingUp, 
   Coins,
   Infinity as InfinityIcon,
-  Tag
+  Tag,
+  Sparkles
 } from 'lucide-react';
+import { BORNEO_ETAM_CATALOG_ITEMS } from '@/services/cctvCommandService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +113,45 @@ const ItemList = () => {
     fetchItems();
   };
 
+  const [isImportingCatalog, setIsImportingCatalog] = useState(false);
+
+  const handleImportBorneoCatalog = async () => {
+    if (!user) return;
+    setIsImportingCatalog(true);
+    try {
+      const existingNames = new Set(items.map(i => (i.description || '').toLowerCase().trim()));
+      const newCatalogItems = BORNEO_ETAM_CATALOG_ITEMS.filter(
+        c => !existingNames.has(c.description.toLowerCase().trim())
+      ).map(c => ({
+        user_id: user.id,
+        description: c.description,
+        unit: c.unit,
+        unit_price: c.unit_price,
+        cost_price: c.cost_price,
+        stock: c.unit === 'Titik' || c.unit === 'Paket' ? 0 : 15,
+        track_stock: !(c.unit === 'Titik' || c.unit === 'Paket'),
+      }));
+
+      if (newCatalogItems.length === 0) {
+        showSuccess('Seluruh item standar CCTV & POS sudah ada di katalog Anda.');
+        setIsImportingCatalog(false);
+        return;
+      }
+
+      const { error } = await supabase.from('items').insert(newCatalogItems);
+      if (error) {
+        showError('Gagal memuat katalog standar.');
+      } else {
+        showSuccess(`Berhasil menambahkan ${newCatalogItems.length} item CCTV & POS ke Pustaka!`);
+        fetchItems();
+      }
+    } catch {
+      showError('Gagal memuat katalog standar.');
+    } finally {
+      setIsImportingCatalog(false);
+    }
+  };
+
   // KPI Calculations
   const stats = useMemo(() => {
     const totalItems = items.length;
@@ -177,7 +218,17 @@ const ItemList = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isImportingCatalog}
+              onClick={handleImportBorneoCatalog}
+              className="rounded-xl font-bold h-10 px-3.5 text-xs gap-1.5 border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 shadow-xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {isImportingCatalog ? 'Memuat...' : 'Muat Katalog CCTV & POS'}
+            </Button>
             <Button 
               size="sm"
               onClick={() => handleOpenForm()}

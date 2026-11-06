@@ -11,10 +11,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Mail, Copy, Smartphone, Check, Send } from 'lucide-react';
+import { Mail, Copy, Smartphone, Check, Send, Sparkles } from 'lucide-react';
 import { showError, showSuccess } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
+import { formatCurrency } from '@/lib/utils';
 
 interface SendDocumentDialogProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ interface SendDocumentDialogProps {
   docType: 'invoice' | 'quote';
   docId: string;
   docNumber: string;
+  docTitle?: string | null;
+  totalAmount?: number | null;
   clientName: string;
   clientEmail?: string | null;
   clientPhone?: string | null;
@@ -35,6 +38,8 @@ const SendDocumentDialog = ({
   docType,
   docId,
   docNumber,
+  docTitle,
+  totalAmount,
   clientName,
   clientEmail,
   clientPhone,
@@ -49,16 +54,23 @@ const SendDocumentDialog = ({
   const [isSending, setIsSending] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const buildBorneoWhatsAppMessage = () => {
+    const typeLabel = docType === 'invoice' ? 'Faktur Tagihan' : 'Surat Penawaran Resmi';
+    const titleLine = docTitle ? `\n📌 Perihal: ${docTitle}` : '';
+    const amountLine = typeof totalAmount === 'number' && totalAmount > 0 ? `\n💰 Total Investasi: ${formatCurrency(totalAmount)}` : '';
+    return `Halo Bpk/Ibu ${clientName},\nBerikut kami kirimkan rincian ${typeLabel} dari Borneo Etam CCTV & POS:\n\n📄 No. Dokumen: ${docNumber}${titleLine}${amountLine}\n🛡️ Garansi Unit: 12 Bulan Resmi\n\nDetail rincian perangkat & dokumen resmi (A4 PDF) dapat diakses dan diunduh di tautan berikut:\n👉 ${publicLink}\n\nTerima kasih atas kepercayaannya.\nBorneo Etam CCTV & POS Command Center`;
+  };
+
   // Set default values when dialog opens
   useEffect(() => {
     if (isOpen) {
       setEmail(clientEmail || '');
       setPhone(clientPhone || '');
       const typeLabel = docType === 'invoice' ? 'Faktur' : 'Penawaran';
-      setSubject(`${typeLabel} #${docNumber} dari ${user?.email?.split('@')[0] || 'Kami'}`); // Fallback name
-      setMessage(`Halo ${clientName},\n\nTerlampir adalah ${typeLabel.toLowerCase()} #${docNumber} untuk Anda tinjau.\n\nSilakan klik tautan berikut untuk melihat detailnya:\n${publicLink}\n\nTerima kasih.`);
+      setSubject(`${typeLabel} #${docNumber} - Borneo Etam CCTV & POS`);
+      setMessage(buildBorneoWhatsAppMessage());
     }
-  }, [isOpen, clientEmail, clientPhone, docNumber, docType, clientName, publicLink, user]);
+  }, [isOpen, clientEmail, clientPhone, docNumber, docTitle, totalAmount, docType, clientName, publicLink, user]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);

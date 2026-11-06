@@ -25,7 +25,8 @@ import { Project } from "./ProjectForm";
 import AttachmentManager from "./AttachmentManager";
 import TemplateManager from "./TemplateManager";
 import ProfitAnalysisCard from "./ProfitAnalysisCard";
-import { Building2, User, Wrench, Car, Hotel, HardHat, PackageCheck, Briefcase } from "lucide-react";
+import { Building2, User, Wrench, Car, Hotel, HardHat, PackageCheck, Briefcase, ShieldCheck, Monitor, Layers } from "lucide-react";
+import { BORNEO_ETAM_PACKAGES, generateBorneoQuoteNumber, loadBorneoPackages } from "@/services/cctvCommandService";
 import {
   Accordion,
   AccordionContent,
@@ -666,6 +667,39 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
           }
         });
     }
+
+    // Pre-fill dari parameter URL Borneo Etam Command Center / Portofolio Survei
+    const presetParam = searchParams.get('preset');
+    const prefillClient = searchParams.get('clientName');
+    const prefillPhone = searchParams.get('clientPhone');
+    const prefillAddress = searchParams.get('clientAddress');
+    const prefillTitle = searchParams.get('docTitle');
+
+    if (prefillClient) setToClient(prefillClient);
+    if (prefillPhone) setToPhone(prefillPhone);
+    if (prefillAddress) setToAddress(prefillAddress);
+    if (prefillTitle) setDocTitle(prefillTitle);
+
+    if (presetParam) {
+      const currentPackages = loadBorneoPackages();
+      const pkg = currentPackages.find(p => p.id === presetParam);
+      if (pkg) {
+        setDocCategory('standard');
+        if (!prefillTitle) setDocTitle(pkg.name);
+        setTerms(pkg.defaultTerms);
+        setDocNumber(generateBorneoQuoteNumber());
+        setItems(pkg.items.map(it => ({
+          uid: safeUUID(),
+          description: it.description,
+          quantity: it.quantity,
+          unit: it.unit,
+          unit_price: it.unit_price,
+          cost_price: it.cost_price,
+          is_store_unit: false,
+        })));
+        showSuccess(`Paket "${pkg.shortName}" berhasil dimuat otomatis!`);
+      }
+    }
   }, [isEditMode, user, searchParams, docType]);
 
   useEffect(() => {
@@ -887,6 +921,31 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
       }
       return base;
     });
+  };
+
+  const applyBorneoPackage = (pkgId: string) => {
+    const currentPackages = loadBorneoPackages();
+    const pkg = currentPackages.find(p => p.id === pkgId);
+    if (!pkg) return;
+    if (!docTitle || docTitle.trim() === '' || currentPackages.some(p => p.name === docTitle)) {
+      setDocTitle(pkg.name);
+    }
+    if (!terms || terms.trim() === '' || currentPackages.some(p => p.defaultTerms === terms)) {
+      setTerms(pkg.defaultTerms);
+    }
+    if (docType === 'quote' && (!docNumber || !docNumber.startsWith('QUO/BE-CCTV/'))) {
+      setDocNumber(generateBorneoQuoteNumber());
+    }
+    setItems(pkg.items.map(it => ({
+      uid: safeUUID(),
+      description: it.description,
+      quantity: it.quantity,
+      unit: it.unit,
+      unit_price: it.unit_price,
+      cost_price: it.cost_price,
+      is_store_unit: false,
+    })));
+    showSuccess(`Paket "${pkg.shortName}" (${formatCurrency(pkg.totalPrice)}) diterapkan!`);
   };
 
   const removeItem = (index: number) => {
@@ -1395,7 +1454,22 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
             <p className="text-[11px] text-muted-foreground">Judul ini akan tampil di laporan dan pesan WhatsApp ke klien.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{config.numberLabel}</Label><Input className="h-11 rounded-xl text-sm font-mono font-bold" value={docNumber} onChange={e => setDocNumber(e.target.value)} /></div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{config.numberLabel}</Label>
+                {docType === 'quote' && (
+                  <button
+                    type="button"
+                    onClick={() => setDocNumber(generateBorneoQuoteNumber())}
+                    className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline"
+                    title="Gunakan format penomoran resmi QUO/BE-CCTV/XI/2026/..."
+                  >
+                    Format Resmi BE-CCTV
+                  </button>
+                )}
+              </div>
+              <Input className="h-11 rounded-xl text-sm font-mono font-bold" value={docNumber} onChange={e => setDocNumber(e.target.value)} />
+            </div>
             <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{config.dateLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("h-11 rounded-xl w-full justify-start text-left font-normal", !docDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 text-primary" />{docDate ? safeFormat(docDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0 rounded-2xl"><Calendar mode="single" selected={docDate} onSelect={setDocDate} initialFocus /></PopoverContent></Popover></div>
             <div className="space-y-2"><Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{config.expiryLabel}</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("h-11 rounded-xl w-full justify-start text-left font-normal", !expiryDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 text-primary" />{expiryDate ? safeFormat(expiryDate.toISOString(), 'PPP') : <span>Pilih tanggal</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0 rounded-2xl"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent></Popover></div>
           </div>
@@ -1458,6 +1532,48 @@ const DocumentGenerator = ({ docType }: DocumentGeneratorProps) => {
                 </Button>
               </div>
             </div>
+
+            {/* Quick Preset Paket Borneo Etam CCTV & POS for Standard Mode */}
+            {docCategory === 'standard' && (
+              <div className="rounded-2xl bg-teal-500/10 border border-teal-500/20 p-3.5 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-teal-700 dark:text-teal-300">
+                    <Sparkles className="h-3.5 w-3.5 text-teal-500" />
+                    <span>Preset Paket Cepat Borneo Etam CCTV & POS (Garansi 12 Bulan):</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground">
+                    Klik paket untuk mengisi rincian barang, HPP & klausul garansi otomatis
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {loadBorneoPackages().map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => applyBorneoPackage(pkg.id)}
+                      className="flex flex-col justify-between p-2.5 rounded-xl border border-teal-500/30 bg-background/90 hover:bg-teal-500/10 hover:border-teal-500/50 text-left transition-all group shadow-2xs"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1.5 mb-1">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                            {pkg.service_type}
+                          </span>
+                          <span className="text-xs font-black text-teal-600 dark:text-teal-400 tabular-nums">
+                            {formatCurrency(pkg.totalPrice)}
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground group-hover:text-teal-600 dark:group-hover:text-teal-400 line-clamp-1">
+                          {pkg.shortName}
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
+                        {pkg.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Quick Preset Buttons for Partner Service Mode */}
             {docCategory === 'partner_service' && (

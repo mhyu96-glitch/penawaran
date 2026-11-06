@@ -561,7 +561,16 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Button
+              asChild
+              size="sm"
+              className="h-9 sm:h-10 text-xs sm:text-sm font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
+            >
+              <Link to="/cctv-command">
+                <Shield className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Peta CCTV & Garansi Kaltim
+              </Link>
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-9 sm:h-10 text-xs sm:text-sm font-semibold rounded-xl bg-background text-foreground border-border hover:bg-accent">

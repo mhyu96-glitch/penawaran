@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,6 +49,10 @@ import InvoiceFormGlass from "./pages/InvoiceFormGlass";
 import ClientListGlass from "./pages/ClientListGlass";
 import { GlassErrorBoundary } from "./components/glass/GlassErrorBoundary";
 
+// Lazy-loaded Borneo Etam GIS & Portfolio Modules (Zero initial bundle impact)
+const CCTVCommandCenter = lazy(() => import("./pages/CCTVCommandCenter"));
+const PublicPortfolioMap = lazy(() => import("./pages/PublicPortfolioMap"));
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -59,9 +64,17 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <GlassErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex min-h-screen items-center justify-center bg-background text-sm font-bold text-muted-foreground">
+                    Memuat Modul Borneo Etam Command Center...
+                  </div>
+                }
+              >
               <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/portfolio" element={<PublicPortfolioMap />} />
               <Route path="/quote/public/:id" element={<PublicQuoteView />} />
               <Route path="/invoice/public/:id" element={<PublicInvoiceView />} />
               <Route path="/portal/:accessKey" element={<ClientPortal />} />
@@ -71,6 +84,8 @@ const App = () => (
               <Route element={<ProtectedRoute />}>
                 <Route element={<SharedLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/cctv-command" element={<CCTVCommandCenter />} />
+                  <Route path="/map" element={<CCTVCommandCenter />} />
                   <Route path="/quotes" element={<QuoteListSimple />} />
                   <Route path="/quote/new" element={<QuoteGenerator />} />
                   <Route path="/quotes/new" element={<QuoteGenerator />} />
@@ -117,6 +132,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </GlassErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

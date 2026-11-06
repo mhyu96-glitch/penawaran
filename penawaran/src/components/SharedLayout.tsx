@@ -42,7 +42,9 @@ import {
   Layers,
   CheckSquare,
   ChevronUp,
-  Grid
+  Grid,
+  MapPin,
+  Globe
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/SessionContext';
@@ -97,9 +99,11 @@ const SharedLayout = () => {
     return location.pathname === to || location.pathname.startsWith(`${to}/`);
   };
 
-  // 9 Essential Modules for the Quick Hub Modal
+  // Essential Modules for the Quick Hub Modal
   const allHubModules = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', desc: 'Command Center', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
+    { to: '/cctv-command', icon: MapPin, label: 'Peta & Garansi CCTV', desc: 'GIS Kaltim & SN Unit', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+    { to: '/portfolio', icon: Globe, label: 'Portofolio Publik', desc: 'Etalase Peta & Survei GPS', color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
     { to: '/quotes', icon: FileText, label: 'Penawaran', desc: 'Proposal Harga', color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' },
     { to: '/invoices', icon: Receipt, label: 'Faktur', desc: 'Tagihan & Kas', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
     { to: '/clients', icon: Users, label: 'Klien', desc: 'CRM & Riwayat', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' },
@@ -118,6 +122,7 @@ const SharedLayout = () => {
       label: 'Utama',
       items: [
         { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', exact: true, color: 'text-teal-500 dark:text-teal-400', activeBg: 'bg-teal-500/10' },
+        { to: '/cctv-command', icon: MapPin, label: 'Peta & Garansi CCTV', tag: 'GIS', color: 'text-emerald-500 dark:text-emerald-400', activeBg: 'bg-emerald-500/10' },
         { to: '/quotes', icon: FileText, label: 'Penawaran', color: 'text-sky-500 dark:text-sky-400', activeBg: 'bg-sky-500/10' },
         { to: '/invoices', icon: Receipt, label: 'Faktur', color: 'text-emerald-500 dark:text-emerald-400', activeBg: 'bg-emerald-500/10' },
         { to: '/invoices/recurring', icon: Repeat, label: 'Faktur Berulang', tag: 'Auto', color: 'text-cyan-500 dark:text-cyan-400', activeBg: 'bg-cyan-500/10' },
@@ -128,6 +133,7 @@ const SharedLayout = () => {
       items: [
         { to: '/clients', icon: Users, label: 'Klien', color: 'text-violet-500 dark:text-violet-400', activeBg: 'bg-violet-500/10' },
         { to: '/projects', icon: FolderKanban, label: 'Proyek', color: 'text-amber-500 dark:text-amber-400', activeBg: 'bg-amber-500/10' },
+        { to: '/portfolio', icon: Globe, label: 'Portofolio Publik', tag: 'Live', color: 'text-teal-500 dark:text-teal-400', activeBg: 'bg-teal-500/10' },
         { to: '/calendar', icon: Calendar, label: 'Kalender', exact: true, color: 'text-orange-500 dark:text-orange-400', activeBg: 'bg-orange-500/10' },
         { to: '/items', icon: Package, label: 'Barang & Jasa', exact: true, color: 'text-indigo-500 dark:text-indigo-400', activeBg: 'bg-indigo-500/10' },
       ],
