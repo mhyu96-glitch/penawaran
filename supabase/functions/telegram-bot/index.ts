@@ -22,8 +22,8 @@ const APP_URL = (env('APP_BASE_URL') || 'https://quoteapp-glass.vercel.app').rep
 
 const CANDIDATE_MODELS = [
   env('GEMINI_MODEL') || 'gemini-2.5-flash',
-  'gemini-3.5-flash',
-  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
 ].filter(Boolean);
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
@@ -80,15 +80,146 @@ function nowParts() {
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
-// ------------------------------------------------------------------ paket
+// ------------------------------------------------------------------ paket (in-memory cached 5m)
+let cachedPackages: any[] | null = null;
+let lastPackagesLoadedAt = 0;
 async function loadPackages(): Promise<any[]> {
-  const { data } = await db.from('borneo_packages').select('id,data').eq('user_id', OWNER_ID);
-  if (data && data.length > 0) return data.map((r: any) => ({ ...r.data, id: r.id }));
-  return DEFAULT_PACKAGES;
+  const now = Date.now();
+  if (cachedPackages && now - lastPackagesLoadedAt < 5 * 60 * 1000) {
+    return cachedPackages;
+  }
+  try {
+    const { data } = await db.from('borneo_packages').select('id,data').eq('user_id', OWNER_ID);
+    if (data && data.length > 0) {
+      cachedPackages = data.map((r: any) => ({ ...r.data, id: r.id }));
+    } else {
+      cachedPackages = DEFAULT_PACKAGES;
+    }
+  } catch (_) {
+    cachedPackages = DEFAULT_PACKAGES;
+  }
+  lastPackagesLoadedAt = now;
+  return cachedPackages;
 }
 
 const cloneItems = (pkg: any) => (pkg?.items ?? []).map((i: any) => ({ ...i }));
 const subtotal = (items: any[]) => items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+
+// ------------------------------------------------------------------ Smart Document & Client Matching
+function cleanSearchName(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/\b(pak|bpk|bapak|ibu|bu|toko|cv|pt|penawaran|faktur|minta|cetak|buatkan|buat)\b/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+function getConsonantSkeleton(s: string): string {
+  return cleanSearchName(s).replace(/[aiueo]/g, '');
+}
+
+async function findQuoteOrInvoice(
+  targetText: string,
+  preferredType: 'invoice' | 'quote' | 'auto' = 'auto'
+): Promise<{ doc: any; docType: 'invoice' | 'quote'; score?: number } | null> {
+  const raw = (targetText || '').trim();
+  const clean = cleanSearchName(raw);
+
+  const fetchInvoices = async () => {
+    const { data } = await db
+      .from('invoices')
+      .select('*, invoice_items(*), clients(*)')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    return data || [];
+  };
+
+  const fetchQuotes = async () => {
+    const { data } = await db
+      .from('quotes')
+      .select('*, quote_items(*), clients(*)')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    return data || [];
+  };
+
+  // If no target text specified at all, return latest based on preferredType
+  if (!raw && !clean) {
+    if (preferredType === 'invoice') {
+      const invs = await fetchInvoices();
+      return invs[0] ? { doc: invs[0], docType: 'invoice' } : null;
+    }
+    const qts = await fetchQuotes();
+    return qts[0] ? { doc: qts[0], docType: 'quote' } : null;
+  }
+
+  let invCandidates: any[] = [];
+  let quoteCandidates: any[] = [];
+
+  if (preferredType === 'invoice') {
+    invCandidates = await fetchInvoices();
+  } else if (preferredType === 'quote') {
+    quoteCandidates = await fetchQuotes();
+  } else {
+    [invCandidates, quoteCandidates] = await Promise.all([fetchInvoices(), fetchQuotes()]);
+  }
+
+  const scoreCandidate = (cand: any, numField: string) => {
+    const num = (cand[numField] || '').toLowerCase();
+    const client = (cand.to_client || '').toLowerCase();
+    const rawLower = raw.toLowerCase();
+
+    if (rawLower && num.includes(rawLower)) return 100;
+    if (rawLower && client.includes(rawLower)) return 95;
+
+    const candClean = cleanSearchName(client);
+    if (clean && (candClean.includes(clean) || clean.includes(candClean))) return 90;
+
+    const rawSkel = getConsonantSkeleton(raw);
+    const candSkel = getConsonantSkeleton(client);
+    if (rawSkel && candSkel && (candSkel.includes(rawSkel) || rawSkel.includes(candSkel))) return 80;
+
+    return 0;
+  };
+
+  const evaluatePool = (pool: any[], numField: string, type: 'invoice' | 'quote') => {
+    let bestDoc = null;
+    let bestScore = 0;
+    for (const c of pool) {
+      const score = scoreCandidate(c, numField);
+      if (score > bestScore) {
+        bestScore = score;
+        bestDoc = c;
+      }
+    }
+    return bestScore >= 70 ? { doc: bestDoc, docType: type, score: bestScore } : null;
+  };
+
+  if (preferredType === 'invoice') {
+    const match = evaluatePool(invCandidates, 'invoice_number', 'invoice');
+    if (match) return match;
+    quoteCandidates = await fetchQuotes();
+    const qMatch = evaluatePool(quoteCandidates, 'quote_number', 'quote');
+    if (qMatch) return qMatch;
+  } else if (preferredType === 'quote') {
+    const match = evaluatePool(quoteCandidates, 'quote_number', 'quote');
+    if (match) return match;
+    invCandidates = await fetchInvoices();
+    const iMatch = evaluatePool(invCandidates, 'invoice_number', 'invoice');
+    if (iMatch) return iMatch;
+  } else {
+    const iMatch = evaluatePool(invCandidates, 'invoice_number', 'invoice');
+    const qMatch = evaluatePool(quoteCandidates, 'quote_number', 'quote');
+    if (iMatch && qMatch) {
+      return (iMatch.score || 0) >= (qMatch.score || 0) ? iMatch : qMatch;
+    }
+    return iMatch || qMatch || null;
+  }
+
+  return null;
+}
 
 // ------------------------------------------------------------------ Gemini Schema & AI Core
 const SCHEMA = {
@@ -254,7 +385,8 @@ PANDUAN INTENT & ALUR KERJA:
    - Jawab secara teknis presisi di field reply: sebutkan kompresi H.265+, estimasi hari rekaman 24 jam non-stop, dan perkiraan jika pakai motion detection.
 12. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
 13. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
-14. get_pdf: Minta file PDF penawaran / faktur.
+14. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
+   - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran).
 15. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
 16. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
@@ -280,15 +412,23 @@ ${catalog}${pendingInfo}`;
   for (const model of CANDIDATE_MODELS) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-          body: payloadBody,
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout max per attempt
+        let res: Response;
+        try {
+          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+            body: payloadBody,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (res.status === 503 || res.status === 429) {
           console.warn(`Gemini ${model} status ${res.status}. Attempt ${attempt}...`);
-          await new Promise((r) => setTimeout(r, 1200));
+          await new Promise((r) => setTimeout(r, 800));
           continue;
         }
 
@@ -302,8 +442,8 @@ ${catalog}${pendingInfo}`;
         return JSON.parse(raw);
       } catch (err: any) {
         lastError = err;
-        console.warn(`Error on model ${model}:`, err.message);
-        if (attempt === 1) await new Promise((r) => setTimeout(r, 1000));
+        console.warn(`Error on model ${model} (attempt ${attempt}):`, err.message);
+        if (attempt === 1) await new Promise((r) => setTimeout(r, 500));
       }
     }
   }
@@ -572,13 +712,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (items.length === 0 && (r.extra_items ?? []).length === 0) {
         const t = (r.client_name || r.target_text || '').trim();
         if (t) {
-          const { data: exQuotes } = await db.from('quotes')
-            .select('*, quote_items(*)')
-            .eq('user_id', OWNER_ID)
-            .or(`to_client.ilike.%${t}%,quote_number.ilike.%${t}%`)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const exQuote = exQuotes?.[0];
+          const match = await findQuoteOrInvoice(t, 'quote');
+          const exQuote = match?.doc;
           if (exQuote?.quote_items && exQuote.quote_items.length > 0) {
             items = exQuote.quote_items.map((i: any) => ({
               description: i.description,
@@ -681,50 +816,15 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
       const wantInvoice = r.target_doc_type === 'invoice' || /faktur|inv/i.test(text);
       const wantQuote = r.target_doc_type === 'quote' || /penawaran|quote|quo/i.test(text);
+      const prefType = wantInvoice && !wantQuote ? 'invoice' : wantQuote && !wantInvoice ? 'quote' : 'auto';
 
-      let doc: any = null;
-      let docType: 'invoice' | 'quote' = 'invoice';
-
-      if (wantInvoice && !wantQuote) {
-        let qi = db.from('invoices').select('*, invoice_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
-        qi = qi.or(`invoice_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-        const { data: invList } = await qi.limit(1);
-        if (invList && invList[0]) {
-          doc = invList[0];
-          docType = 'invoice';
-        }
-      } else if (wantQuote && !wantInvoice) {
-        let qq = db.from('quotes').select('*, quote_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
-        qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-        const { data: quoteList } = await qq.limit(1);
-        if (quoteList && quoteList[0]) {
-          doc = quoteList[0];
-          docType = 'quote';
-        }
-      }
-
-      // Fallback: jika belum ketemu, cari di invoices lalu quotes
-      if (!doc) {
-        let qi = db.from('invoices').select('*, invoice_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
-        qi = qi.or(`invoice_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-        const { data: invList } = await qi.limit(1);
-        if (invList && invList[0]) {
-          doc = invList[0];
-          docType = 'invoice';
-        } else {
-          let qq = db.from('quotes').select('*, quote_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
-          qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-          const { data: quoteList } = await qq.limit(1);
-          if (quoteList && quoteList[0]) {
-            doc = quoteList[0];
-            docType = 'quote';
-          }
-        }
-      }
-
-      if (!doc) {
+      const match = await findQuoteOrInvoice(t, prefType);
+      if (!match) {
         return send(chat_id, `Dokumen faktur atau penawaran untuk "${esc(t)}" tidak ditemukan bro. Pastikan nama klien atau nomor dokumennya sesuai ya.`);
       }
+
+      const doc = match.doc;
+      const docType = match.docType;
 
       const itemTable = docType === 'invoice' ? 'invoice_items' : 'quote_items';
       const docFk = docType === 'invoice' ? 'invoice_id' : 'quote_id';
@@ -1322,11 +1422,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- CETAK SURAT JALAN
     case 'get_surat_jalan': {
-      const t = (r.target_text || '').trim();
-      let q = db.from('quotes').select('*, quote_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-      const { data } = await q;
-      const quote: any = data?.[0];
+      const t = (r.target_text || r.client_name || '').trim();
+      const match = await findQuoteOrInvoice(t, 'quote');
+      const quote = match?.doc;
       if (!quote) return send(chat_id, `Data penawaran/proyek untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
 
       const sjNumber = `SJ/BE-CCTV/${nowParts().y}/${String(quote.quote_number).split('/').pop() || '001'}`;
@@ -1352,11 +1450,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- CETAK BAST (BERITA ACARA SERAH TERIMA)
     case 'get_bast': {
-      const t = (r.target_text || '').trim();
-      let q = db.from('quotes').select('*, quote_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-      const { data } = await q;
-      const quote: any = data?.[0];
+      const t = (r.target_text || r.client_name || '').trim();
+      const match = await findQuoteOrInvoice(t, 'quote');
+      const quote = match?.doc;
       if (!quote) return send(chat_id, `Data proyek untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
 
       // Ambil SN dari cctv_installations jika ada
@@ -1706,40 +1802,58 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- GET PDF
     case 'get_pdf': {
-      const t = (r.target_text || '').trim();
-      let q = db.from('quotes').select('*, quote_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-      const { data } = await q;
-      const quote: any = data?.[0];
-      if (!quote) return send(chat_id, `Dokumen penawaran untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
+      const t = (r.target_text || r.client_name || '').trim();
+      const wantInvoice = r.target_doc_type === 'invoice' || /faktur|inv|tagihan/i.test(text);
+      const wantQuote = r.target_doc_type === 'quote' || /penawaran|quote|quo/i.test(text);
+      const prefType = wantInvoice && !wantQuote ? 'invoice' : wantQuote && !wantInvoice ? 'quote' : 'auto';
+
+      const match = await findQuoteOrInvoice(t, prefType);
+      if (!match) {
+        return send(
+          chat_id,
+          `Dokumen ${prefType === 'invoice' ? 'faktur' : 'penawaran'} untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan nama klien atau nomor dokumennya sesuai ya.`
+        );
+      }
+
+      const { doc, docType } = match;
+      const isInv = docType === 'invoice';
+      const items = (isInv ? doc.invoice_items : doc.quote_items) || [];
+      const docNum = isInv ? doc.invoice_number : doc.quote_number;
 
       const pdfBytes = generateBorneoDocumentPdf({
-        type: 'quote',
-        docNumber: quote.quote_number,
-        dateStr: quote.created_at ? quote.created_at.slice(0, 10) : nowParts().iso,
-        clientName: quote.to_client,
-        clientPhone: quote.to_phone,
-        clientAddress: quote.to_address,
-        companyName: 'Borneo Etam CCTV & Komputer Kasir',
+        type: docType,
+        docNumber: docNum,
+        dateStr: isInv
+          ? (doc.invoice_date || doc.created_at?.slice(0, 10) || nowParts().iso)
+          : (doc.created_at ? doc.created_at.slice(0, 10) : nowParts().iso),
+        dueDateStr: isInv ? doc.due_date : undefined,
+        clientName: doc.to_client,
+        clientPhone: doc.to_phone || '',
+        clientAddress: doc.to_address || '',
+        companyName: doc.from_company || 'Borneo Etam CCTV & Komputer Kasir',
         companyPhone: '082251314646',
-        companyWebsite: 'Borneoetam.com',
+        companyWebsite: doc.from_website || 'Borneoetam.com',
         paymentInstructions: 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
-        terms: quote.terms,
-        items: quote.quote_items || [],
-        discountAmount: quote.discount_amount || 0,
+        terms: doc.terms,
+        items,
+        discountAmount: doc.discount_amount || 0,
+        downPaymentAmount: doc.down_payment_amount || 0,
       });
 
-      const safeName = `Penawaran-${(quote.to_client || 'Klien').replace(/[^a-zA-Z0-9]/g, '_')}-${quote.quote_number.replace(/\//g, '-')}.pdf`;
-      const tot = (quote.quote_items || []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
+      const prefixLabel = isInv ? 'Faktur' : 'Penawaran';
+      const safeName = `${prefixLabel}-${(doc.to_client || 'Klien').replace(/[^a-zA-Z0-9]/g, '_')}-${docNum.replace(/\//g, '-')}.pdf`;
+      const tot = items.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(doc.discount_amount || 0);
 
       await sendDocument(
         chat_id,
         pdfBytes,
         safeName,
-        `📄 <b>Surat Penawaran Resmi: <code>${esc(quote.quote_number)}</code></b>\nKlien: <b>${esc(quote.to_client)}</b>\nTotal: <b>${rp(tot)}</b>`
+        isInv
+          ? `🧾 <b>Faktur Tagihan Resmi: <code>${esc(docNum)}</code></b>\nKlien: <b>${esc(doc.to_client)}</b>\nTotal: <b>${rp(tot)}</b>${Number(doc.down_payment_amount) > 0 ? `\nDP: <b>${rp(doc.down_payment_amount)}</b>` : ''}`
+          : `📄 <b>Surat Penawaran Resmi: <code>${esc(docNum)}</code></b>\nKlien: <b>${esc(doc.to_client)}</b>\nTotal: <b>${rp(tot)}</b>`
       );
 
-      const waDraft = makeWhatsAppText('quote', quote.quote_number, quote.to_client, tot);
+      const waDraft = makeWhatsAppText(isInv ? 'invoice' : 'quote', docNum, doc.to_client, tot, doc.down_payment_amount);
       return send(chat_id, waDraft);
     }
 
@@ -2047,6 +2161,16 @@ async function handleCallback(cb: any) {
   }
 }
 
+function startTyping(chatId: number) {
+  tg('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+  const timer = setInterval(() => {
+    tg('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+  }, 4500);
+  return () => {
+    clearInterval(timer);
+  };
+}
+
 // ------------------------------------------------------------------ webhook
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok');
@@ -2059,105 +2183,117 @@ Deno.serve(async (req) => {
   const from = update.message?.from?.id ?? update.callback_query?.from?.id;
   if (!ALLOWED_ID || from !== ALLOWED_ID) return new Response('ok');
 
-  try {
-    if (update.callback_query) {
-      await handleCallback(update.callback_query);
-    } else if (update.message) {
-      const m = update.message;
-      const chat_id = m.chat.id;
+  const processUpdate = async () => {
+    const chat_id = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
+    const stopTyping = chat_id ? startTyping(chat_id) : () => {};
 
-      // 1. Tangani Foto Dokumentasi Lapangan
-      if (m.photo && m.photo.length > 0) {
-        const photo = m.photo[m.photo.length - 1]; // Resolusi tertinggi
-        const cap = (m.caption || '').trim();
+    try {
+      if (update.callback_query) {
+        await handleCallback(update.callback_query);
+      } else if (update.message) {
+        const m = update.message;
 
-        // Cari proyek aktif terdekat
-        let q = db.from('cctv_installations').select('id, project_name, photos').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-        if (cap) q = q.or(`project_name.ilike.%${cap}%,client_name.ilike.%${cap}%`);
-        const { data: instList } = await q;
-        const targetInst = instList?.[0];
+        // 1. Tangani Foto Dokumentasi Lapangan
+        if (m.photo && m.photo.length > 0) {
+          const photo = m.photo[m.photo.length - 1]; // Resolusi tertinggi
+          const cap = (m.caption || '').trim();
 
-        if (targetInst) {
-          const fileInfo = await tg('getFile', { file_id: photo.file_id });
-          const filePath = fileInfo?.result?.file_path;
-          const photoUrl = filePath ? `https://api.telegram.org/file/bot${TOKEN}/${filePath}` : photo.file_id;
+          // Cari proyek aktif terdekat
+          let q = db.from('cctv_installations').select('id, project_name, photos').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+          if (cap) q = q.or(`project_name.ilike.%${cap}%,client_name.ilike.%${cap}%`);
+          const { data: instList } = await q;
+          const targetInst = instList?.[0];
 
-          const currentPhotos = Array.isArray(targetInst.photos) ? targetInst.photos : [];
-          currentPhotos.push({
-            url: photoUrl,
-            caption: cap || 'Dokumentasi instalasi lapangan',
-            uploaded_at: new Date().toISOString(),
-          });
+          if (targetInst) {
+            const fileInfo = await tg('getFile', { file_id: photo.file_id });
+            const filePath = fileInfo?.result?.file_path;
+            const photoUrl = filePath ? `https://api.telegram.org/file/bot${TOKEN}/${filePath}` : photo.file_id;
 
-          await db.from('cctv_installations').update({ photos: currentPhotos }).eq('id', targetInst.id);
-          await send(chat_id, `📸 <b>Foto Dokumentasi Berhasil Disimpan!</b>\nProyek: <b>${esc(targetInst.project_name)}</b>\nFoto sudah otomatis muncul di Peta Command Center dan Portofolio Publik.`);
-        } else {
-          await send(chat_id, 'Foto diterima bro! Kalau mau disimpan ke proyek tertentu, sertakan caption nama proyeknya ya (misal: <i>Foto proyek Pak Suhabuddin</i>).');
-        }
-      }
-      // 2. Tangani Pesan Teks
-      else if (m.text) {
-        const t = String(m.text).trim();
-        if (t === '/start' || t === '/help') {
-          await send(
-            chat_id,
-            '<b>Borneo Etam AI Command Center</b>\n' +
-            'Halo Mas Wahyu! Sistem operasional CCTV & POS siap melayani:\n\n' +
-            '<b>Contoh Perintah Operasional:</b>\n' +
-            '• <i>buatkan penawaran Pak Suhabuddin paket 4 titik diskon 200rb</i>\n' +
-            '• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i> (Mode Toko / Subkon)\n' +
-            '• <i>faktur Pak Yusuf edit nvr masukkan SN: NVR-HL-8899</i> (Input SN Hardware)\n' +
-            '• <i>edit penawaran Pak Hendra tambah kabel 1 roll 300rb</i>\n' +
-            '• <i>deal bro, lanjut buat proyek</i> (otomatis masuk Peta & Proyek)\n' +
-            '• <i>sudah beli pipa conduit 150rb untuk proyek Pak Suhabuddin</i> (catat pengeluaran)\n' +
-            '• <i>proyek Pak Suhabuddin sudah selesai pasang</i> (otomatis Faktur, BAST & Garansi)\n' +
-            '• <i>cetak surat jalan Pak Suhabuddin</i>\n' +
-            '• <i>cetak BAST Pak Suhabuddin</i>\n' +
-            '• <i>garansi digital Pak Suhabuddin</i>\n' +
-            '• <i>4 kamera 2MP HDD 1TB tahan berapa hari bro?</i>\n' +
-            '• <i>tolong masukkan barang ini: Kamera ColorVu 4MP jual 450rb modal 320rb</i>\n' +
-            '• <i>rekap performa bulan ini bro</i>'
-          );
-        } else if (t === '/batal') {
-          const row = await latestPending(chat_id);
-          if (row) await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', row.id);
-          await send(chat_id, row ? 'Aksi dibatalkan bro.' : 'Tidak ada aksi yang menunggu konfirmasi.');
-        } else {
-          await handleText(chat_id, t);
-        }
-      }
-      // 3. Tangani Pesan Suara (Voice Note)
-      else if (m.voice || m.audio) {
-        const voiceObj = m.voice || m.audio;
-        await send(chat_id, '🎙️ <i>Mendengarkan pesan suara Mas Wahyu...</i>');
-        try {
-          const fileInfo = await tg('getFile', { file_id: voiceObj.file_id });
-          const filePath = fileInfo?.result?.file_path;
-          if (filePath) {
-            const voiceRes = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${filePath}`);
-            const buf = await voiceRes.arrayBuffer();
-            const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-            await handleText(chat_id, '', { mimeType: 'audio/ogg', data: b64 });
+            const currentPhotos = Array.isArray(targetInst.photos) ? targetInst.photos : [];
+            currentPhotos.push({
+              url: photoUrl,
+              caption: cap || 'Dokumentasi instalasi lapangan',
+              uploaded_at: new Date().toISOString(),
+            });
+
+            await db.from('cctv_installations').update({ photos: currentPhotos }).eq('id', targetInst.id);
+            await send(chat_id, `📸 <b>Foto Dokumentasi Berhasil Disimpan!</b>\nProyek: <b>${esc(targetInst.project_name)}</b>\nFoto sudah otomatis muncul di Peta Command Center dan Portofolio Publik.`);
           } else {
-            await send(chat_id, 'Gagal mengunduh audio dari Telegram bro, coba ketik via teks ya.');
+            await send(chat_id, 'Foto diterima bro! Kalau mau disimpan ke proyek tertentu, sertakan caption nama proyeknya ya (misal: <i>Foto proyek Pak Suhabuddin</i>).');
           }
-        } catch (vErr: any) {
-          console.error('voice error', vErr);
-          await send(chat_id, `⚠️ Gagal memproses audio: ${esc(vErr.message)}`);
+        }
+        // 2. Tangani Pesan Teks
+        else if (m.text) {
+          const t = String(m.text).trim();
+          if (t === '/start' || t === '/help') {
+            await send(
+              chat_id,
+              '<b>Borneo Etam AI Command Center</b>\n' +
+              'Halo Mas Wahyu! Sistem operasional CCTV & POS siap melayani:\n\n' +
+              '<b>Contoh Perintah Operasional:</b>\n' +
+              '• <i>buatkan penawaran Pak Suhabuddin paket 4 titik diskon 200rb</i>\n' +
+              '• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i> (Mode Toko / Subkon)\n' +
+              '• <i>faktur Pak Yusuf edit nvr masukkan SN: NVR-HL-8899</i> (Input SN Hardware)\n' +
+              '• <i>edit penawaran Pak Hendra tambah kabel 1 roll 300rb</i>\n' +
+              '• <i>deal bro, lanjut buat proyek</i> (otomatis masuk Peta & Proyek)\n' +
+              '• <i>sudah beli pipa conduit 150rb untuk proyek Pak Suhabuddin</i> (catat pengeluaran)\n' +
+              '• <i>proyek Pak Suhabuddin sudah selesai pasang</i> (otomatis Faktur, BAST & Garansi)\n' +
+              '• <i>cetak surat jalan Pak Suhabuddin</i>\n' +
+              '• <i>cetak BAST Pak Suhabuddin</i>\n' +
+              '• <i>garansi digital Pak Suhabuddin</i>\n' +
+              '• <i>4 kamera 2MP HDD 1TB tahan berapa hari bro?</i>\n' +
+              '• <i>tolong masukkan barang ini: Kamera ColorVu 4MP jual 450rb modal 320rb</i>\n' +
+              '• <i>rekap performa bulan ini bro</i>'
+            );
+          } else if (t === '/batal') {
+            const row = await latestPending(chat_id);
+            if (row) await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', row.id);
+            await send(chat_id, row ? 'Aksi dibatalkan bro.' : 'Tidak ada aksi yang menunggu konfirmasi.');
+          } else {
+            await handleText(chat_id, t);
+          }
+        }
+        // 3. Tangani Pesan Suara (Voice Note)
+        else if (m.voice || m.audio) {
+          const voiceObj = m.voice || m.audio;
+          await send(chat_id, '🎙️ <i>Mendengarkan pesan suara Mas Wahyu...</i>');
+          try {
+            const fileInfo = await tg('getFile', { file_id: voiceObj.file_id });
+            const filePath = fileInfo?.result?.file_path;
+            if (filePath) {
+              const voiceRes = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${filePath}`);
+              const buf = await voiceRes.arrayBuffer();
+              const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+              await handleText(chat_id, '', { mimeType: 'audio/ogg', data: b64 });
+            } else {
+              await send(chat_id, 'Gagal mengunduh audio dari Telegram bro, coba ketik via teks ya.');
+            }
+          } catch (vErr: any) {
+            console.error('voice error', vErr);
+            await send(chat_id, `⚠️ Gagal memproses audio: ${esc(vErr.message)}`);
+          }
         }
       }
-    }
-  } catch (e) {
-    console.error('bot error', e);
-    const chat = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
-    if (chat) {
-      const msg = (e as Error).message || '';
-      if (/503|UNAVAILABLE|high demand|overloaded/i.test(msg)) {
-        await send(chat, '⚠️ Server AI Google sedang mengalami lonjakan trafik sesaat bro. Coba kirim ulang pesan kamu ya!');
-      } else {
-        await send(chat, `⚠️ Ada kendala: ${esc(msg.slice(0, 200))}`);
+    } catch (e) {
+      console.error('bot error', e);
+      if (chat_id) {
+        const msg = (e as Error).message || '';
+        if (/503|UNAVAILABLE|high demand|overloaded/i.test(msg)) {
+          await send(chat_id, '⚠️ Server AI Google sedang mengalami lonjakan trafik sesaat bro. Coba kirim ulang pesan kamu ya!');
+        } else {
+          await send(chat_id, `⚠️ Ada kendala: ${esc(msg.slice(0, 200))}`);
+        }
       }
+    } finally {
+      stopTyping();
     }
+  };
+
+  if (typeof (globalThis as any).EdgeRuntime?.waitUntil === 'function') {
+    (globalThis as any).EdgeRuntime.waitUntil(processUpdate());
+    return new Response('ok');
+  } else {
+    await processUpdate();
+    return new Response('ok');
   }
-  return new Response('ok');
 });
