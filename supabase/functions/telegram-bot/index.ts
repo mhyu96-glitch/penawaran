@@ -11,7 +11,11 @@ const WEBHOOK_SECRET = env('TELEGRAM_WEBHOOK_SECRET');
 const ALLOWED_ID = Number(env('ALLOWED_TELEGRAM_ID'));
 const OWNER_ID = env('OWNER_USER_ID');
 const GEMINI_KEY = env('GEMINI_API_KEY');
-const GEMINI_MODEL = env('GEMINI_MODEL') || 'gemini-2.5-flash';
+const CANDIDATE_MODELS = [
+  env('GEMINI_MODEL') || 'gemini-2.5-flash',
+  'gemini-3.5-flash',
+  'gemini-2.5-pro',
+].filter(Boolean);
 const APP_URL = env('APP_BASE_URL').replace(/\/$/, '');
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
@@ -203,19 +207,46 @@ Intent:
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.1 },
-    }),
+  const payloadBody = JSON.stringify({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.1 },
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json = await res.json();
-  const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-  return JSON.parse(raw);
+
+  let lastError: Error | null = null;
+
+  for (const model of CANDIDATE_MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+          body: payloadBody,
+        });
+
+        if (res.status === 503 || res.status === 429) {
+          console.warn(`Gemini ${model} returned ${res.status} on attempt ${attempt}. Retrying/fallback...`);
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Gemini ${res.status}: ${errText.slice(0, 200)}`);
+        }
+
+        const json = await res.json();
+        const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+        return JSON.parse(raw);
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Error with model ${model} (attempt ${attempt}):`, err.message);
+        if (attempt === 1) await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+  }
+
+  throw lastError || new Error('Gagal menghubungi layanan AI setelah beberapa percobaan.');
 }
 
 // ------------------------------------------------------------------ geocode
@@ -924,7 +955,14 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('bot error', e);
     const chat = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
-    if (chat) await send(chat, `⚠️ Ada error: ${esc((e as Error).message).slice(0, 300)}`);
+    if (chat) {
+      const msg = (e as Error).message || '';
+      if (/503|UNAVAILABLE|high demand|overloaded/i.test(msg)) {
+        await send(chat, '⚠️ Server AI Google sedang mengalami lonjakan sesaat bro. Coba kirim ulang pesan kamu ya!');
+      } else {
+        await send(chat, `⚠️ Ada kendala: ${esc(msg.slice(0, 200))}`);
+      }
+    }
   }
   return new Response('ok');
 });
