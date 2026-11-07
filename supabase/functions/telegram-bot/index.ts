@@ -285,14 +285,19 @@ const SCHEMA = {
         'add_expense',
         'add_item_master',
         'complete_project',
-        'create_invoice',
         'add_project',
         'update_progress',
         'modify_pending',
         'get_pdf',
+        'get_receipt',
         'get_surat_jalan',
         'get_bast',
         'get_warranty',
+        'share_location',
+        'stock_check',
+        'update_stock',
+        'overdue_invoices',
+        'tech_troubleshoot',
         'storage_calculator',
         'record_payment',
         'unpaid_invoices',
@@ -365,6 +370,8 @@ const SCHEMA = {
     item_unit: { type: 'STRING', nullable: true },
     item_unit_price: { type: 'NUMBER', nullable: true },
     item_cost_price: { type: 'NUMBER', nullable: true },
+    stock_mode: { type: 'STRING', enum: ['add', 'set', 'check'], nullable: true },
+    stock_quantity: { type: 'NUMBER', nullable: true },
     proactive_note: { type: 'STRING', nullable: true },
     doc_category: { type: 'STRING', enum: ['standard', 'partner_service'], nullable: true },
     target_doc_type: { type: 'STRING', enum: ['quote', 'invoice', 'warranty', 'project', 'auto'], nullable: true },
@@ -442,8 +449,20 @@ PANDUAN INTENT & ALUR KERJA:
 14. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
 15. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
    - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran).
-16. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
-17. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
+16. get_receipt: Mas Wahyu minta Kwitansi Pembayaran resmi / bukti bayar PDF (misal: "minta kwitansi pak yusuf", "cetak kwitansi pak suhabuddin", "kwitansi pelunasan pak yusuf", "buatkan kwitansi dp pak sahabuddin 2jt").
+   - Ekstrak: target_text (nama klien / nomor faktur), payment_amount (jika ada nominal yang dibayar).
+17. share_location: Teknisi atau Mas Wahyu minta lokasi proyek atau rute GPS Google Maps lapangan (misal: "lokasi proyek pak suhabuddin", "share lokasi pak yusuf", "kirim koordinat teknisi pak suhabuddin", "rute pasang pak yusuf", "lokasi pasang pak sahabuddin").
+   - Ekstrak: target_text (nama klien / proyek).
+18. stock_check: Mas Wahyu cek stok barang di toko / gudang atau cek barang yang menipis/habis (misal: "cek stok", "stok hdd 1tb sisa berapa", "stok kabel utp", "barang apa yang mau habis", "cek sisa stok kamera").
+   - Ekstrak: item_description / target_text (nama/keyword barang).
+19. update_stock: Mas Wahyu ingin menambah stok fisik barang masuk atau mengupdate stok di sistem (misal: "tambah stok hdd 1tb 5 unit", "masuk barang kabel cat6 2 roll", "update stok kamera colorvu jadi 10 unit", "stok nvr 4ch masuk 3 unit modal 450rb").
+   - Ekstrak: item_description, stock_quantity (jumlah), stock_mode ('add' jika tambah/masuk, 'set' jika ubah/set jadi), item_cost_price, item_unit.
+20. overdue_invoices: Mas Wahyu ingin mengecek tagihan yang sudah lewat jatuh tempo atau mendekati jatuh tempo (misal: "tagihan jatuh tempo", "siapa yang telat bayar", "invoice overdue", "cek tagihan macet", "ingatkan tagihan").
+   - Ekstrak: target_text (nama klien jika spesifik, atau kosongkan untuk semua).
+21. tech_troubleshoot: Mas Wahyu atau teknisi tanya kendala teknis lapangan seputar CCTV & POS (misal: "kamera hikvision malam hari gambar hitam putih gak mau nyala warnanya", "printer thermal 80mm gak keluar kertas lampu merah kedip", "kamera poe sering disconnect tiap siang", "nvr bunyi tit tit terus", "dvr hilook lupa sandi", "ip kamera bentrok").
+   - Jawab secara teknis, taktis, to-the-point, dan aplikatif di lapangan untuk teknisi Borneo Etam di Samarinda (spesifik merek Hikvision, Hilook, Dahua, Imou, Sunmi, Xprinter, Epson POS).
+22. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
+23. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
@@ -1751,6 +1770,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         [
           [
             { text: '🧾 Cetak Faktur Terkini', data: `pdf:${inv.id}` },
+            { text: '📄 Unduh Kwitansi', data: `kwitansi:${inv.id}` },
             { text: '🛡️ Cek Garansi', data: `warranty:${inv.id}` },
           ]
         ]
@@ -2048,6 +2068,384 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       return send(chat_id, waDraft);
     }
 
+    // ---------------------------------------------------- CETAK KWITANSI PEMBAYARAN RESMI (GET RECEIPT)
+    case 'get_receipt': {
+      const t = (r.target_text || r.client_name || '').trim();
+      const match = await findQuoteOrInvoice(t, 'invoice');
+      const inv: any = match?.doc;
+
+      if (!inv) {
+        return send(
+          chat_id,
+          `Faktur tagihan untuk kwitansi "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan nama klien atau nomor fakturnya sesuai ya.`
+        );
+      }
+
+      const items = inv.invoice_items || [];
+      const rawTot = items.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0);
+      const totalAmount = Math.max(0, rawTot - Number(inv.discount_amount || 0));
+      const dp = Number(inv.down_payment_amount || 0);
+
+      let payAmount = Number(r.payment_amount || 0);
+      if (!payAmount) {
+        if (inv.status === 'Lunas' || dp >= totalAmount) {
+          payAmount = totalAmount;
+        } else if (dp > 0) {
+          payAmount = dp;
+        } else {
+          payAmount = totalAmount;
+        }
+      }
+
+      const receiptNum = `KW/${inv.invoice_number || Date.now().toString().slice(-6)}`;
+      const purpose = (r.target_text || text || '').toLowerCase().includes('dp')
+        ? `Pembayaran Uang Muka (DP) Pengadaan & Instalasi CCTV / Komputer Kasir Faktur No. ${inv.invoice_number}`
+        : `Pelunasan Pembayaran Pengadaan & Instalasi CCTV / Komputer Kasir Faktur No. ${inv.invoice_number}`;
+
+      const pdfBytes = generateBorneoDocumentPdf({
+        type: 'kwitansi',
+        docNumber: inv.invoice_number,
+        receiptNumber: receiptNum,
+        dateStr: inv.invoice_date || inv.created_at?.slice(0, 10) || nowParts().iso,
+        clientName: inv.to_client,
+        clientPhone: inv.to_phone || '',
+        clientAddress: inv.to_address || '',
+        companyName: inv.from_company || 'Borneo Etam CCTV & Komputer Kasir',
+        companyPhone: '082251314646',
+        companyWebsite: inv.from_website || 'Borneoetam.com',
+        paymentInstructions: 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+        items,
+        paymentAmount: payAmount,
+        paymentFor: purpose,
+        discountAmount: inv.discount_amount || 0,
+        downPaymentAmount: dp,
+        isPaid: true,
+      });
+
+      const safeName = `Kwitansi-${(inv.to_client || 'Klien').replace(/[^a-zA-Z0-9]/g, '_')}-${receiptNum.replace(/\//g, '-')}.pdf`;
+
+      await sendDocument(
+        chat_id,
+        pdfBytes,
+        safeName,
+        `🧾 <b>Kwitansi Pembayaran Resmi: <code>${esc(receiptNum)}</code></b>\n` +
+        `Klien: <b>${esc(inv.to_client)}</b>\n` +
+        `Nominal: <b>${rp(payAmount)}</b>\n` +
+        `<i># ${terbilang(payAmount)} Rupiah #</i>`
+      );
+
+      const waReceiptMsg =
+        `*KWITANSI PEMBAYARAN RESMI*\n` +
+        `*Borneo Etam CCTV & Komputer Kasir*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `No. Kwitansi : *${receiptNum}*\n` +
+        `Sudah Terima Dari : *${inv.to_client}*\n` +
+        `Jumlah Uang : *${rp(payAmount)}*\n` +
+        `Terbilang : _# ${terbilang(payAmount)} Rupiah #_\n` +
+        `Untuk Pembayaran : ${purpose}\n` +
+        `Status : *LUNAS / SAH*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Dokumen PDF Kwitansi Resmi terlampir. Terima kasih atas kepercayaan Anda kepada Borneo Etam! 🙏`;
+
+      return send(
+        chat_id,
+        `📲 <b>Teks Konfirmasi Kwitansi WhatsApp:</b>\n<code>${esc(waReceiptMsg)}</code>`,
+        [[{ text: '🛡️ Cek Garansi', data: `warranty:${inv.id}` }, { text: '🧾 Lihat Faktur', data: `pdf:${inv.id}` }]]
+      );
+    }
+
+    // ---------------------------------------------------- SHARE LOKASI GPS & PRE-DEPARTURE TEKNISI (SHARE LOCATION)
+    case 'share_location': {
+      const t = (r.target_text || r.client_name || r.project_name || '').trim();
+      const inst: any = await findInstallation(t);
+
+      if (!inst) {
+        return send(
+          chat_id,
+          `Data proyek atau instalasi untuk "${esc(t || 'terakhir')}" tidak ditemukan di database bro.`
+        );
+      }
+
+      const lat = Number(inst.latitude);
+      const lng = Number(inst.longitude);
+      const hasCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+
+      if (hasCoords) {
+        try {
+          await tg('sendLocation', { chat_id, latitude: lat, longitude: lng });
+        } catch (locErr) {
+          console.error('Error sending native location:', locErr);
+        }
+      }
+
+      const mapsUrl = hasCoords
+        ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((inst.address_landmark || inst.client_name) + ' Samarinda')}`;
+
+      const clientName = inst.client_name || inst.project_name || 'Pelanggan';
+      const address = inst.address_landmark || 'Samarinda, Kalimantan Timur';
+      const phone = inst.client_phone || '-';
+
+      const msg =
+        `📍 <b>Lokasi Proyek Lapangan: ${esc(inst.project_name || clientName)}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `👤 Klien: <b>${esc(clientName)}</b>\n` +
+        `📞 Kontak / WA: <code>${esc(phone)}</code>\n` +
+        `🏢 Alamat / Landmark: <i>${esc(address)}</i>\n` +
+        `📊 Progress Saat Ini: <b>${inst.progress || 0}%</b>\n\n` +
+        `🗺️ <b>Navigasi Google Maps:</b>\n` +
+        `<a href="${mapsUrl}">Buka Rute &amp; Navigasi Turn-by-Turn</a>\n\n` +
+        `🛠️ <b>Pre-Departure Checklist Teknisi Borneo Etam:</b>\n` +
+        `• 🪜 Tangga lipat, bor beton rotary + mata bor 6mm/8mm\n` +
+        `• 🔌 Kabel UTP Cat6 / Coaxial, konektor RJ45 / BNC, klem &amp; steker\n` +
+        `• 📹 Unit Kamera, NVR/DVR, Adaptor / Switch PoE &amp; HDD CCTV\n` +
+        `• 📱 Pastikan modem internet klien / orbit sudah aktif jika setting online HP`;
+
+      return send(
+        chat_id,
+        msg,
+        [[{ text: '🗺️ Buka Rute Google Maps', url: mapsUrl }]]
+      );
+    }
+
+    // ---------------------------------------------------- CEK STOK BARANG & SISA GUDANG (STOCK CHECK)
+    case 'stock_check': {
+      const kw = (r.item_description || r.target_text || '').trim();
+      let query = db.from('items').select('id, description, unit, unit_price, cost_price, stock, track_stock').eq('user_id', OWNER_ID);
+
+      if (kw) {
+        query = query.ilike('description', `%${kw}%`);
+      } else {
+        query = query.order('stock', { ascending: true }).limit(15);
+      }
+
+      const { data: items, error } = await query;
+      if (error || !items || items.length === 0) {
+        return send(
+          chat_id,
+          kw
+            ? `Barang dengan kata kunci "<b>${esc(kw)}</b>" tidak ditemukan di katalog stok bro.`
+            : `Belum ada data barang di pustaka stok bro. Kamu bisa tambah dengan ketik: <i>masuk barang kabel cat6 2 roll</i>`
+        );
+      }
+
+      const lines: string[] = [];
+      let lowCount = 0;
+
+      items.forEach((it: any, idx: number) => {
+        const s = Number(it.stock ?? 0);
+        let badge = '🟢';
+        if (s <= 0) { badge = '🔴 HABIS (0)'; lowCount++; }
+        else if (s <= 2) { badge = `🟡 MENIPIS (${s} ${it.unit || 'Unit'})`; lowCount++; }
+        else { badge = `🟢 ${s} ${it.unit || 'Unit'}`; }
+
+        lines.push(
+          `<b>${idx + 1}. ${esc(it.description)}</b>\n` +
+          `   • Stok: <b>${badge}</b> | Modal: ${rp(it.cost_price || 0)} | Jual: ${rp(it.unit_price || 0)}`
+        );
+      });
+
+      const header = kw
+        ? `📦 <b>Hasil Pencarian Stok: "${esc(kw)}"</b>`
+        : `📦 <b>Daftar Stok Inventaris Borneo Etam</b>${lowCount > 0 ? ` (⚠️ ${lowCount} item perlu restock)` : ''}`;
+
+      return send(
+        chat_id,
+        `${header}\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        lines.join('\n\n') + '\n\n' +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 <i>Untuk update atau tambah stok masuk, ketik contoh:</i>\n` +
+        `• <code>tambah stok HDD 1TB 5 unit</code>\n` +
+        `• <code>masuk barang kabel cat6 2 roll modal 650rb</code>`
+      );
+    }
+
+    // ---------------------------------------------------- UPDATE / TAMBAH STOK BARANG (UPDATE STOCK)
+    case 'update_stock': {
+      const desc = (r.item_description || r.target_text || '').trim();
+      const qty = Number(r.stock_quantity ?? 0);
+      const isAdd = r.stock_mode === 'add' || /tambah|masuk|beli|kulakan/i.test(text);
+
+      if (!desc) {
+        return send(
+          chat_id,
+          'Barang apa yang mau di-update stoknya bro? Contoh:\n• <i>tambah stok HDD 1TB 5 unit</i>\n• <i>masuk kabel cat6 2 roll modal 650rb</i>\n• <i>stok kamera colorvu jadi 10</i>'
+        );
+      }
+
+      const { data: existingList } = await db.from('items')
+        .select('*')
+        .eq('user_id', OWNER_ID)
+        .ilike('description', `%${desc}%`)
+        .limit(1);
+
+      const item = existingList?.[0];
+
+      if (item) {
+        const curStock = Number(item.stock || 0);
+        const finalStock = isAdd ? curStock + (qty || 1) : (qty || 0);
+        const updatePayload: any = {
+          stock: finalStock,
+          track_stock: true,
+        };
+        if (r.item_cost_price && Number(r.item_cost_price) > 0) {
+          updatePayload.cost_price = Number(r.item_cost_price);
+        }
+        if (r.item_unit_price && Number(r.item_unit_price) > 0) {
+          updatePayload.unit_price = Number(r.item_unit_price);
+        }
+
+        await db.from('items').update(updatePayload).eq('id', item.id);
+
+        return send(
+          chat_id,
+          `📦 <b>Stok Barang Berhasil Diperbarui!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `• Item: <b>${esc(item.description)}</b>\n` +
+          `• Stok Sebelumnya: <b>${curStock} ${item.unit || 'Unit'}</b>\n` +
+          `• Perubahan: <b>${isAdd ? `+${qty || 1}` : `Set jadi ${qty}`}</b>\n` +
+          `• <b>Stok Sekarang: ${finalStock} ${item.unit || 'Unit'}</b>\n` +
+          (updatePayload.cost_price ? `• Harga Modal Baru: <b>${rp(updatePayload.cost_price)}</b>\n` : '') +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>Data inventaris sudah langsung sinkron dengan Dashboard Command Center.</i>`
+        );
+      } else {
+        const initialStock = qty || 1;
+        const cost = Number(r.item_cost_price || 0);
+        const price = Number(r.item_unit_price || (cost > 0 ? Math.round(cost * 1.3) : 0));
+        const unit = r.item_unit || 'Unit';
+
+        await db.from('items').insert({
+          user_id: OWNER_ID,
+          description: desc,
+          unit,
+          stock: initialStock,
+          track_stock: true,
+          cost_price: cost,
+          unit_price: price,
+        });
+
+        return send(
+          chat_id,
+          `✨ <b>Barang Baru Berhasil Ditambahkan ke Master Stok!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `• Nama: <b>${esc(desc)}</b>\n` +
+          `• Stok Awal: <b>${initialStock} ${unit}</b>\n` +
+          `• Modal: <b>${rp(cost)}</b> | Jual: <b>${rp(price)}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━`
+        );
+      }
+    }
+
+    // ---------------------------------------------------- TAGIHAN JATUH TEMPO & REMINDER WA (OVERDUE INVOICES)
+    case 'overdue_invoices': {
+      const t = (r.target_text || r.client_name || '').trim();
+      let query = db.from('invoices').select('*, invoice_items(*)').eq('user_id', OWNER_ID).neq('status', 'Lunas');
+
+      if (t) {
+        query = query.or(`to_client.ilike.%${t}%,invoice_number.ilike.%${t}%`);
+      }
+
+      const { data: invList } = await query.order('due_date', { ascending: true });
+
+      if (!invList || invList.length === 0) {
+        return send(
+          chat_id,
+          `🎉 <b>Semua Tagihan Aman Bro!</b>\nTidak ada faktur yang mendekati jatuh tempo atau menunggak saat ini.`
+        );
+      }
+
+      const now = Date.now();
+      const threeDaysMs = 3 * 86400000;
+      const overdueOrUpcoming = invList.filter((inv: any) => {
+        if (!inv.due_date) return true;
+        const dueTime = new Date(inv.due_date).getTime();
+        return dueTime <= now + threeDaysMs;
+      });
+
+      const targets = overdueOrUpcoming.length > 0 ? overdueOrUpcoming : invList.slice(0, 5);
+
+      const cards: string[] = [];
+      const primaryInv = targets[0];
+
+      targets.forEach((inv: any, idx: number) => {
+        const items = inv.invoice_items || [];
+        const tot = items.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(inv.discount_amount || 0);
+        const dp = Number(inv.down_payment_amount || 0);
+        const sisa = Math.max(0, tot - dp);
+
+        let tempoText = 'Tidak ditentukan';
+        let alertBadge = '⏳ Mendekati Tempo';
+
+        if (inv.due_date) {
+          const diffDays = Math.round((new Date(inv.due_date).getTime() - now) / 86400000);
+          if (diffDays < 0) {
+            alertBadge = `🔴 TELAT ${Math.abs(diffDays)} HARI`;
+          } else if (diffDays === 0) {
+            alertBadge = '⚠️ JATUH TEMPO HARI INI';
+          } else {
+            alertBadge = `⏳ ${diffDays} hari lagi`;
+          }
+          tempoText = inv.due_date.slice(0, 10);
+        }
+
+        cards.push(
+          `<b>${idx + 1}. ${esc(inv.to_client)}</b> [<code>${esc(inv.invoice_number)}</code>]\n` +
+          `   • Status: <b>${alertBadge}</b> (Tempo: ${tempoText})\n` +
+          `   • Sisa Piutang: <b>${rp(sisa)}</b> (dari ${rp(tot)})\n` +
+          `   • Kontak: <code>${esc(inv.to_phone || '-')}</code>`
+        );
+      });
+
+      const primItems = primaryInv.invoice_items || [];
+      const primTot = primItems.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(primaryInv.discount_amount || 0);
+      const primSisa = Math.max(0, primTot - Number(primaryInv.down_payment_amount || 0));
+
+      const waReminder =
+        `Halo ${primaryInv.to_client}, salam hangat dari Borneo Etam CCTV & POS Samarinda 🙏\n\n` +
+        `Kami ingin mengonfirmasikan kembali terkait Faktur Tagihan No. *${primaryInv.invoice_number}* yang telah jatuh tempo pada tanggal *${primaryInv.due_date ? primaryInv.due_date.slice(0, 10) : 'saat ini'}*.\n\n` +
+        `Rincian sisa pembayaran:\n` +
+        `• Total Tagihan : *${rp(primTot)}*\n` +
+        `• Sisa yang Belum Dibayarkan : *${rp(primSisa)}*\n\n` +
+        `Pembayaran dapat ditransfer melalui:\n` +
+        `*Bank BCA: 5135400278*\n` +
+        `a.n *Muhammad Wahyu*\n\n` +
+        `Jika sudah melakukan pembayaran, mohon kirimkan bukti transfernya ya. Terima kasih banyak atas kerjasamanya! 🙏`;
+
+      return send(
+        chat_id,
+        `⚠️ <b>Monitoring Tagihan Jatuh Tempo &amp; Piutang Kritis</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        cards.join('\n\n') + '\n\n' +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📲 <b>Draft Pesan Tagih WhatsApp (${esc(primaryInv.to_client)}):</b>\n` +
+        `<code>${esc(waReminder)}</code>`,
+        [
+          [
+            { text: '💰 Tandai Sudah Lunas', data: `pay_lunas:${primaryInv.id}` },
+            { text: '🧾 Lihat Faktur', data: `pdf:${primaryInv.id}` }
+          ]
+        ]
+      );
+    }
+
+    // ---------------------------------------------------- TROUBLESHOOTING TEKNIS LAPANGAN CCTV & POS
+    case 'tech_troubleshoot': {
+      const topic = (r.target_text || text || '').trim();
+      const aiReply = r.reply || '';
+
+      return send(
+        chat_id,
+        `🛠️ <b>Solusi Teknis Lapangan - Borneo Etam</b>\n` +
+        `Kendala: <i>${esc(topic)}</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `${aiReply.includes('<') ? aiReply : esc(aiReply)}\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 <i>Ada kendala hardware, setting IP, atau barcode scanner lain di lokasi bro? Tanyakan saja langsung!</i>`
+      );
+    }
+
     default:
       return send(chat_id, esc(r.reply || 'Siap bro! Saya bisa bantu buat penawaran, proses deal ke proyek & peta, catat belanja lapangan, buatkan faktur & BAST, cek durasi rekam harddisk, serta input master barang/jasa. Ada yang mau dikerjakan?'));
   }
@@ -2343,6 +2741,10 @@ async function handleCallback(cb: any) {
     await handleText(chat_id, `catat pelunasan faktur ${id}`);
     return;
   }
+  if (action === 'kwitansi') {
+    await handleText(chat_id, `cetak kwitansi ${id}`);
+    return;
+  }
 
   const { data: row } = await db.from('telegram_pending_actions').select('*').eq('id', id).maybeSingle();
   if (!row || row.chat_id !== chat_id) return;
@@ -2456,6 +2858,11 @@ Deno.serve(async (req) => {
               '• <i>tolong masukkan barang ini: Kamera ColorVu 4MP jual 450rb modal 320rb</i>\n' +
               '• <i>Pak Yusuf sudah lunas</i> (catat pelunasan faktur)\n' +
               '• <i>Pak Sahabuddin transfer DP 2jt</i> (catat DP faktur)\n' +
+              '• <i>minta kwitansi Pak Yusuf</i> (cetak Kwitansi Resmi PDF)\n' +
+              '• <i>lokasi proyek Pak Yusuf</i> (share pin GPS & rute Google Maps teknisi)\n' +
+              '• <i>cek stok HDD 1TB</i> / <i>tambah stok kabel cat6 2 roll</i> (manajemen stok)\n' +
+              '• <i>cek tagihan jatuh tempo</i> (monitoring piutang & draft reminder WA)\n' +
+              '• <i>kamera hikvision malam hari gelap gak mau nyala LED kenapa ya?</i> (asisten teknisi)\n' +
               '• <i>rekap piutang bro</i> (cek daftar tagihan yang belum lunas)\n' +
               '• <i>rekap performa bulan ini bro</i>'
             );
