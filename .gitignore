@@ -29,3 +29,6 @@ dist-ssr
 
 # secrets bot
 supabase/functions/telegram-bot/.env.bot
+supabase/.temp/
+deno.lock
+login-supabase.bat

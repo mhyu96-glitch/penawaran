@@ -18,7 +18,7 @@ const WEBHOOK_SECRET = env('TELEGRAM_WEBHOOK_SECRET');
 const ALLOWED_ID = Number(env('ALLOWED_TELEGRAM_ID'));
 const OWNER_ID = env('OWNER_USER_ID');
 const GEMINI_KEY = env('GEMINI_API_KEY');
-const APP_URL = env('APP_BASE_URL').replace(/\/$/, '');
+const APP_URL = (env('APP_BASE_URL') || 'https://quoteapp-glass.vercel.app').replace(/\/$/, '');
 
 const CANDIDATE_MODELS = [
   env('GEMINI_MODEL') || 'gemini-2.5-flash',
@@ -41,13 +41,21 @@ async function tg(method: string, body: Record<string, unknown>) {
   return res.json().catch(() => ({}));
 }
 
-const send = (chat_id: number, text: string, buttons?: { text: string; data: string }[][]) =>
+const send = (chat_id: number, text: string, buttons?: { text: string; data?: string; url?: string }[][]) =>
   tg('sendMessage', {
     chat_id,
     text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    ...(buttons ? { reply_markup: { inline_keyboard: buttons.map((r) => r.map((b) => ({ text: b.text, callback_data: b.data }))) } } : {}),
+    ...(buttons
+      ? {
+          reply_markup: {
+            inline_keyboard: buttons.map((r) =>
+              r.map((b) => (b.url ? { text: b.text, url: b.url } : { text: b.text, callback_data: b.data || '' }))
+            ),
+          },
+        }
+      : {}),
   });
 
 async function sendDocument(chat_id: number, bytes: Uint8Array, filename: string, caption?: string) {
@@ -101,6 +109,7 @@ const SCHEMA = {
         'get_pdf',
         'get_surat_jalan',
         'get_bast',
+        'get_warranty',
         'storage_calculator',
         'record_payment',
         'monthly_summary',
@@ -220,13 +229,14 @@ PANDUAN INTENT & ALUR KERJA:
    - Ekstrak: target_text, progress: 100, installed_at, sn_nvr, sn_hdd.
 6. get_surat_jalan: Minta cetak Surat Jalan (misal: "cetak surat jalan Pak Suhabuddin", "minta surat jalan"). target_text = nama klien.
 7. get_bast: Minta cetak Berita Acara Serah Terima (misal: "cetak BAST Pak Suhabuddin", "minta berita acara"). target_text = nama klien.
-8. storage_calculator: Mas Wahyu tanya kapasitas / lama hari rekaman CCTV (misal: "4 kamera 2MP HDD 1TB tahan rekam berapa hari bro?", "8 kamera 4MP harddisk 2TB").
+8. get_warranty: Mas Wahyu minta kartu garansi digital / cek garansi / link garansi / sertifikat garansi (misal: "garansi digital sudah?", "garansi digital", "kartu garansi", "minta kartu garansi Pak Suhabuddin", "link garansi", "cetak garansi"). target_text = nama klien (opsional).
+9. storage_calculator: Mas Wahyu tanya kapasitas / lama hari rekaman CCTV (misal: "4 kamera 2MP HDD 1TB tahan rekam berapa hari bro?", "8 kamera 4MP harddisk 2TB").
    - Jawab secara teknis presisi di field reply: sebutkan kompresi H.265+, estimasi hari rekaman 24 jam non-stop, dan perkiraan jika pakai motion detection.
-9. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
-10. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
-11. get_pdf: Minta file PDF penawaran / faktur.
-12. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
-13. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
+10. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
+11. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
+12. get_pdf: Minta file PDF penawaran / faktur.
+13. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
+14. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
@@ -450,7 +460,7 @@ async function showPending(chat_id: number, id: string, kind: string, p: any) {
 }
 
 // ------------------------------------------------------------------ helper pengantar whatsapp
-function makeWhatsAppText(type: 'quote' | 'invoice', docNumber: string, clientName: string, total: number, dp = 0): string {
+function makeWhatsAppText(type: 'quote' | 'invoice' | 'warranty', docNumber: string, clientName: string, total = 0, dp = 0, warrantyUrl?: string): string {
   if (type === 'quote') {
     return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Klien:</b>\n` +
       `<code>Yth. ${clientName || 'Bapak/Ibu'},\n\n` +
@@ -460,14 +470,24 @@ function makeWhatsAppText(type: 'quote' | 'invoice', docNumber: string, clientNa
       `Dokumen penawaran resmi berstempel terlampir dalam file PDF di atas.\nTerima kasih atas kepercayaannya.\n\n` +
       `Salam hangat,\nMuhammad Wahyu\nBorneo Etam CCTV & Komputer Kasir\nWhatsApp: 0822-5131-4646</code>`;
   }
+  if (type === 'warranty') {
+    return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Klien:</b>\n` +
+      `<code>Yth. ${clientName || 'Bapak/Ibu'},\n\n` +
+      `Pekerjaan instalasi telah selesai dilaksanakan dan sistem keamanan Anda telah aktif sepenuhnya.\n\n` +
+      `Bersama ini kami lampirkan Dokumen Resmi Kartu Garansi Digital (No: ${docNumber}) dengan jaminan perlindungan hardware 12 Bulan Penuh.\n\n` +
+      (warrantyUrl ? `Bapak/Ibu dapat memantau masa aktif garansi & nomor seri perangkat secara live kapan saja melalui tautan resmi:\n👉 ${warrantyUrl}\n\n` : '') +
+      `Layanan bantuan teknis & darurat hubungi WhatsApp: 0822-5131-4646.\nTerima kasih banyak atas kepercayaannya!\n\n` +
+      `Salam hangat,\nBorneo Etam CCTV & Komputer Kasir</code>`;
+  }
   const sisa = Math.max(0, total - dp);
   return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Klien:</b>\n` +
     `<code>Yth. ${clientName || 'Bapak/Ibu'},\n\n` +
-    `Pekerjaan instalasi CCTV telah selesai dilaksanakan dengan baik, seluruh kamera berfungsi normal dan bergaransi 12 Bulan.\n\n` +
+    `Pekerjaan instalasi CCTV telah selesai dilaksanakan dengan baik, seluruh kamera berfungsi normal dan bergaransi resmi 12 Bulan.\n\n` +
     `Berikut kami lampirkan Faktur Tagihan resmi (No: ${docNumber}).\n` +
     `Total: ${rp(total)}\n` +
     (dp > 0 ? `DP Diterima: ${rp(dp)}\nSisa Pelunasan: ${rp(sisa)}\n\n` : '\n') +
     `Pembayaran resmi via Transfer Bank:\nBank BCA: 5135400278 a.n Muhammad Wahyu\n\n` +
+    (warrantyUrl ? `Kartu Garansi Digital dapat dipantau di:\n👉 ${warrantyUrl}\n\n` : '') +
     `Dokumen Faktur PDF terlampir. Terima kasih banyak atas kerjasamanya!\n\n` +
     `Salam hormat,\nBorneo Etam CCTV & Komputer Kasir\n0822-5131-4646</code>`;
 }
@@ -756,8 +776,38 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `🧾 <b>Faktur Tagihan Resmi: <code>${invNumber}</code></b>\nKlien: <b>${esc(inst.client_name)}</b>\nTotal: <b>${rp(omset)}</b>`
       );
 
-      // 7. Kirim Kartu Rekap Finansial & Teks WA
-      const waText = makeWhatsAppText('invoice', invNumber, inst.client_name, omset, 0);
+      // 7. Generate & Kirim Sertifikat Garansi Digital PDF
+      const warNumber = `WAR/BE-CCTV/${nowParts().y}/${String(quote?.quote_number || invNumber).split('/').pop()}`;
+      const warrantyPdfBytes = generateBorneoDocumentPdf({
+        type: 'warranty',
+        docNumber: warNumber,
+        dateStr: tglPasang,
+        clientName: inst.client_name,
+        clientPhone: inst.client_phone,
+        clientAddress: inst.address_landmark,
+        companyName: 'Borneo Etam CCTV & Komputer Kasir',
+        items,
+        snNvr,
+        snHdd,
+        warrantyMonths: inst.warranty_months || 12,
+      });
+
+      const safeWarName = `Sertifikat_Garansi-${inst.client_name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const publicWarrantyUrl = `${APP_URL}/garansi/${inst.id}`;
+
+      await sendDocument(
+        chat_id,
+        warrantyPdfBytes,
+        safeWarName,
+        `🛡️ <b>Sertifikat Garansi Digital Resmi (12 Bulan): <code>${warNumber}</code></b>\n` +
+        `Klien: <b>${esc(inst.client_name)}</b>\n` +
+        `SN NVR: <code>${esc(snNvr)}</code> | SN HDD: <code>${esc(snHdd)}</code>\n` +
+        `Masa Garansi: <b>12 Bulan Penuh (Mulai ${formatDateIndo(tglPasang)})</b>\n\n` +
+        `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`
+      );
+
+      // 8. Kirim Kartu Rekap Finansial & Teks WA
+      const waText = makeWhatsAppText('invoice', invNumber, inst.client_name, omset, 0, publicWarrantyUrl);
 
       return send(
         chat_id,
@@ -774,7 +824,10 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `${waText}`,
         [
-          [{ text: '📜 Cetak BAST Resmi', data: `bast:${quote?.id || inst.id}` }],
+          [
+            { text: '🛡️ Buka Garansi Digital Live', url: publicWarrantyUrl },
+            { text: '📜 Cetak BAST Resmi', data: `bast:${quote?.id || inst.id}` },
+          ],
         ]
       );
     }
@@ -841,6 +894,87 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         pdfBytes,
         safeName,
         `📜 <b>Berita Acara Serah Terima (BAST) Resmi</b>\nNo: <code>${bastNumber}</code>\nKlien: <b>${esc(quote.to_client)}</b>\n\n<i>Lengkap dengan pernyataan serah terima, nomor seri unit, dan stempel resmi!</i>`
+      );
+    }
+
+    // ---------------------------------------------------- KARTU GARANSI DIGITAL
+    case 'get_warranty': {
+      const t = (r.target_text || '').trim();
+      let inst: any = null;
+
+      // 1. Cari dari cctv_installations
+      let qi = db.from('cctv_installations').select('*').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
+      if (t) qi = qi.or(`client_name.ilike.%${t}%,project_name.ilike.%${t}%`);
+      const { data: instData } = await qi.limit(1);
+      inst = instData?.[0];
+
+      let quote: any = null;
+      if (inst?.quote_id) {
+        const { data: qData } = await db.from('quotes').select('*, quote_items(*)').eq('id', inst.quote_id).maybeSingle();
+        quote = qData;
+      } else {
+        // Cari dari quotes jika cctv_installations belum ada
+        let qq = db.from('quotes').select('*, quote_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+        if (t) qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+        const { data: qData } = await qq;
+        quote = qData?.[0];
+      }
+
+      if (!inst && !quote) {
+        return send(chat_id, `Data proyek/garansi untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan penawaran/proyek klien sudah dibuat ya.`);
+      }
+
+      const clientName = inst?.client_name || quote?.to_client || 'Pelanggan';
+      const clientPhone = inst?.client_phone || quote?.to_phone || '';
+      const clientAddress = inst?.address_landmark || quote?.to_address || 'Samarinda, Kalimantan Timur';
+      const items = quote?.quote_items || [];
+      const tglPasang = inst?.installed_at ? String(inst.installed_at).slice(0, 10) : nowParts().iso;
+      const snNvr = inst?.sn_nvr || r.sn_nvr || 'Tercatat di sistem distributor';
+      const snHdd = inst?.sn_hdd || r.sn_hdd || 'Tercatat di sistem distributor';
+      const qNum = quote?.quote_number || '001';
+      const warNumber = `WAR/BE-CCTV/${nowParts().y}/${String(qNum).split('/').pop() || '001'}`;
+
+      const pdfBytes = generateBorneoDocumentPdf({
+        type: 'warranty',
+        docNumber: warNumber,
+        dateStr: tglPasang,
+        clientName,
+        clientPhone,
+        clientAddress,
+        companyName: 'Borneo Etam CCTV & Komputer Kasir',
+        items,
+        snNvr,
+        snHdd,
+        warrantyMonths: inst?.warranty_months || 12,
+      });
+
+      const safeName = `Sertifikat_Garansi-${clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const instId = inst?.id || quote?.id;
+      const publicWarrantyUrl = `${APP_URL}/garansi/${instId}`;
+
+      await sendDocument(
+        chat_id,
+        pdfBytes,
+        safeName,
+        `🛡️ <b>Sertifikat Garansi Digital Resmi (12 Bulan)</b>\n` +
+        `No. Registrasi: <code>${warNumber}</code>\n` +
+        `Klien: <b>${esc(clientName)}</b>\n` +
+        `SN NVR: <code>${esc(snNvr)}</code> | SN HDD: <code>${esc(snHdd)}</code>\n` +
+        `Mulai Garansi: <b>${formatDateIndo(tglPasang)}</b>\n\n` +
+        `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`
+      );
+
+      const waMsg = makeWhatsAppText('warranty', warNumber, clientName, 0, 0, publicWarrantyUrl);
+
+      return send(
+        chat_id,
+        `${waMsg}`,
+        [
+          [
+            { text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl },
+            { text: '📜 Cetak BAST', data: `bast:${quote?.id || instId}` },
+          ],
+        ]
       );
     }
 
@@ -1168,6 +1302,10 @@ async function handleCallback(cb: any) {
   }
   if (action === 'bast') {
     await handleText(chat_id, `cetak BAST ${id}`);
+    return;
+  }
+  if (action === 'warranty') {
+    await handleText(chat_id, `garansi digital ${id}`);
     return;
   }
   if (action === 'pdf') {

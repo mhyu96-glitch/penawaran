@@ -3,7 +3,7 @@
 // Desain modern, multi-line address wrapping, 3 kategori rapi, stempel digital resmi, tanpa ALL CAPS.
 import { jsPDF } from 'https://esm.sh/jspdf@3.0.3';
 
-export type DocType = 'quote' | 'invoice' | 'surat_jalan' | 'bast';
+export type DocType = 'quote' | 'invoice' | 'surat_jalan' | 'bast' | 'warranty';
 export type ItemCategory = 'item_utama' | 'material_tambahan' | 'jasa_akomodasi';
 
 export interface DocItem {
@@ -149,16 +149,226 @@ function drawOfficialStamp(doc: jsPDF, x: number, y: number) {
   doc.restoreGraphicsState();
 }
 
-export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
-  const isInvoice = data.type === 'invoice';
-  const isSuratJalan = data.type === 'surat_jalan';
-  const isBast = data.type === 'bast';
+function renderWarrantyCertificate(doc: jsPDF, data: QuotePdfData): Uint8Array {
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const rightX = pageWidth - margin;
 
+  // 1. Double Certificate Border (Border Ganda Sertifikat Resmi)
+  doc.setDrawColor(15, 23, 42); // Slate-900 Outer Border
+  doc.setLineWidth(1.2);
+  doc.rect(8, 8, pageWidth - 16, pageHeight - 16, 'D');
+
+  doc.setDrawColor(220, 38, 38); // Crimson Red Inner Border
+  doc.setLineWidth(0.4);
+  doc.rect(10.5, 10.5, pageWidth - 21, pageHeight - 21, 'D');
+
+  // Top header accent band
+  doc.setFillColor(220, 38, 38);
+  doc.rect(11, 11, pageWidth - 22, 3, 'F');
+
+  // Kop Surat
+  let y = 20;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Borneo Etam', pageWidth / 2, y, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(220, 38, 38);
+  doc.text('CCTV & Komputer Kasir', pageWidth / 2, y + 6, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Spesialis Pengadaan & Instalasi CCTV HD/IP PoE serta Komputer Kasir POS', pageWidth / 2, y + 11, { align: 'center' });
+  doc.text('Samarinda - Kalimantan Timur • WhatsApp Hotline: 0822-5131-4646 • Website: Borneoetam.com', pageWidth / 2, y + 15, { align: 'center' });
+
+  y += 20;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.6);
+  doc.line(margin + 5, y, rightX - 5, y);
+
+  // Big Badge: Sertifikat Kartu Garansi Digital
+  y += 7;
+  doc.setFillColor(15, 23, 42);
+  doc.roundedRect(pageWidth / 2 - 58, y, 116, 11, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text('SERTIFIKAT KARTU GARANSI DIGITAL', pageWidth / 2, y + 7.5, { align: 'center' });
+
+  y += 16;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Nomor Registrasi Garansi: ${data.docNumber}`, pageWidth / 2, y, { align: 'center' });
+
+  // Box 1: Data Konsumen & Lokasi
+  y += 7;
+  const boxW = contentWidth;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(margin, y, boxW, 26, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(220, 38, 38);
+  doc.text('DATA PEMILIK & LOKASI PEMASANGAN:', margin + 4, y + 6);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(data.clientName || 'Pelanggan Terhormat', margin + 4, y + 12);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Kontak / WhatsApp : ${data.clientPhone || '-'}`, margin + 4, y + 16.5);
+  const addrLines = doc.splitTextToSize(`Alamat Pemasangan: ${data.clientAddress || 'Samarinda, Kalimantan Timur'}`, boxW - 8);
+  doc.text(addrLines.slice(0, 2), margin + 4, y + 21);
+
+  // Box 2: Data Perangkat & Nomor Seri (SN) Terdaftar
+  y += 31;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, y, boxW, 30, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(220, 38, 38);
+  doc.text('PERANGKAT & NOMOR SERI RESMI TERDAFTAR:', margin + 4, y + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(30, 41, 59);
+
+  doc.text('1. Unit NVR / DVR', margin + 4, y + 12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`SN: ${data.snNvr || 'Tercatat di sistem distributor'}`, margin + 45, y + 12);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('2. Harddisk CCTV (WD Purple)', margin + 4, y + 17.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`SN: ${data.snHdd || 'Tercatat di sistem distributor'}`, margin + 45, y + 17.5);
+
+  doc.setFont('helvetica', 'normal');
+  const mainItems = (data.items || []).filter(i => Number(i.quantity) > 0 && i.unit !== 'Header').map(i => `${i.description} (${i.quantity} ${i.unit || 'Unit'})`).slice(0, 3).join(', ');
+  doc.text('3. Paket Kamera / Layanan', margin + 4, y + 23);
+  doc.setFont('helvetica', 'bold');
+  doc.text(mainItems.slice(0, 65) || 'Paket Sistem Keamanan CCTV', margin + 45, y + 23);
+
+  // Box 3: Masa Berlaku Garansi & Status Aktif
+  y += 35;
+  doc.setFillColor(240, 253, 244); // Green-50
+  doc.setDrawColor(187, 247, 208); // Green-200
+  doc.roundedRect(margin, y, boxW, 26, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(22, 101, 52); // Green-800
+  doc.text('PERIODE MASA GARANSI RESMI DISTRIBUTOR:', margin + 4, y + 6.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(21, 128, 61);
+  doc.text(`Tanggal Instalasi / Mulai Garansi : ${formatDateIndo(data.dateStr) || data.dateStr}`, margin + 4, y + 12.5);
+
+  let expiryDate = data.validUntilOrDueDate;
+  if (!expiryDate && data.dateStr) {
+    const parts = data.dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const expY = parseInt(parts[0], 10) + 1;
+      expiryDate = `${expY}-${parts[1]}-${parts[2]}`;
+    }
+  }
+  doc.text(`Masa Berlaku Garansi Hardware     : 12 Bulan Penuh (Hingga ${formatDateIndo(expiryDate || '') || '1 Tahun ke Depan'})`, margin + 4, y + 17.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('STATUS : ✓ GARANSI RESMI TERVERIFIKASI AKTIF', margin + 4, y + 22.5);
+
+  // Box 4: Ketentuan Klaim Garansi
+  y += 31;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('KETENTUAN HAK & KLAIM JAMINAN GARANSI:', margin, y + 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+
+  const warrantyTerms = [
+    '1. Garansi penggantian unit baru / servis distributor resmi berlaku 12 Bulan untuk DVR/NVR, Kamera & Harddisk.',
+    '2. Gratis kunjungan teknis perbaikan & setting ulang pantau online via aplikasi HP berlaku selama 3 Bulan.',
+    '3. Garansi tidak berlaku untuk kerusakan akibat bencana alam (banjir/petir), tegangan listrik ekstrem, atau kelalaian fisik.',
+    '4. Cara klaim mudah: Cukup hubungi WhatsApp Layanan Servis Borneo Etam (0822-5131-4646) dengan menunjukkan nomor registrasi ini.'
+  ];
+
+  let ty = y + 8.5;
+  for (const t of warrantyTerms) {
+    doc.text(t, margin, ty);
+    ty += 4.2;
+  }
+
+  // Tanda Tangan & Stempel Digital Sisi Kanan
+  y = Math.max(y + 35, ty + 6);
+  const signColX = rightX - 44;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Samarinda, ${formatDateIndo(data.dateStr) || data.dateStr}`, signColX, y, { align: 'center' });
+  doc.text('Diterbitkan sah oleh,', signColX, y + 4, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.2);
+  doc.setTextColor(220, 38, 38);
+  doc.text('Borneo Etam CCTV & POS', signColX, y + 8, { align: 'center' });
+
+  // Stempel Digital Resmi
+  drawOfficialStamp(doc, signColX - 6, y + 17);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('( Muhammad Wahyu )', signColX, y + 27, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Owner / Technical Lead', signColX, y + 31, { align: 'center' });
+
+  // Footer Certificate
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(margin, pageHeight - 14, rightX, pageHeight - 14);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.8);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Sertifikat Garansi Digital Resmi ini tersimpan permanen di Borneo Etam Cloud Command Center.', margin, pageHeight - 10);
+  doc.text('Layanan Pelanggan: 0822-5131-4646', rightX, pageHeight - 10, { align: 'right' });
+
+  const rawBytes = doc.output('arraybuffer');
+  return new Uint8Array(rawBytes);
+}
+
+export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
+
+  if (data.type === 'warranty') {
+    return renderWarrantyCertificate(doc, data);
+  }
+  const isInvoice = data.type === 'invoice';
+  const isSuratJalan = data.type === 'surat_jalan';
+  const isBast = data.type === 'bast';
 
   const pageWidth = 210;
   const pageHeight = 297;

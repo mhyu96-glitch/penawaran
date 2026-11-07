@@ -52,6 +52,7 @@ import { GlassErrorBoundary } from "./components/glass/GlassErrorBoundary";
 // Lazy-loaded Borneo Etam GIS & Portfolio Modules (Zero initial bundle impact)
 const CCTVCommandCenter = lazy(() => import("./pages/CCTVCommandCenter"));
 const PublicPortfolioMap = lazy(() => import("./pages/PublicPortfolioMap"));
+const PublicWarrantyView = lazy(() => import("./pages/PublicWarrantyView"));
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,8 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/portfolio" element={<PublicPortfolioMap />} />
+              <Route path="/garansi/:id" element={<PublicWarrantyView />} />
+              <Route path="/warranty/:id" element={<PublicWarrantyView />} />
               <Route path="/quote/public/:id" element={<PublicQuoteView />} />
               <Route path="/invoice/public/:id" element={<PublicInvoiceView />} />
               <Route path="/portal/:accessKey" element={<ClientPortal />} />
