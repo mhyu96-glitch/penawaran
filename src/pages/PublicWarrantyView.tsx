@@ -212,9 +212,8 @@ export default function PublicWarrantyView() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Hak Jaminan Konsumen:
               </p>
               <ul className="list-disc list-inside space-y-1 text-slate-400">
-                <li>Garansi resmi distributor 12 Bulan untuk DVR/NVR, Kamera, & Harddisk CCTV.</li>
-                <li>Gratis kunjungan pemeliharaan teknis & setting online HP selama 3 Bulan.</li>
-                <li>Bantuan teknisi darurat langsung via WhatsApp Borneo Etam (0822-5131-4646).</li>
+                <li>Garansi resmi distributor 12 Bulan penuh untuk DVR/NVR, Kamera, & Harddisk CCTV.</li>
+                <li>Layanan bantuan teknisi & panduan sistem via WhatsApp Borneo Etam (0822-5131-4646).</li>
               </ul>
             </div>
 

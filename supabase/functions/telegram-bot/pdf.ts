@@ -19,6 +19,7 @@ export interface QuotePdfData {
   type: DocType;
   docNumber: string;
   docTitle?: string;
+  docCategory?: 'standard' | 'partner_service';
   dateStr: string;
   validUntilOrDueDate?: string;
   clientName: string;
@@ -303,9 +304,8 @@ function renderWarrantyCertificate(doc: jsPDF, data: QuotePdfData): Uint8Array {
 
   const warrantyTerms = [
     '1. Garansi penggantian unit baru / servis distributor resmi berlaku 12 Bulan untuk DVR/NVR, Kamera & Harddisk.',
-    '2. Gratis kunjungan teknis perbaikan & setting ulang pantau online via aplikasi HP berlaku selama 3 Bulan.',
-    '3. Garansi tidak berlaku untuk kerusakan akibat bencana alam (banjir/petir), tegangan listrik ekstrem, atau kelalaian fisik.',
-    '4. Cara klaim mudah: Cukup hubungi WhatsApp Layanan Servis Borneo Etam (0822-5131-4646) dengan menunjukkan nomor registrasi ini.'
+    '2. Garansi tidak berlaku untuk kerusakan akibat bencana alam (banjir/petir), tegangan listrik ekstrem, atau kelalaian fisik.',
+    '3. Cara klaim mudah: Cukup hubungi WhatsApp Layanan Servis Borneo Etam (0822-5131-4646) dengan menunjukkan nomor registrasi ini.'
   ];
 
   let ty = y + 8.5;
@@ -433,19 +433,27 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   // Badge Judul Dokumen
   let badgeTitle = 'Surat Penawaran Harga';
   let badgeColor = [15, 23, 42]; // Slate-900
-  if (isInvoice) {
+  let badgeWidth = 50;
+
+  if (data.docCategory === 'partner_service') {
+    badgeTitle = isInvoice ? 'Faktur Jasa & Subkon (Toko)' : 'Penawaran Jasa & Subkon (Toko)';
+    badgeColor = [109, 40, 217]; // Violet-700
+    badgeWidth = isInvoice ? 58 : 60;
+  } else if (isInvoice) {
     badgeTitle = 'Faktur Tagihan';
     badgeColor = [220, 38, 38]; // Red
+    badgeWidth = 36;
   } else if (isSuratJalan) {
     badgeTitle = 'Surat Jalan Pengeluaran Barang';
     badgeColor = [37, 99, 235]; // Blue
+    badgeWidth = 62;
   } else if (isBast) {
     badgeTitle = 'Berita Acara Serah Terima (BAST)';
     badgeColor = [22, 101, 52]; // Green
+    badgeWidth = 60;
   }
 
   doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-  const badgeWidth = isSuratJalan ? 62 : isBast ? 60 : isInvoice ? 36 : 50;
   doc.roundedRect(margin + 4, y + 3.5, badgeWidth, 5.8, 1.2, 1.2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
@@ -472,7 +480,8 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Ditujukan Kepada:', cardRightX + 4, y + 7.5);
+  const clientCardTitle = data.docCategory === 'partner_service' ? 'Toko / Partner Penerima:' : 'Ditujukan Kepada:';
+  doc.text(clientCardTitle, cardRightX + 4, y + 7.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
@@ -599,10 +608,18 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
       doc.text(`${it.quantity} ${it.unit || 'Unit'}`, colQty, y + 4.6);
 
       if (!isSuratJalan && !isBast) {
-        doc.text(formatRupiah(it.unit_price), colPrice, y + 4.6, { align: 'right' });
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text(formatRupiah(lineTotal), colTotal, y + 4.6, { align: 'right' });
+        if (data.docCategory === 'partner_service' && Number(it.unit_price) === 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.2);
+          doc.setTextColor(148, 163, 184);
+          doc.text('(Bawaan Toko)', colPrice, y + 4.6, { align: 'right' });
+          doc.text('Non-Tagihan', colTotal, y + 4.6, { align: 'right' });
+        } else {
+          doc.text(formatRupiah(it.unit_price), colPrice, y + 4.6, { align: 'right' });
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(15, 23, 42);
+          doc.text(formatRupiah(lineTotal), colTotal, y + 4.6, { align: 'right' });
+        }
       } else {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(22, 101, 52);
@@ -782,13 +799,19 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setFontSize(7.2);
   doc.setTextColor(100, 116, 139);
 
-  const defaultTerms = [
-    '1. Seluruh unit kamera, NVR/DVR & Harddisk WD Purple bergaransi resmi 12 Bulan.',
-    '2. Gratis kunjungan pemeliharaan teknis & setting online pantau HP selama 3 Bulan.',
-    '3. Penarikan kabel rapi menggunakan pelindung pipa klem standar instalasi kelistrikan.',
-    '4. Pembayaran DP 50% saat jadwal disepakati, pelunasan 50% setelah uji coba selesai (BAST).'
+  const partnerTerms = [
+    '1. Penawaran/Faktur ini khusus mencakup jasa instalasi teknis, konfigurasi, dan biaya akomodasi lapangan.',
+    '2. Seluruh unit/material utama disediakan langsung oleh pihak Toko/Pemberi Kerja.',
+    '3. Pembayaran diselesaikan setelah serah terima pekerjaan (BAST).'
   ];
-  const termsList = data.terms ? data.terms.split('\n').filter(Boolean) : defaultTerms;
+  const standardTerms = [
+    '1. Seluruh unit kamera, NVR/DVR & Harddisk WD Purple bergaransi resmi 12 Bulan.',
+    '2. Penarikan kabel rapi menggunakan pelindung pipa klem standar instalasi kelistrikan.',
+    '3. Pembayaran DP 50% saat jadwal disepakati, pelunasan 50% setelah uji coba selesai (BAST).'
+  ];
+  const defaultTerms = data.docCategory === 'partner_service' ? partnerTerms : standardTerms;
+  const rawTerms = (data.terms || '').replace(/\[CATEGORY:[a-zA-Z0-9_-]+\]/g, '').trim();
+  const termsList = rawTerms ? rawTerms.split('\n').filter(Boolean) : defaultTerms;
 
   let ty = y + 8.5;
   for (const t of termsList.slice(0, 4)) {

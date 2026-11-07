@@ -98,6 +98,8 @@ const SCHEMA = {
       type: 'STRING',
       enum: [
         'create_quote',
+        'create_invoice',
+        'edit_document',
         'deal_project',
         'add_expense',
         'add_item_master',
@@ -180,6 +182,10 @@ const SCHEMA = {
     item_unit_price: { type: 'NUMBER', nullable: true },
     item_cost_price: { type: 'NUMBER', nullable: true },
     proactive_note: { type: 'STRING', nullable: true },
+    doc_category: { type: 'STRING', enum: ['standard', 'partner_service'], nullable: true },
+    target_doc_type: { type: 'STRING', enum: ['quote', 'invoice', 'warranty', 'project', 'auto'], nullable: true },
+    is_partner_store: { type: 'BOOLEAN', nullable: true },
+    delete_items: { type: 'ARRAY', items: { type: 'STRING' }, nullable: true },
   },
   required: ['intent'],
 };
@@ -218,25 +224,39 @@ Semua nilai nominal harus selalu diekstrak sebagai NUMBER integer murni!
 
 PANDUAN INTENT & ALUR KERJA:
 1. create_quote: Mas Wahyu ingin buat penawaran baru.
-   - PENTING: Periksa apakah Mas Wahyu sudah menyebutkan ALAMAT LENGKAP klien. Jika belum ada alamatnya, beritahu ramah di proactive_note agar alamat lengkap diinput (supaya nanti saat deal langsung otomatis tertera di PDF dan masuk titik peta).
-   - Ekstrak: client_name, client_phone, client_address, package_id, item_adjustments, extra_items (dengan cost_price & category), discount_amount, total_cost_override.
-2. deal_project: Mas Wahyu menyatakan penawaran DEAL / disepakati (misal: "deal ya", "penawaran ini deal", "lanjut buat proyek", "proyek Pak Suhabuddin deal"). target_text = nama klien.
-3. add_expense: Mas Wahyu melapor belanja / pengeluaran lapangan (misal: "sudah beli pipa conduit 10 btg 150rb untuk proyek Pak Suhabuddin", "beli bensin 50rb proyek Suhabuddin").
+   - MODE TOKO / SUBKON (doc_category: 'partner_service'): Jika penawaran ditujukan ke Toko / Mitra / Subkon (misal: "buat penawaran ke Toko Surya jasa pasang 4 titik 600rb, akomodasi 150rb, unit dari toko"):
+     Set doc_category: 'partner_service'. Perangkat dari toko diberi unit_price: 0 (non-tagihan), dan item jasa/akomodasi diisi nominal tagihannya.
+   - PENTING: Periksa apakah Mas Wahyu sudah menyebutkan ALAMAT LENGKAP klien. Jika belum ada alamatnya, beritahu ramah di proactive_note agar alamat lengkap diinput.
+   - Ekstrak: client_name, client_phone, client_address, package_id, item_adjustments, extra_items (dengan cost_price & category), discount_amount, total_cost_override, doc_category.
+2. create_invoice: Mas Wahyu ingin buat FAKTUR TAGIHAN LANGSUNG tanpa lewat penawaran dulu (misal: "buat faktur Pak Yusuf paket 4 kamera 3.5jt DP 1.5jt", "buat faktur ke Toko Berkah Jaya jasa pasang 8 kamera 1.2jt, transportasi 200rb", "buatkan faktur pak yusuf").
+   - Ekstrak: client_name, client_phone, client_address, package_id, extra_items, down_payment_amount, discount_amount, sn_nvr, sn_hdd, doc_category ('partner_service' jika ditujukan ke Toko/Subkon).
+3. edit_document: Mas Wahyu ingin MENGEDIT penawaran, faktur, item, atau memasukkan/mengubah Serial Number (SN) hardware yang SUDAH TERSIMPAN di sistem (misal: "faktur pak yusuf kita mau edit nvr nya untuk masukkan sn nya SN: NVR-HL-8899", "edit penawaran pak suhabuddin tambah kabel 1 roll 300rb", "update SN NVR faktur pak yusuf NVR-9988 SN HDD WD-1234", "edit harga jasa di faktur pak yusuf jadi 500rb", "ubah alamat penawaran pak suhabuddin jadi Jl. Juanda", "edit nvr pak yusuf masukkan SN 123456").
+   - Ekstrak:
+     - target_text: nama klien / nomor dokumen (contoh: "pak yusuf", "suhabuddin").
+     - target_doc_type: 'invoice' (jika faktur), 'quote' (jika penawaran), atau 'auto'.
+     - sn_nvr: nomor seri NVR jika ada (contoh: "NVR-HL-8899", "123456").
+     - sn_hdd: nomor seri HDD jika ada.
+     - item_adjustments: item yang mau diubah harga / qty (contoh: item_keyword: "jasa", unit_price: 500000).
+     - extra_items: item baru yang mau ditambahkan.
+     - delete_items: keyword item yang mau dihapus (contoh: ["kabel"]).
+     - client_address, client_phone, discount_amount, down_payment_amount.
+4. deal_project: Mas Wahyu menyatakan penawaran DEAL / disepakati (misal: "deal ya", "penawaran ini deal", "lanjut buat proyek", "proyek Pak Suhabuddin deal"). target_text = nama klien.
+5. add_expense: Mas Wahyu melapor belanja / pengeluaran lapangan (misal: "sudah beli pipa conduit 10 btg 150rb untuk proyek Pak Suhabuddin", "beli bensin 50rb proyek Suhabuddin").
    - Ekstrak: target_text (nama klien/proyek), expense_amount, expense_description, expense_category ('Material Lapangan', 'Transportasi', 'Konsumsi', 'Lainnya').
-4. add_item_master: Mas Wahyu ingin menambah barang/jasa baru ke master pustaka (misal: "tolong masukkan barang ini di barang dan jasa: Kamera ColorVu 4MP jual 450rb modal 320rb satuan Unit").
+6. add_item_master: Mas Wahyu ingin menambah barang/jasa baru ke master pustaka (misal: "tolong masukkan barang ini di barang dan jasa: Kamera ColorVu 4MP jual 450rb modal 320rb satuan Unit").
    - Ekstrak: item_description, item_unit, item_unit_price, item_cost_price.
-5. complete_project: Proyek dinyatakan sudah selesai (misal: "proyek Pak Suhabuddin sudah selesai pasang", "proyek Suhabuddin tuntas SN NVR 123 SN HDD 456").
+7. complete_project: Proyek dinyatakan sudah selesai (misal: "proyek Pak Suhabuddin sudah selesai pasang", "proyek Suhabuddin tuntas SN NVR 123 SN HDD 456").
    - Ekstrak: target_text, progress: 100, installed_at, sn_nvr, sn_hdd.
-6. get_surat_jalan: Minta cetak Surat Jalan (misal: "cetak surat jalan Pak Suhabuddin", "minta surat jalan"). target_text = nama klien.
-7. get_bast: Minta cetak Berita Acara Serah Terima (misal: "cetak BAST Pak Suhabuddin", "minta berita acara"). target_text = nama klien.
-8. get_warranty: Mas Wahyu minta kartu garansi digital / cek garansi / link garansi / sertifikat garansi (misal: "garansi digital sudah?", "garansi digital", "kartu garansi", "minta kartu garansi Pak Suhabuddin", "link garansi", "cetak garansi"). target_text = nama klien (opsional).
-9. storage_calculator: Mas Wahyu tanya kapasitas / lama hari rekaman CCTV (misal: "4 kamera 2MP HDD 1TB tahan rekam berapa hari bro?", "8 kamera 4MP harddisk 2TB").
+8. get_surat_jalan: Minta cetak Surat Jalan (misal: "cetak surat jalan Pak Suhabuddin", "minta surat jalan"). target_text = nama klien.
+9. get_bast: Minta cetak Berita Acara Serah Terima (misal: "cetak BAST Pak Suhabuddin", "minta berita acara"). target_text = nama klien.
+10. get_warranty: Mas Wahyu minta kartu garansi digital / cek garansi / link garansi / sertifikat garansi (misal: "garansi digital sudah?", "garansi digital", "kartu garansi", "minta kartu garansi Pak Suhabuddin", "link garansi", "cetak garansi"). target_text = nama klien (opsional).
+11. storage_calculator: Mas Wahyu tanya kapasitas / lama hari rekaman CCTV (misal: "4 kamera 2MP HDD 1TB tahan rekam berapa hari bro?", "8 kamera 4MP harddisk 2TB").
    - Jawab secara teknis presisi di field reply: sebutkan kompresi H.265+, estimasi hari rekaman 24 jam non-stop, dan perkiraan jika pakai motion detection.
-10. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
-11. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
-12. get_pdf: Minta file PDF penawaran / faktur.
-13. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
-14. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
+12. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
+13. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
+14. get_pdf: Minta file PDF penawaran / faktur.
+15. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
+16. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
@@ -406,14 +426,29 @@ function quoteSummary(p: any): string {
 }
 
 function invoiceSummary(p: any): string {
-  const sisa = p.total - p.dp_amount;
+  const sisa = Math.max(0, (p.total || 0) - (p.dp_amount || 0));
+  const isStore = p.doc_category === 'partner_service';
+  const lines = (p.items || []).filter((i: any) => Number(i.quantity) > 0 && i.unit !== 'Header').map((i: any) => {
+    const q = Number(i.quantity);
+    const pr = Number(i.unit_price) || 0;
+    const priceText = isStore && pr === 0 ? '(Bawaan Toko)' : rp(pr);
+    return `  • ${esc(i.description)} ×${q} ${esc(i.unit || 'Unit')} (${priceText})`;
+  }).join('\n');
+
   return `<b>🧾 Konfirmasi Faktur Tagihan</b>\n` +
-    `Nomor Penawaran: <code>${esc(p.quote_number)}</code>\n` +
-    `Klien: <b>${esc(p.client_name)}</b>\n` +
+    (p.quote_number ? `Nomor Penawaran: <code>${esc(p.quote_number)}</code>\n` : '') +
+    `Klien / Penerima: <b>${esc(p.client_name)}</b>\n` +
+    `Kategori: <b>${isStore ? 'Faktur Jasa &amp; Subkon (Toko)' : 'Faktur Penjualan Standar'}</b>\n` +
+    `Alamat: ${esc(p.client_address || '-')}\n\n` +
+    `<b>Daftar Item:</b>\n${lines || '  • Sesuai rincian'}\n\n` +
+    `───────────────────────\n` +
+    (p.discount_amount > 0 ? `Diskon: -${rp(p.discount_amount)}\n` : '') +
     `Total Tagihan: <b>${rp(p.total)}</b>\n` +
-    `DP (Uang Muka): <b>${rp(p.dp_amount)}</b>\n` +
-    `Sisa Pelunasan: <b>${rp(sisa)}</b>\n\n` +
-    `<i>Ada biaya tambahan atau DP yang mau disesuaikan bro? Balas misal: "DP 2jt" atau "DP 50%".</i>\n\n` +
+    (p.dp_amount > 0 ? `DP (Uang Muka): <b>${rp(p.dp_amount)}</b>\nSisa Pelunasan: <b>${rp(sisa)}</b>\n` : '') +
+    (p.sn_nvr ? `SN NVR: <code>${esc(p.sn_nvr)}</code>\n` : '') +
+    (p.sn_hdd ? `SN HDD: <code>${esc(p.sn_hdd)}</code>\n` : '') +
+    `───────────────────────\n\n` +
+    `<i>Mau sesuaikan DP atau tambah item? Balas misal: "DP 1.5jt" atau "tambah transport 100rb".</i>\n\n` +
     `<b>Terbitkan faktur dan kirim PDF sekarang?</b>`;
 }
 
@@ -460,7 +495,29 @@ async function showPending(chat_id: number, id: string, kind: string, p: any) {
 }
 
 // ------------------------------------------------------------------ helper pengantar whatsapp
-function makeWhatsAppText(type: 'quote' | 'invoice' | 'warranty', docNumber: string, clientName: string, total = 0, dp = 0, warrantyUrl?: string): string {
+function makeWhatsAppText(type: 'quote' | 'invoice' | 'warranty', docNumber: string, clientName: string, total = 0, dp = 0, warrantyUrl?: string, docCategory: 'standard' | 'partner_service' = 'standard'): string {
+  if (docCategory === 'partner_service') {
+    if (type === 'quote') {
+      return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Toko / Partner:</b>\n` +
+        `<code>Yth. ${clientName || 'Rekan Toko / Mitra'},\n\n` +
+        `Berikut kami lampirkan Surat Penawaran Jasa Instalasi Teknis & Akomodasi Lapangan dari Borneo Etam CCTV (No: ${docNumber}).\n\n` +
+        `Total Jasa & Akomodasi: ${rp(total)}\n` +
+        `(Khusus pengerjaan subkon teknis, seluruh unit utama disediakan pihak Toko).\n\n` +
+        `Dokumen penawaran resmi berstempel terlampir dalam file PDF di atas. Terima kasih atas kerjasamanya!\n\n` +
+        `Salam hormat,\nMuhammad Wahyu\nBorneo Etam CCTV & Komputer Kasir\nWhatsApp: 0822-5131-4646</code>`;
+    }
+    const sisa = Math.max(0, total - dp);
+    return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Toko / Partner:</b>\n` +
+      `<code>Yth. ${clientName || 'Rekan Toko / Mitra'},\n\n` +
+      `Pekerjaan teknis di lapangan telah selesai dilaksanakan dengan baik dan serah terima tuntas.\n\n` +
+      `Berikut kami lampirkan Faktur Tagihan Jasa & Subkon resmi (No: ${docNumber}).\n` +
+      `Total Tagihan: ${rp(total)}\n` +
+      (dp > 0 ? `DP Diterima: ${rp(dp)}\nSisa Pelunasan: ${rp(sisa)}\n\n` : '\n') +
+      `Pembayaran resmi via Transfer Bank:\nBank BCA: 5135400278 a.n Muhammad Wahyu\n\n` +
+      `Dokumen Faktur PDF terlampir. Terima kasih banyak atas kepercayaannya!\n\n` +
+      `Salam hormat,\nBorneo Etam CCTV & Komputer Kasir\n0822-5131-4646</code>`;
+  }
+
   if (type === 'quote') {
     return `📲 <b>Draf Pesan WhatsApp Siap Forward ke Klien:</b>\n` +
       `<code>Yth. ${clientName || 'Bapak/Ibu'},\n\n` +
@@ -499,6 +556,437 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const r = await askGemini(text, packages, pending, audioInline);
 
   switch (r.intent) {
+    // ---------------------------------------------------- BUAT FAKTUR LANGSUNG (CREATE INVOICE)
+    case 'create_invoice': {
+      if (!r.client_name) {
+        return send(
+          chat_id,
+          'Klien atau tokonya atas nama siapa bro? Contoh:\n• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i>\n• <i>buat faktur Pak Yusuf paket 4 kamera 3.5jt DP 1.5jt</i>'
+        );
+      }
+
+      const pkg = packages.find((p) => p.id === r.package_id) ?? null;
+      let items = cloneItems(pkg);
+
+      // Jika item kosong, cari apakah klien ini punya penawaran tersimpan sebelumnya untuk ditarik itemnya
+      if (items.length === 0 && (r.extra_items ?? []).length === 0) {
+        const t = (r.client_name || r.target_text || '').trim();
+        if (t) {
+          const { data: exQuotes } = await db.from('quotes')
+            .select('*, quote_items(*)')
+            .eq('user_id', OWNER_ID)
+            .or(`to_client.ilike.%${t}%,quote_number.ilike.%${t}%`)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const exQuote = exQuotes?.[0];
+          if (exQuote?.quote_items && exQuote.quote_items.length > 0) {
+            items = exQuote.quote_items.map((i: any) => ({
+              description: i.description,
+              quantity: i.quantity,
+              unit: i.unit || 'Unit',
+              unit_price: i.unit_price,
+              cost_price: i.cost_price || 0,
+              category: classifyItem(i),
+            }));
+            if (!r.client_address && exQuote.to_address) r.client_address = exQuote.to_address;
+            if (!r.client_phone && exQuote.to_phone) r.client_phone = exQuote.to_phone;
+            if (r.discount_amount == null && exQuote.discount_amount) r.discount_amount = exQuote.discount_amount;
+          }
+        }
+      }
+
+      for (const a of r.item_adjustments ?? []) {
+        if (a.index != null && items[a.index]) {
+          if (a.quantity != null) items[a.index].quantity = a.quantity;
+          if (a.unit_price != null) items[a.index].unit_price = a.unit_price;
+          if (a.cost_price != null) items[a.index].cost_price = a.cost_price;
+        } else if (a.item_keyword) {
+          const kw = a.item_keyword.toLowerCase();
+          const target = items.find((i: any) => (i.description || '').toLowerCase().includes(kw));
+          if (target) {
+            if (a.quantity != null) target.quantity = a.quantity;
+            if (a.unit_price != null) target.unit_price = a.unit_price;
+            if (a.cost_price != null) target.cost_price = a.cost_price;
+          }
+        }
+      }
+
+      for (const e of r.extra_items ?? []) {
+        items.push({
+          description: e.description,
+          quantity: e.quantity,
+          unit: e.unit || 'Unit',
+          unit_price: e.unit_price,
+          cost_price: e.cost_price || 0,
+          category: e.category || classifyItem(e),
+        });
+      }
+
+      if (items.filter((i: any) => Number(i.quantity) > 0 && i.unit !== 'Header').length === 0) {
+        return send(
+          chat_id,
+          'Rincian tagihan fakturnya apa saja bro? Contoh:\n• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i>\n• <i>buat faktur Pak Yusuf paket 4 kamera 3.5jt DP 1.5jt</i>'
+        );
+      }
+
+      const isStore = r.doc_category === 'partner_service' || r.is_partner_store || (r.client_name || '').toLowerCase().includes('toko') || (r.client_name || '').toLowerCase().includes('cv');
+      const docCategory: 'standard' | 'partner_service' = isStore ? 'partner_service' : 'standard';
+
+      if (isStore) {
+        items.forEach((it: any) => {
+          const d = (it.description || '').toLowerCase();
+          if (d.includes('bawaan toko') || d.includes('unit toko') || d.includes('disediakan toko')) {
+            it.unit_price = 0;
+            it.cost_price = 0;
+          }
+        });
+      }
+
+      const sub = subtotal(items);
+      const discount = Number(r.discount_amount || 0);
+      const total = Math.max(0, sub - discount);
+      let dp = Number(r.down_payment_amount || 0);
+      if (r.down_payment_percent != null && dp === 0) {
+        dp = Math.round((total * r.down_payment_percent) / 100);
+      }
+
+      const payload = {
+        client_name: r.client_name,
+        client_phone: r.client_phone || '',
+        client_address: r.client_address || '',
+        package_id: pkg?.id ?? null,
+        package_name: pkg?.shortName ?? null,
+        items,
+        discount_amount: discount,
+        dp_amount: dp,
+        total,
+        sn_nvr: r.sn_nvr || null,
+        sn_hdd: r.sn_hdd || null,
+        doc_category: docCategory,
+        terms: isStore
+          ? `[CATEGORY:partner_service]\n1. Faktur ini khusus tagihan jasa instalasi teknis & akomodasi lapangan.\n2. Pembayaran ditransfer ke rekening resmi BCA 5135400278 a.n Muhammad Wahyu.\n3. Garansi instalasi kabel & kerapian 3 bulan sejak tanggal faktur.`
+          : (pkg?.defaultTerms ?? ''),
+      };
+
+      const id = await savePending(chat_id, 'invoice', payload);
+      return showPending(chat_id, id, 'invoice', payload);
+    }
+
+    // ---------------------------------------------------- EDIT PENAWARAN & FAKTUR & INPUT SN (EDIT DOCUMENT)
+    case 'edit_document': {
+      const t = (r.target_text || r.client_name || '').trim();
+      if (!t) {
+        return send(chat_id, 'Dokumen mana yang mau diedit bro? Contoh: <i>faktur pak yusuf mau masukkan SN NVR</i> atau <i>edit penawaran pak hendra</i>');
+      }
+
+      const wantInvoice = r.target_doc_type === 'invoice' || /faktur|inv/i.test(text);
+      const wantQuote = r.target_doc_type === 'quote' || /penawaran|quote|quo/i.test(text);
+
+      let doc: any = null;
+      let docType: 'invoice' | 'quote' = 'invoice';
+
+      if (wantInvoice && !wantQuote) {
+        let qi = db.from('invoices').select('*, invoice_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
+        qi = qi.or(`invoice_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+        const { data: invList } = await qi.limit(1);
+        if (invList && invList[0]) {
+          doc = invList[0];
+          docType = 'invoice';
+        }
+      } else if (wantQuote && !wantInvoice) {
+        let qq = db.from('quotes').select('*, quote_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
+        qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+        const { data: quoteList } = await qq.limit(1);
+        if (quoteList && quoteList[0]) {
+          doc = quoteList[0];
+          docType = 'quote';
+        }
+      }
+
+      // Fallback: jika belum ketemu, cari di invoices lalu quotes
+      if (!doc) {
+        let qi = db.from('invoices').select('*, invoice_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
+        qi = qi.or(`invoice_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+        const { data: invList } = await qi.limit(1);
+        if (invList && invList[0]) {
+          doc = invList[0];
+          docType = 'invoice';
+        } else {
+          let qq = db.from('quotes').select('*, quote_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
+          qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
+          const { data: quoteList } = await qq.limit(1);
+          if (quoteList && quoteList[0]) {
+            doc = quoteList[0];
+            docType = 'quote';
+          }
+        }
+      }
+
+      if (!doc) {
+        return send(chat_id, `Dokumen faktur atau penawaran untuk "${esc(t)}" tidak ditemukan bro. Pastikan nama klien atau nomor dokumennya sesuai ya.`);
+      }
+
+      const itemTable = docType === 'invoice' ? 'invoice_items' : 'quote_items';
+      const docFk = docType === 'invoice' ? 'invoice_id' : 'quote_id';
+      const currentItems: any[] = (docType === 'invoice' ? doc.invoice_items : doc.quote_items) || [];
+
+      const snNvr = r.sn_nvr ? String(r.sn_nvr).trim() : null;
+      const snHdd = r.sn_hdd ? String(r.sn_hdd).trim() : null;
+      const hasItemEdits = (r.item_adjustments?.length || 0) > 0 || (r.extra_items?.length || 0) > 0 || (r.delete_items?.length || 0) > 0;
+      const hasHeaderEdits = Boolean(r.client_address || r.client_phone || r.discount_amount != null || r.down_payment_amount != null);
+
+      // Jika user minta masukkan SN tapi belum menyebutkan nomor SN-nya
+      if (!snNvr && !snHdd && !hasItemEdits && !hasHeaderEdits) {
+        const nvrItem = currentItems.find((i: any) => /nvr|dvr|perekam/i.test(i.description));
+        return send(
+          chat_id,
+          `📋 <b>Dokumen ${docType === 'invoice' ? 'Faktur' : 'Penawaran'} Ditemukan: ${esc(doc.to_client)}</b>\n` +
+          `Nomor: <code>${esc(docType === 'invoice' ? doc.invoice_number : doc.quote_number)}</code>\n` +
+          (nvrItem ? `Item Perekam: <i>${esc(nvrItem.description)}</i>\n\n` : '\n') +
+          `Silakan sebutkan nomor Serial Number (SN) yang mau dimasukkan bro, contoh:\n` +
+          `• <i>faktur ${doc.to_client} SN NVR: NVR-DS7204-ABC, SN HDD: WD-PURPLE-1TB</i>\n` +
+          `• <i>edit nvr ${doc.to_client} masukkan SN NVR-8899</i>`
+        );
+      }
+
+      const changesMade: string[] = [];
+
+      // 1. Update Serial Number di cctv_installations & Item Description
+      let instId: string | null = null;
+      if (snNvr || snHdd) {
+        const { data: exInst } = await db.from('cctv_installations')
+          .select('id, sn_nvr, sn_hdd')
+          .eq('user_id', OWNER_ID)
+          .or(`client_name.ilike.%${doc.to_client}%,project_name.ilike.%${doc.to_client}%`)
+          .limit(1)
+          .maybeSingle();
+
+        const updateInstData: any = { progress: 100, installed_at: nowParts().iso };
+        if (snNvr) updateInstData.sn_nvr = snNvr;
+        if (snHdd) updateInstData.sn_hdd = snHdd;
+
+        if (exInst) {
+          instId = exInst.id;
+          await db.from('cctv_installations').update(updateInstData).eq('id', exInst.id);
+        } else {
+          const { data: newInst } = await db.from('cctv_installations').insert({
+            user_id: OWNER_ID,
+            client_id: doc.client_id || null,
+            quote_id: docType === 'quote' ? doc.id : doc.quote_id || null,
+            project_id: doc.project_id || null,
+            project_name: `Proyek CCTV - ${doc.to_client}`,
+            public_display_name: `Instalasi CCTV - ${doc.to_client}`,
+            client_name: doc.to_client,
+            client_phone: doc.to_phone || '',
+            address_landmark: doc.to_address || 'Samarinda',
+            service_type: 'CCTV',
+            city: 'Samarinda',
+            latitude: -0.502106,
+            longitude: 117.153709,
+            progress: 100,
+            installed_at: nowParts().iso,
+            sn_nvr: snNvr || null,
+            sn_hdd: snHdd || null,
+            warranty_months: 12,
+          }).select('id').single();
+          instId = newInst?.id ?? null;
+        }
+
+        if (snNvr) {
+          changesMade.push(`• SN NVR diinput: <code>${esc(snNvr)}</code>`);
+          const nvrItem = currentItems.find((i: any) => /nvr|dvr|perekam/i.test(i.description));
+          if (nvrItem) {
+            let newDesc = nvrItem.description;
+            if (/\(SN:[^)]+\)/i.test(newDesc)) {
+              newDesc = newDesc.replace(/\(SN:[^)]+\)/i, `(SN: ${snNvr})`);
+            } else {
+              newDesc = `${newDesc} (SN: ${snNvr})`;
+            }
+            await db.from(itemTable).update({ description: newDesc }).eq('id', nvrItem.id);
+            nvrItem.description = newDesc;
+          }
+        }
+
+        if (snHdd) {
+          changesMade.push(`• SN HDD diinput: <code>${esc(snHdd)}</code>`);
+          const hddItem = currentItems.find((i: any) => /hdd|harddisk|seagate|wd purple/i.test(i.description));
+          if (hddItem) {
+            let newDesc = hddItem.description;
+            if (/\(SN:[^)]+\)/i.test(newDesc)) {
+              newDesc = newDesc.replace(/\(SN:[^)]+\)/i, `(SN: ${snHdd})`);
+            } else {
+              newDesc = `${newDesc} (SN: ${snHdd})`;
+            }
+            await db.from(itemTable).update({ description: newDesc }).eq('id', hddItem.id);
+            hddItem.description = newDesc;
+          }
+        }
+      }
+
+      // 2. Update item harga / qty
+      for (const a of r.item_adjustments ?? []) {
+        let targetItem: any = null;
+        if (a.index != null && currentItems[a.index]) {
+          targetItem = currentItems[a.index];
+        } else if (a.item_keyword) {
+          const kw = a.item_keyword.toLowerCase();
+          targetItem = currentItems.find((i: any) => (i.description || '').toLowerCase().includes(kw));
+        }
+        if (targetItem) {
+          const upObj: any = {};
+          if (a.quantity != null) { upObj.quantity = a.quantity; targetItem.quantity = a.quantity; }
+          if (a.unit_price != null) { upObj.unit_price = a.unit_price; targetItem.unit_price = a.unit_price; }
+          if (a.cost_price != null) { upObj.cost_price = a.cost_price; targetItem.cost_price = a.cost_price; }
+          await db.from(itemTable).update(upObj).eq('id', targetItem.id);
+          changesMade.push(`• Item "${esc(targetItem.description)}": ${a.quantity ? `Qty ${a.quantity} ` : ''}${a.unit_price ? `Harga ${rp(a.unit_price)}` : ''}`);
+        }
+      }
+
+      // 3. Hapus item
+      for (const delKw of r.delete_items ?? []) {
+        const kw = delKw.toLowerCase();
+        const targets = currentItems.filter((i: any) => (i.description || '').toLowerCase().includes(kw));
+        for (const tg of targets) {
+          await db.from(itemTable).delete().eq('id', tg.id);
+          changesMade.push(`• Hapus item: "${esc(tg.description)}"`);
+        }
+      }
+
+      // 4. Tambah item ekstra
+      for (const e of r.extra_items ?? []) {
+        const row: any = {
+          [docFk]: doc.id,
+          description: e.description,
+          quantity: e.quantity || 1,
+          unit: e.unit || 'Unit',
+          unit_price: e.unit_price || 0,
+          cost_price: e.cost_price || 0,
+        };
+        const { data: newRow } = await db.from(itemTable).insert(row).select().single();
+        if (newRow) {
+          currentItems.push(newRow);
+          changesMade.push(`• Tambah item: "${esc(e.description)}" ×${e.quantity || 1} @${rp(e.unit_price || 0)}`);
+        }
+      }
+
+      // 5. Update Header Dokumen
+      const docTable = docType === 'invoice' ? 'invoices' : 'quotes';
+      const docHeaderUpdates: any = {};
+
+      if (r.client_address) {
+        docHeaderUpdates.to_address = r.client_address;
+        doc.to_address = r.client_address;
+        changesMade.push(`• Alamat diubah: <i>${esc(r.client_address)}</i>`);
+      }
+      if (r.client_phone) {
+        docHeaderUpdates.to_phone = r.client_phone;
+        doc.to_phone = r.client_phone;
+        changesMade.push(`• No HP diubah: <code>${esc(r.client_phone)}</code>`);
+      }
+      if (r.discount_amount != null) {
+        docHeaderUpdates.discount_amount = r.discount_amount;
+        doc.discount_amount = r.discount_amount;
+        changesMade.push(`• Diskon diubah: ${rp(r.discount_amount)}`);
+      }
+      if (docType === 'invoice' && r.down_payment_amount != null) {
+        docHeaderUpdates.down_payment_amount = r.down_payment_amount;
+        doc.down_payment_amount = r.down_payment_amount;
+        changesMade.push(`• DP diubah: ${rp(r.down_payment_amount)}`);
+      }
+
+      if (Object.keys(docHeaderUpdates).length > 0) {
+        await db.from(docTable).update(docHeaderUpdates).eq('id', doc.id);
+      }
+
+      // 6. Tarik seluruh item terkini & hitung ulang total
+      const { data: freshItems } = await db.from(itemTable).select('*').eq(docFk, doc.id);
+      const itemsList = freshItems || currentItems;
+      const sub = subtotal(itemsList);
+      const discount = Number(doc.discount_amount || 0);
+      const tot = Math.max(0, sub - discount);
+      const dp = Number(doc.down_payment_amount || 0);
+
+      const isStore = (doc.terms || '').includes('[CATEGORY:partner_service]') || (doc.title || '').toLowerCase().includes('subkon') || (doc.to_client || '').toLowerCase().includes('toko');
+      const docCategory: 'standard' | 'partner_service' = isStore ? 'partner_service' : 'standard';
+
+      // 7. Generate PDF terbaru
+      const docNumber = docType === 'invoice' ? doc.invoice_number : doc.quote_number;
+      const docDateStr = doc.created_at ? String(doc.created_at).slice(0, 10) : nowParts().iso;
+
+      const pdfBytes = generateBorneoDocumentPdf({
+        type: docType,
+        docCategory,
+        docNumber,
+        dateStr: docDateStr,
+        clientName: doc.to_client,
+        clientPhone: doc.to_phone,
+        clientAddress: doc.to_address,
+        companyName: doc.from_company || 'Borneo Etam CCTV & Komputer Kasir',
+        companyPhone: '082251314646',
+        companyWebsite: 'Borneoetam.com',
+        paymentInstructions: 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+        terms: doc.terms,
+        items: itemsList,
+        discountAmount: discount,
+        downPaymentAmount: dp,
+        snNvr: snNvr || undefined,
+        snHdd: snHdd || undefined,
+      });
+
+      const safeName = `${docType === 'invoice' ? 'Faktur' : 'Penawaran'}-${doc.to_client.replace(/[^a-zA-Z0-9]/g, '_')}-${docNumber.replace(/\//g, '-')}.pdf`;
+
+      await sendDocument(
+        chat_id,
+        pdfBytes,
+        safeName,
+        `📄 <b>${docType === 'invoice' ? (isStore ? 'Faktur Jasa &amp; Subkon (Toko)' : 'Faktur Tagihan') : (isStore ? 'Penawaran Jasa &amp; Subkon (Toko)' : 'Surat Penawaran')} Diperbarui: <code>${esc(docNumber)}</code></b>\n` +
+        `Klien/Toko: <b>${esc(doc.to_client)}</b>\n` +
+        `Total: <b>${rp(tot)}</b>${dp > 0 ? ` (DP: ${rp(dp)})` : ''}\n` +
+        (changesMade.length > 0 ? `\n<b>Perubahan Berhasil Disimpan:</b>\n${changesMade.join('\n')}` : '')
+      );
+
+      // 8. Jika SN diupdate, kirim juga Sertifikat Garansi Digital terbaru PDF + link web live
+      const publicWarrantyUrl = instId ? `${APP_URL}/garansi/${instId}` : `${APP_URL}/garansi/${doc.id}`;
+      if (snNvr || snHdd) {
+        const warNumber = `WAR/BE-CCTV/${nowParts().y}/${String(docNumber).split('/').pop() || '001'}`;
+        const warPdf = generateBorneoDocumentPdf({
+          type: 'warranty',
+          docNumber: warNumber,
+          dateStr: docDateStr,
+          clientName: doc.to_client,
+          clientPhone: doc.to_phone,
+          clientAddress: doc.to_address,
+          companyName: 'Borneo Etam CCTV & Komputer Kasir',
+          items: itemsList,
+          snNvr: snNvr || 'Tercatat di sistem',
+          snHdd: snHdd || 'Tercatat di sistem',
+          warrantyMonths: 12,
+        });
+
+        const safeWarName = `Sertifikat_Garansi-${doc.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+        await sendDocument(
+          chat_id,
+          warPdf,
+          safeWarName,
+          `🛡️ <b>Sertifikat Garansi Digital Terbaru (12 Bulan)</b>\n` +
+          `No. Registrasi: <code>${warNumber}</code>\n` +
+          `Klien: <b>${esc(doc.to_client)}</b>\n` +
+          (snNvr ? `SN NVR: <code>${esc(snNvr)}</code> ` : '') +
+          (snHdd ? `| SN HDD: <code>${esc(snHdd)}</code>` : '') + `\n\n` +
+          `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`
+        );
+      }
+
+      // 9. Kirim draf WhatsApp siap forward
+      const waDraft = makeWhatsAppText(docType, docNumber, doc.to_client, tot, dp, publicWarrantyUrl, docCategory);
+      return send(
+        chat_id,
+        `✅ <b>Dokumen Berhasil Diperbarui &amp; Tersimpan ke Database!</b>\n\n${waDraft}`,
+        instId ? [[{ text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl }]] : undefined
+      );
+    }
+
     // ---------------------------------------------------- DEAL PROYEK (OTOMATIS PROYEK & PETA)
     case 'deal_project': {
       const t = (r.target_text || r.client_name || '').trim();
@@ -1091,17 +1579,33 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         );
       }
 
+      const isStore = r.doc_category === 'partner_service' || r.is_partner_store || (r.client_name || '').toLowerCase().includes('toko') || (r.client_name || '').toLowerCase().includes('cv');
+      const docCategory: 'standard' | 'partner_service' = isStore ? 'partner_service' : 'standard';
+
+      if (isStore) {
+        items.forEach((it: any) => {
+          const d = (it.description || '').toLowerCase();
+          if (d.includes('bawaan toko') || d.includes('unit toko') || d.includes('disediakan toko')) {
+            it.unit_price = 0;
+            it.cost_price = 0;
+          }
+        });
+      }
+
       const payload = {
         client_name: r.client_name,
         client_phone: r.client_phone || '',
         client_address: r.client_address || '',
         package_id: pkg?.id ?? null,
         package_name: pkg?.shortName ?? null,
-        terms: pkg?.defaultTerms ?? '',
+        terms: isStore
+          ? `[CATEGORY:partner_service]\n1. Penawaran ini khusus mencakup jasa instalasi teknis, konfigurasi, dan biaya akomodasi lapangan.\n2. Seluruh unit/material utama disediakan langsung oleh pihak Toko/Pemberi Kerja.\n3. Pembayaran jasa diselesaikan setelah serah terima pekerjaan (BAST).`
+          : (pkg?.defaultTerms ?? ''),
         items,
         discount_amount: r.discount_amount || 0,
         total_cost_override: r.total_cost_override || null,
         proactive_note: r.proactive_note || '',
+        doc_category: docCategory,
       };
 
       const id = await savePending(chat_id, 'quote', payload);
@@ -1113,8 +1617,39 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (!pending || pending.kind !== 'quote') {
         if (pending && pending.kind === 'invoice') {
           const p = pending.payload;
+          for (const a of r.item_adjustments ?? []) {
+            let targetItem: any = null;
+            if (a.index != null && p.items[a.index]) {
+              targetItem = p.items[a.index];
+            } else if (a.item_keyword) {
+              const kw = a.item_keyword.toLowerCase();
+              targetItem = p.items.find((i: any) => (i.description || '').toLowerCase().includes(kw));
+            }
+            if (targetItem) {
+              if (a.quantity != null) targetItem.quantity = a.quantity;
+              if (a.unit_price != null) targetItem.unit_price = a.unit_price;
+              if (a.cost_price != null) targetItem.cost_price = a.cost_price;
+            }
+          }
+          for (const e of r.extra_items ?? []) {
+            p.items.push({
+              description: e.description,
+              quantity: e.quantity,
+              unit: e.unit || 'Unit',
+              unit_price: e.unit_price,
+              cost_price: e.cost_price || 0,
+              category: e.category || classifyItem(e),
+            });
+          }
+          if (r.discount_amount != null) p.discount_amount = r.discount_amount;
+          p.total = Math.max(0, subtotal(p.items) - (p.discount_amount || 0));
           if (r.down_payment_percent != null) p.dp_amount = Math.round(p.total * r.down_payment_percent / 100);
           if (r.down_payment_amount != null) p.dp_amount = r.down_payment_amount;
+          if (r.sn_nvr) p.sn_nvr = r.sn_nvr;
+          if (r.sn_hdd) p.sn_hdd = r.sn_hdd;
+          if (r.client_name) p.client_name = r.client_name;
+          if (r.client_address) p.client_address = r.client_address;
+          if (r.client_phone) p.client_phone = r.client_phone;
           await db.from('telegram_pending_actions').update({ payload: p }).eq('id', pending.id);
           return showPending(chat_id, pending.id, 'invoice', p);
         }
@@ -1222,25 +1757,46 @@ async function nextQuoteNumber(): Promise<string> {
   return `${prefix}${String(max + 1).padStart(3, '0')}`;
 }
 
+async function nextInvoiceNumber(): Promise<string> {
+  const { y, m } = nowParts();
+  const prefix = `INV/BE-CCTV/${ROMAN[m - 1]}/${y}/`;
+  const { data } = await db.from('invoices').select('invoice_number').eq('user_id', OWNER_ID).like('invoice_number', `${prefix}%`);
+  const max = (data ?? []).reduce((mx: number, r: any) => Math.max(mx, parseInt(String(r.invoice_number).split('/').pop() || '0', 10) || 0), 0);
+  return `${prefix}${String(max + 1).padStart(3, '0')}`;
+}
+
 async function execQuote(chat_id: number, p: any): Promise<void> {
   const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
   let clientId: string | null = null;
   const name = p.client_name.trim();
+  const isStore = p.doc_category === 'partner_service' || name.toLowerCase().includes('toko') || name.toLowerCase().includes('cv');
+  const docCategory: 'standard' | 'partner_service' = isStore ? 'partner_service' : 'standard';
+
   const { data: ex } = await db.from('clients').select('id').eq('user_id', OWNER_ID).ilike('name', name).limit(1).maybeSingle();
   if (ex?.id) clientId = ex.id;
   else {
-    const { data: nc } = await db.from('clients').insert({ user_id: OWNER_ID, name, address: p.client_address || '', phone: p.client_phone || '' }).select('id').single();
+    const { data: nc } = await db.from('clients').insert({
+      user_id: OWNER_ID,
+      name,
+      address: p.client_address || '',
+      phone: p.client_phone || '',
+      notes: isStore ? 'Partner Toko / Subkon' : null,
+    }).select('id').single();
     clientId = nc?.id ?? null;
   }
   const number = await nextQuoteNumber();
   const valid = new Date(Date.now() + 14 * 86400000).toISOString();
+  const quoteTerms = isStore
+    ? `[CATEGORY:partner_service]\n1. Penawaran ini khusus mencakup jasa instalasi teknis, konfigurasi, dan biaya akomodasi lapangan.\n2. Seluruh unit/material utama disediakan langsung oleh pihak Toko/Pemberi Kerja.\n3. Pembayaran jasa diselesaikan setelah serah terima pekerjaan (BAST).`
+    : (p.terms || profile?.default_terms || '');
+
   const { data: quote, error } = await db.from('quotes').insert({
     user_id: OWNER_ID, quote_number: number, status: 'Draf', client_id: clientId,
     from_company: profile?.company_name || 'Borneo Etam', from_address: profile?.company_address || '', from_website: profile?.company_website || '',
     to_client: name, to_address: p.client_address || '', to_phone: p.client_phone || '',
-    title: `Penawaran ${p.package_name || 'Custom'} - ${name}`,
+    title: isStore ? `Penawaran Jasa & Subkon - ${name}` : `Penawaran ${p.package_name || 'Custom'} - ${name}`,
     discount_amount: p.discount_amount || 0, tax_amount: 0,
-    terms: p.terms || profile?.default_terms || '', attachments: [],
+    terms: quoteTerms, attachments: [],
     created_at: new Date().toISOString(), valid_until: valid,
   }).select('id').single();
   if (error || !quote) throw new Error('Gagal membuat penawaran: ' + (error?.message ?? ''));
@@ -1258,6 +1814,7 @@ async function execQuote(chat_id: number, p: any): Promise<void> {
   // Generate PDF Resmi
   const pdfBytes = generateBorneoDocumentPdf({
     type: 'quote',
+    docCategory,
     docNumber: number,
     dateStr: nowParts().iso,
     clientName: name,
@@ -1267,7 +1824,7 @@ async function execQuote(chat_id: number, p: any): Promise<void> {
     companyPhone: profile?.company_phone || '082251314646',
     companyWebsite: profile?.company_website || 'Borneoetam.com',
     paymentInstructions: profile?.payment_instructions || 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
-    terms: p.terms || profile?.default_terms,
+    terms: quoteTerms,
     items: p.items,
     discountAmount: p.discount_amount || 0,
   });
@@ -1277,16 +1834,161 @@ async function execQuote(chat_id: number, p: any): Promise<void> {
     chat_id,
     pdfBytes,
     safeName,
-    `📄 <b>Surat Penawaran Resmi: <code>${esc(number)}</code></b>\nKlien: <b>${esc(name)}</b>\nTotal: <b>${rp(tot)}</b>\nEstimasi Laba: <b>${rp(laba)}</b>`
+    `📄 <b>${isStore ? 'Surat Penawaran Jasa &amp; Subkon (Toko)' : 'Surat Penawaran Resmi'}: <code>${esc(number)}</code></b>\nKlien/Toko: <b>${esc(name)}</b>\nTotal: <b>${rp(tot)}</b>\nEstimasi Laba: <b>${rp(laba)}</b>`
   );
 
-  const waDraft = makeWhatsAppText('quote', number, name, tot);
+  const waDraft = makeWhatsAppText('quote', number, name, tot, 0, undefined, docCategory);
   await send(
     chat_id,
     `<b>✅ Penawaran Berhasil Dibuat &amp; Tersimpan!</b>\n\n${waDraft}\n\n<i>Kalau konsumen sudah konfirmasi deal, cukup balas: <b>"Deal bro, lanjut buat proyek"</b></i>`,
     [
       [{ text: '🤝 Konfirmasi Deal & Buat Proyek', data: `deal:${quote.id}` }],
     ]
+  );
+}
+
+async function execInvoice(chat_id: number, p: any): Promise<void> {
+  const { data: profile } = await db.from('profiles').select('*').eq('id', OWNER_ID).maybeSingle();
+  let clientId: string | null = null;
+  const name = p.client_name.trim();
+  const isStore = p.doc_category === 'partner_service' || name.toLowerCase().includes('toko') || name.toLowerCase().includes('cv');
+  const docCategory: 'standard' | 'partner_service' = isStore ? 'partner_service' : 'standard';
+
+  const { data: ex } = await db.from('clients').select('id').eq('user_id', OWNER_ID).ilike('name', name).limit(1).maybeSingle();
+  if (ex?.id) clientId = ex.id;
+  else {
+    const { data: nc } = await db.from('clients').insert({
+      user_id: OWNER_ID,
+      name,
+      address: p.client_address || '',
+      phone: p.client_phone || '',
+      notes: isStore ? 'Partner Toko / Subkon' : null,
+    }).select('id').single();
+    clientId = nc?.id ?? null;
+  }
+
+  const number = await nextInvoiceNumber();
+  const sub = subtotal(p.items);
+  const discount = Number(p.discount_amount || 0);
+  const tot = Math.max(0, sub - discount);
+  const dp = Number(p.dp_amount || 0);
+  const invoiceTerms = isStore
+    ? `[CATEGORY:partner_service]\n1. Faktur ini khusus tagihan jasa instalasi teknis & akomodasi lapangan.\n2. Pembayaran ditransfer ke rekening resmi BCA 5135400278 a.n Muhammad Wahyu.\n3. Garansi instalasi kabel & kerapian 3 bulan sejak tanggal faktur.`
+    : (p.terms || profile?.default_terms || '');
+
+  const { data: inv, error } = await db.from('invoices').insert({
+    user_id: OWNER_ID,
+    invoice_number: number,
+    status: dp >= tot && tot > 0 ? 'Lunas' : (dp > 0 ? 'DP Diterima' : 'Draf'),
+    client_id: clientId,
+    project_id: p.project_id || null,
+    quote_id: p.quote_id || null,
+    from_company: profile?.company_name || 'Borneo Etam CCTV & Komputer Kasir',
+    from_address: profile?.company_address || '',
+    from_website: profile?.company_website || 'Borneoetam.com',
+    to_client: name,
+    to_address: p.client_address || '',
+    to_phone: p.client_phone || '',
+    title: isStore ? `Faktur Jasa & Subkon - ${name}` : (p.title || `Faktur Pemasangan CCTV - ${name}`),
+    discount_amount: discount,
+    tax_amount: 0,
+    down_payment_amount: dp,
+    terms: invoiceTerms,
+    notes: p.notes || null,
+    invoice_date: nowParts().iso,
+    due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
+  }).select('id').single();
+
+  if (error || !inv) throw new Error('Gagal membuat faktur: ' + (error?.message ?? ''));
+
+  const rows = (p.items || []).filter((i: any) => i.description?.trim()).map((i: any) => ({
+    invoice_id: inv.id,
+    description: i.description.trim(),
+    quantity: Number(i.quantity) || 0,
+    unit: i.unit || 'Unit',
+    unit_price: Number(i.unit_price) || 0,
+    cost_price: Number(i.cost_price) || 0,
+  }));
+
+  if (rows.length > 0) {
+    const { error: ie } = await db.from('invoice_items').insert(rows);
+    if (ie) {
+      await db.from('invoices').delete().eq('id', inv.id);
+      throw new Error('Gagal menyimpan item faktur: ' + ie.message);
+    }
+  }
+
+  // Update or insert cctv_installations for SN & Warranty
+  let instId: string | null = null;
+  const { data: exInst } = await db.from('cctv_installations').select('id')
+    .eq('user_id', OWNER_ID).or(`client_name.ilike.%${name}%,project_name.ilike.%${name}%`).limit(1).maybeSingle();
+  if (exInst) {
+    instId = exInst.id;
+    if (p.sn_nvr || p.sn_hdd) {
+      await db.from('cctv_installations').update({
+        sn_nvr: p.sn_nvr || undefined,
+        sn_hdd: p.sn_hdd || undefined,
+        progress: 100,
+        installed_at: nowParts().iso,
+      }).eq('id', exInst.id);
+    }
+  } else {
+    const { data: newInst } = await db.from('cctv_installations').insert({
+      user_id: OWNER_ID,
+      client_id: clientId,
+      client_name: name,
+      client_phone: p.client_phone || '',
+      address_landmark: p.client_address || 'Samarinda',
+      project_name: `Proyek CCTV - ${name}`,
+      public_display_name: `Instalasi CCTV - ${name}`,
+      service_type: 'CCTV',
+      city: 'Samarinda',
+      latitude: -0.502106,
+      longitude: 117.153709,
+      progress: 100,
+      installed_at: nowParts().iso,
+      sn_nvr: p.sn_nvr || null,
+      sn_hdd: p.sn_hdd || null,
+      warranty_months: 12,
+    }).select('id').single();
+    instId = newInst?.id ?? null;
+  }
+
+  // Generate PDF Resmi
+  const pdfBytes = generateBorneoDocumentPdf({
+    type: 'invoice',
+    docCategory,
+    docNumber: number,
+    dateStr: nowParts().iso,
+    clientName: name,
+    clientPhone: p.client_phone,
+    clientAddress: p.client_address,
+    companyName: profile?.company_name || 'Borneo Etam CCTV & Komputer Kasir',
+    companyPhone: profile?.company_phone || '082251314646',
+    companyWebsite: profile?.company_website || 'Borneoetam.com',
+    paymentInstructions: profile?.payment_instructions || 'Bank BCA\n5135400278\na.n Muhammad Wahyu',
+    terms: invoiceTerms,
+    items: p.items,
+    discountAmount: discount,
+    downPaymentAmount: dp,
+    snNvr: p.sn_nvr,
+    snHdd: p.sn_hdd,
+  });
+
+  const safeName = `Faktur-${name.replace(/[^a-zA-Z0-9]/g, '_')}-${number.replace(/\//g, '-')}.pdf`;
+  await sendDocument(
+    chat_id,
+    pdfBytes,
+    safeName,
+    `🧾 <b>${isStore ? 'Faktur Jasa &amp; Subkon (Toko)' : 'Faktur Tagihan Resmi'}: <code>${esc(number)}</code></b>\nKlien/Toko: <b>${esc(name)}</b>\nTotal: <b>${rp(tot)}</b>${dp > 0 ? ` (DP: ${rp(dp)})` : ''}`
+  );
+
+  const publicWarrantyUrl = instId ? `${APP_URL}/garansi/${instId}` : undefined;
+  const waDraft = makeWhatsAppText('invoice', number, name, tot, dp, publicWarrantyUrl, docCategory);
+  await send(
+    chat_id,
+    `<b>✅ Faktur Berhasil Diterbitkan &amp; Tersimpan!</b>\n\n${waDraft}`,
+    publicWarrantyUrl ? [[{ text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl }]] : undefined
   );
 }
 
@@ -1333,6 +2035,8 @@ async function handleCallback(cb: any) {
     try {
       if (row.kind === 'quote') {
         await execQuote(chat_id, row.payload);
+      } else if (row.kind === 'invoice') {
+        await execInvoice(chat_id, row.payload);
       }
     } catch (e) {
       await db.from('telegram_pending_actions').update({ status: 'pending' }).eq('id', id);
@@ -1401,11 +2105,15 @@ Deno.serve(async (req) => {
             'Halo Mas Wahyu! Sistem operasional CCTV & POS siap melayani:\n\n' +
             '<b>Contoh Perintah Operasional:</b>\n' +
             '• <i>buatkan penawaran Pak Suhabuddin paket 4 titik diskon 200rb</i>\n' +
+            '• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i> (Mode Toko / Subkon)\n' +
+            '• <i>faktur Pak Yusuf edit nvr masukkan SN: NVR-HL-8899</i> (Input SN Hardware)\n' +
+            '• <i>edit penawaran Pak Hendra tambah kabel 1 roll 300rb</i>\n' +
             '• <i>deal bro, lanjut buat proyek</i> (otomatis masuk Peta & Proyek)\n' +
             '• <i>sudah beli pipa conduit 150rb untuk proyek Pak Suhabuddin</i> (catat pengeluaran)\n' +
             '• <i>proyek Pak Suhabuddin sudah selesai pasang</i> (otomatis Faktur, BAST & Garansi)\n' +
             '• <i>cetak surat jalan Pak Suhabuddin</i>\n' +
             '• <i>cetak BAST Pak Suhabuddin</i>\n' +
+            '• <i>garansi digital Pak Suhabuddin</i>\n' +
             '• <i>4 kamera 2MP HDD 1TB tahan berapa hari bro?</i>\n' +
             '• <i>tolong masukkan barang ini: Kamera ColorVu 4MP jual 450rb modal 320rb</i>\n' +
             '• <i>rekap performa bulan ini bro</i>'

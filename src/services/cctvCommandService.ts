@@ -185,8 +185,7 @@ export const BORNEO_ETAM_PACKAGES: BorneoPresetPackage[] = [
     ],
     defaultTerms: `Syarat & Ketentuan Pemasangan Borneo Etam CCTV:
 1. Harga sudah termasuk perangkat baru bergaransi resmi 12 Bulan (DVR/NVR, Kamera & Harddisk WD Purple).
-2. Garansi pemeliharaan instalasi & setting online aplikasi HP selama 3 Bulan.
-3. Pembayaran DP 50% saat jadwal instalasi disepakati, pelunasan 50% setelah seluruh kamera menyala & serah terima (BAST).`,
+2. Pembayaran DP 50% saat jadwal instalasi disepakati, pelunasan 50% setelah seluruh kamera menyala & serah terima (BAST).`,
     items: [
       { description: '=== PERANGKAT UTAMA CCTV 4 CHANNEL ===', quantity: 0, unit: 'Header', unit_price: 0, cost_price: 0 },
       { description: 'DVR 4 Channel H.265+ Full HD Smart Motion (Hikvision/Hilook)', quantity: 1, unit: 'Unit', unit_price: 750000, cost_price: 520000 },
