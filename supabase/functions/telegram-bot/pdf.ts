@@ -1,8 +1,9 @@
 // Generator Dokumen PDF Resmi Borneo Etam CCTV & POS (A4 Standard Executive Design)
-// Tampilan modern, bersih, proporsional, dan sangat profesional untuk dicetak atau dikirim ke klien.
-// Menggunakan gaya penulisan rapi (Title Case / Sentence case, tanpa ALL CAPS).
+// Mendukung: Surat Penawaran Harga, Faktur Tagihan, Surat Jalan, dan Berita Acara Serah Terima (BAST).
+// Desain modern, multi-line address wrapping, 3 kategori rapi, stempel digital resmi, tanpa ALL CAPS.
 import { jsPDF } from 'https://esm.sh/jspdf@3.0.3';
 
+export type DocType = 'quote' | 'invoice' | 'surat_jalan' | 'bast';
 export type ItemCategory = 'item_utama' | 'material_tambahan' | 'jasa_akomodasi';
 
 export interface DocItem {
@@ -15,7 +16,7 @@ export interface DocItem {
 }
 
 export interface QuotePdfData {
-  type: 'quote' | 'invoice';
+  type: DocType;
   docNumber: string;
   docTitle?: string;
   dateStr: string;
@@ -32,13 +33,17 @@ export interface QuotePdfData {
   items: DocItem[];
   discountAmount?: number;
   downPaymentAmount?: number;
+  isPaid?: boolean;
+  snNvr?: string;
+  snHdd?: string;
+  warrantyMonths?: number;
 }
 
-const formatRupiah = (val: number): string => {
+export const formatRupiah = (val: number): string => {
   return 'Rp ' + Math.round(val || 0).toLocaleString('id-ID');
 };
 
-const formatDateIndo = (dateStr: string): string => {
+export const formatDateIndo = (dateStr: string): string => {
   if (!dateStr) return '';
   const months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -60,7 +65,8 @@ export function classifyItem(item: DocItem): ItemCategory {
     return item.category;
   }
   const d = (item.description || '').toLowerCase();
-  // Jasa dan Akomodasi
+  
+  // 1. Jasa dan Akomodasi
   if (
     d.includes('jasa') ||
     d.includes('instalasi') ||
@@ -73,11 +79,13 @@ export function classifyItem(item: DocItem): ItemCategory {
     d.includes('pelatihan') ||
     d.includes('training') ||
     d.includes('maintenance') ||
+    d.includes('survei') ||
     d.includes('pasang')
   ) {
     return 'jasa_akomodasi';
   }
-  // Material Tambahan
+
+  // 2. Material Tambahan
   if (
     d.includes('kabel') ||
     d.includes('coaxial') ||
@@ -85,6 +93,7 @@ export function classifyItem(item: DocItem): ItemCategory {
     d.includes('cat6') ||
     d.includes('cat5') ||
     d.includes('rg59') ||
+    d.includes('rg-59') ||
     d.includes('bnc') ||
     d.includes('jack') ||
     d.includes('power supply') ||
@@ -98,20 +107,53 @@ export function classifyItem(item: DocItem): ItemCategory {
     d.includes('steker') ||
     d.includes('stop kontak') ||
     d.includes('konektor') ||
+    d.includes('connector') ||
     d.includes('rj45') ||
+    d.includes('rj-45') ||
     d.includes('switch poe') ||
     d.includes('patch cord') ||
+    d.includes('aksesoris') ||
+    d.includes('thermal') ||
+    d.includes('kertas') ||
     d.includes('perlengkapan') ||
     d.includes('material')
   ) {
     return 'material_tambahan';
   }
-  // Item Utama (Kamera, NVR, DVR, HDD, PC Kasir, Printer, Scanner, dll)
+
+  // 3. Item Utama (Default: Kamera, NVR, DVR, HDD, PC Kasir, Printer, Scanner, dll)
   return 'item_utama';
+}
+
+function drawOfficialStamp(doc: jsPDF, x: number, y: number) {
+  // Stempel Digital Resmi Borneo Etam (Warna Ungu/Merah Stempel Klasik)
+  doc.saveGraphicsState();
+  doc.setDrawColor(220, 38, 38); // Crimson Red Stamp
+  doc.setTextColor(220, 38, 38);
+  doc.setLineWidth(0.8);
+
+  // Outer Oval
+  doc.roundedRect(x - 22, y - 11, 44, 22, 5, 5, 'D');
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x - 20.5, y - 9.5, 41, 19, 4, 4, 'D');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('BORNEO ETAM CCTV', x, y - 4, { align: 'center' });
+
+  doc.setFontSize(6.5);
+  doc.text('★ SAMARINDA ★', x, y);
+
+  doc.setFontSize(7);
+  doc.text('DOKUMEN RESMI SAH', x, y + 5.5, { align: 'center' });
+  doc.restoreGraphicsState();
 }
 
 export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   const isInvoice = data.type === 'invoice';
+  const isSuratJalan = data.type === 'surat_jalan';
+  const isBast = data.type === 'bast';
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -127,12 +169,11 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   // =========================================================================
   // 1. TOP ACCENT BAR
   // =========================================================================
-  // Garis aksen merah khas Borneo Etam di paling atas
   doc.setFillColor(220, 38, 38); // Crimson Red
   doc.rect(0, 0, pageWidth, 3.5, 'F');
 
   // =========================================================================
-  // 2. KOP SURAT / HEADER RESMI (TITLE CASE, BERSIH & MODERN)
+  // 2. KOP SURAT / HEADER RESMI (CLEAN TITLE CASE & MODERN)
   // =========================================================================
   let y = 14;
 
@@ -167,10 +208,10 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.line(margin, y, rightX, y);
 
   // =========================================================================
-  // 3. KARTU INFORMASI DOKUMEN & KLIEN (SIDE-BY-SIDE)
+  // 3. KARTU INFORMASI DOKUMEN & KLIEN (MULTI-LINE WRAPPING FOR ADDRESS)
   // =========================================================================
   y += 5.5;
-  const cardHeight = 28;
+  const cardHeight = 31;
   const colWidth = (contentWidth - 6) / 2; // 88mm
 
   // Card Kiri: Info Dokumen
@@ -179,13 +220,27 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setLineWidth(0.4);
   doc.roundedRect(margin, y, colWidth, cardHeight, 2, 2, 'FD');
 
-  // Badge Jenis Dokumen
-  doc.setFillColor(isInvoice ? 220 : 15, isInvoice ? 38 : 23, isInvoice ? 38 : 42); // Red or Slate-900
-  doc.roundedRect(margin + 4, y + 3.5, isInvoice ? 38 : 52, 5.8, 1.2, 1.2, 'F');
+  // Badge Judul Dokumen
+  let badgeTitle = 'Surat Penawaran Harga';
+  let badgeColor = [15, 23, 42]; // Slate-900
+  if (isInvoice) {
+    badgeTitle = 'Faktur Tagihan';
+    badgeColor = [220, 38, 38]; // Red
+  } else if (isSuratJalan) {
+    badgeTitle = 'Surat Jalan Pengeluaran Barang';
+    badgeColor = [37, 99, 235]; // Blue
+  } else if (isBast) {
+    badgeTitle = 'Berita Acara Serah Terima (BAST)';
+    badgeColor = [22, 101, 52]; // Green
+  }
+
+  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+  const badgeWidth = isSuratJalan ? 62 : isBast ? 60 : isInvoice ? 36 : 50;
+  doc.roundedRect(margin + 4, y + 3.5, badgeWidth, 5.8, 1.2, 1.2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
-  doc.text(isInvoice ? 'Faktur Tagihan' : 'Surat Penawaran Harga', margin + 6, y + 7.5);
+  doc.text(badgeTitle, margin + 6, y + 7.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -196,9 +251,10 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setFontSize(7.8);
   doc.setTextColor(100, 116, 139);
   doc.text(`Tanggal Terbit : ${formatDateIndo(data.dateStr) || data.dateStr}`, margin + 4, y + 19.5);
-  doc.text(isInvoice ? `Jatuh Tempo    : 7 Hari Kalender` : `Masa Berlaku   : 14 Hari Kalender`, margin + 4, y + 24);
+  const expiryLabel = isInvoice ? 'Jatuh Tempo    : 7 Hari Kalender' : isBast ? 'Masa Garansi   : 12 Bulan Penuh' : 'Masa Berlaku   : 14 Hari Kalender';
+  doc.text(expiryLabel, margin + 4, y + 24.5);
 
-  // Card Kanan: Klien Tujuan
+  // Card Kanan: Klien Tujuan (Auto Wrapping Alamat Penuh)
   const cardRightX = margin + colWidth + 6;
   doc.setFillColor(248, 250, 252);
   doc.roundedRect(cardRightX, y, colWidth, cardHeight, 2, 2, 'FD');
@@ -211,21 +267,23 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  // Tulisan nama klien tidak uppercase paksa
   doc.text(data.clientName || 'Pelanggan Terhormat', cardRightX + 4, y + 13.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.8);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Kontak/WhatsApp : ${data.clientPhone || '-'}`, cardRightX + 4, y + 19);
-  doc.text(`Lokasi Pemasangan: ${(data.clientAddress || 'Samarinda, Kalimantan Timur').slice(0, 42)}`, cardRightX + 4, y + 23.5);
+  doc.text(`Kontak/WhatsApp : ${data.clientPhone || '-'}`, cardRightX + 4, y + 18.5);
+
+  // Multi-line address wrapping tanpa terpotong kaku
+  const rawAddr = (data.clientAddress || 'Samarinda, Kalimantan Timur').trim();
+  const wrappedAddressLines = doc.splitTextToSize(`Lokasi: ${rawAddr}`, colWidth - 8);
+  doc.text(wrappedAddressLines.slice(0, 2), cardRightX + 4, y + 23);
 
   // =========================================================================
-  // 4. PENGELOMPOKAN ITEM: ITEM UTAMA, MATERIAL TAMBAHAN, JASA & AKOMODASI
+  // 4. PENGELOMPOKAN 3 KATEGORI ITEM
   // =========================================================================
   y += cardHeight + 6;
 
-  // Filter item yang valid (quantity > 0)
   const activeItems = (data.items || []).filter(
     (it) => it && it.description && Number(it.quantity) > 0 && it.unit !== 'Header'
   );
@@ -255,17 +313,23 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   doc.setFontSize(7.8);
   doc.setTextColor(255, 255, 255);
 
-  const colNo = margin + 3;               // No
-  const colDesc = margin + 14;            // Deskripsi
-  const colQty = margin + 104;            // Qty / Sat
-  const colPrice = margin + 142;          // Harga Satuan (Right-align)
-  const colTotal = margin + contentWidth - 4; // Jumlah Total (Right-align)
+  const colNo = margin + 3;                   // No
+  const colDesc = margin + 14;                // Deskripsi
+  const colQty = margin + (isSuratJalan || isBast ? 116 : 104); // Qty / Sat
+  const colPrice = margin + 142;              // Harga Satuan
+  const colTotal = margin + contentWidth - 4; // Jumlah Total
 
   doc.text('No', colNo, y + 5.2);
   doc.text('Deskripsi Perangkat & Layanan', colDesc, y + 5.2);
   doc.text('Qty / Sat', colQty, y + 5.2);
-  doc.text('Harga Satuan', colPrice, y + 5.2, { align: 'right' });
-  doc.text('Jumlah Total', colTotal, y + 5.2, { align: 'right' });
+
+  if (!isSuratJalan && !isBast) {
+    doc.text('Harga Satuan', colPrice, y + 5.2, { align: 'right' });
+    doc.text('Jumlah Total', colTotal, y + 5.2, { align: 'right' });
+  } else {
+    doc.text('Kondisi Fisik', margin + 145, y + 5.2);
+    doc.text('Status Uji Fungsi', colTotal, y + 5.2, { align: 'right' });
+  }
 
   y += 7.5;
 
@@ -276,67 +340,66 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     const itemsInCat = groups[cfg.key];
     if (itemsInCat.length === 0) continue;
 
-    // Baris Header Kategori (Soft Slate Bar dengan Aksen Merah di Kiri)
+    // Baris Header Kategori (Soft Slate Bar dengan Aksen Merah)
     const secH = 6.2;
-    doc.setFillColor(241, 245, 249); // Slate-100
+    doc.setFillColor(241, 245, 249);
     doc.rect(margin, y, contentWidth, secH, 'F');
 
-    // Aksen merah vertikal di samping kiri
     doc.setFillColor(220, 38, 38);
     doc.rect(margin, y, 2.2, secH, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.setTextColor(30, 41, 59); // Slate-800
+    doc.setTextColor(30, 41, 59);
     doc.text(cfg.title, margin + 5, y + 4.3);
 
-    // Garis batas bawah header kategori
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.3);
     doc.line(margin, y + secH, rightX, y + secH);
 
     y += secH;
 
-    // Baris Item dalam Kategori Ini
     for (const it of itemsInCat) {
       const lineTotal = Number(it.quantity) * Number(it.unit_price || 0);
       subtotal += lineTotal;
 
       const rowH = 6.8;
-      // Zebra striping lembut
       if (rowCounter % 2 === 0) {
         doc.setFillColor(250, 250, 252);
         doc.rect(margin, y, contentWidth, rowH, 'F');
       }
 
-      // No urut
+      // No
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184); // Slate-400
+      doc.setTextColor(148, 163, 184);
       doc.text(String(rowCounter).padStart(2, '0'), colNo, y + 4.6);
 
-      // Deskripsi Barang / Jasa
+      // Deskripsi
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.setTextColor(30, 41, 59); // Slate-800
+      doc.setTextColor(30, 41, 59);
       const desc = it.description.length > 52 ? it.description.slice(0, 50) + '...' : it.description;
       doc.text(desc, colDesc, y + 4.6);
 
-      // Qty & Satuan
+      // Qty
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(71, 85, 105);
       doc.text(`${it.quantity} ${it.unit || 'Unit'}`, colQty, y + 4.6);
 
-      // Harga Satuan
-      doc.text(formatRupiah(it.unit_price), colPrice, y + 4.6, { align: 'right' });
+      if (!isSuratJalan && !isBast) {
+        doc.text(formatRupiah(it.unit_price), colPrice, y + 4.6, { align: 'right' });
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(formatRupiah(lineTotal), colTotal, y + 4.6, { align: 'right' });
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(22, 101, 52);
+        doc.text('Baru & Lengkap', margin + 145, y + 4.6);
+        doc.text('Siap Digunakan', colTotal, y + 4.6, { align: 'right' });
+      }
 
-      // Total Baris
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text(formatRupiah(lineTotal), colTotal, y + 4.6, { align: 'right' });
-
-      // Garis batas bawah
       doc.setDrawColor(241, 245, 249);
       doc.setLineWidth(0.2);
       doc.line(margin, y + rowH, rightX, y + rowH);
@@ -344,13 +407,12 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
       y += rowH;
       rowCounter++;
 
-      // Safety limit agar tidak meluber
       if (y > 214) break;
     }
   }
 
   // =========================================================================
-  // 5. TOTALS SECTION & PAYMENT INFO BOX (SIDE BY SIDE)
+  // 5. TOTALS SECTION & PAYMENT INFO BOX (HANYA UNTUK QUOTE & INVOICE)
   // =========================================================================
   y += 4.5;
 
@@ -359,99 +421,147 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
   const dpAmount = Number(data.downPaymentAmount || 0);
   const remaining = Math.max(0, grandTotal - dpAmount);
 
-  // Box Kiri: Rekening Transfer & Garansi
   const leftBoxW = 96;
   const leftBoxH = 34;
 
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(margin, y, leftBoxW, leftBoxH, 2, 2, 'FD');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.8);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Pembayaran Resmi via Transfer Bank:', margin + 3.5, y + 5.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.8);
-  doc.setTextColor(37, 99, 235); // Blue-600 BCA
-  doc.text('Bank BCA (014)', margin + 3.5, y + 11.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('5135400278', margin + 3.5, y + 17.5);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('Atas Nama : Muhammad Wahyu', margin + 3.5, y + 22.5);
-
-  // Badge Garansi Resmi 12 Bulan
-  doc.setFillColor(240, 253, 244); // Green-50
-  doc.setDrawColor(187, 247, 208); // Green-200
-  doc.roundedRect(margin + 3.5, y + 25.5, leftBoxW - 7, 5.8, 1, 1, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(22, 101, 52); // Green-800
-  doc.text('Garansi Resmi Hardware 12 Bulan Distributor', margin + 6, y + 29.5);
-
-  // Box Kanan: Rincian Angka & Grand Total
-  const sumX = margin + leftBoxW + 6;
-  const sumW = contentWidth - leftBoxW - 6;
-
-  let sumY = y;
-
-  if (discount > 0) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Subtotal:', sumX + 2, sumY + 4.5);
-    doc.text(formatRupiah(subtotal), rightX - 2, sumY + 4.5, { align: 'right' });
-
-    doc.text('Diskon Khusus:', sumX + 2, sumY + 10);
-    doc.setTextColor(220, 38, 38);
-    doc.text(`- ${formatRupiah(discount)}`, rightX - 2, sumY + 10, { align: 'right' });
-    sumY += 13;
-  }
-
-  // Highlight Box Total
-  doc.setFillColor(15, 23, 42); // Slate-900 Accent
-  doc.roundedRect(sumX, sumY, sumW, 10.5, 1.8, 1.8, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text(isInvoice ? 'Total Tagihan' : 'Total Penawaran', sumX + 4, sumY + 6.8);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text(formatRupiah(grandTotal), rightX - 4, sumY + 7.2, { align: 'right' });
-
-  sumY += 13;
-
-  if (isInvoice && dpAmount > 0) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text('DP (Telah Diterima):', sumX + 2, sumY + 2);
-    doc.text(formatRupiah(dpAmount), rightX - 2, sumY + 2, { align: 'right' });
+  if (!isSuratJalan && !isBast) {
+    // Box Kiri: Rekening Transfer & Garansi
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(margin, y, leftBoxW, leftBoxH, 2, 2, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(220, 38, 38);
-    doc.text('Sisa Pelunasan:', sumX + 2, sumY + 7.5);
-    doc.text(formatRupiah(remaining), rightX - 2, sumY + 7.5, { align: 'right' });
-    sumY += 11;
+    doc.setFontSize(7.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Pembayaran Resmi via Transfer Bank:', margin + 3.5, y + 5.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.8);
+    doc.setTextColor(37, 99, 235); // Blue BCA
+    doc.text('Bank BCA (014)', margin + 3.5, y + 11.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('5135400278', margin + 3.5, y + 17.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Atas Nama : Muhammad Wahyu', margin + 3.5, y + 22.5);
+
+    doc.setFillColor(240, 253, 244);
+    doc.setDrawColor(187, 247, 208);
+    doc.roundedRect(margin + 3.5, y + 25.5, leftBoxW - 7, 5.8, 1, 1, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(22, 101, 52);
+    doc.text('Garansi Resmi Hardware 12 Bulan Distributor', margin + 6, y + 29.5);
+
+    // Box Kanan: Rincian Angka & Grand Total
+    const sumX = margin + leftBoxW + 6;
+    const sumW = contentWidth - leftBoxW - 6;
+    let sumY = y;
+
+    if (discount > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Subtotal:', sumX + 2, sumY + 4.5);
+      doc.text(formatRupiah(subtotal), rightX - 2, sumY + 4.5, { align: 'right' });
+
+      doc.text('Diskon Khusus:', sumX + 2, sumY + 10);
+      doc.setTextColor(220, 38, 38);
+      doc.text(`- ${formatRupiah(discount)}`, rightX - 2, sumY + 10, { align: 'right' });
+      sumY += 13;
+    }
+
+    doc.setFillColor(15, 23, 42);
+    doc.roundedRect(sumX, sumY, sumW, 10.5, 1.8, 1.8, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(isInvoice ? 'Total Tagihan' : 'Total Penawaran', sumX + 4, sumY + 6.8);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(formatRupiah(grandTotal), rightX - 4, sumY + 7.2, { align: 'right' });
+
+    sumY += 13;
+
+    if (isInvoice && dpAmount > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('DP (Telah Diterima):', sumX + 2, sumY + 2);
+      doc.text(formatRupiah(dpAmount), rightX - 2, sumY + 2, { align: 'right' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(220, 38, 38);
+      doc.text('Sisa Pelunasan:', sumX + 2, sumY + 7.5);
+      doc.text(formatRupiah(remaining), rightX - 2, sumY + 7.5, { align: 'right' });
+      sumY += 11;
+    }
+
+    // Watermark LUNAS jika faktur sudah lunas
+    if (isInvoice && (data.isPaid || remaining <= 0)) {
+      doc.saveGraphicsState();
+      doc.setDrawColor(22, 101, 52);
+      doc.setTextColor(22, 101, 52);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(sumX + 4, sumY + 1, 40, 9, 2, 2, 'D');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('✓ LUNAS / PAID', sumX + 24, sumY + 6.5, { align: 'center' });
+      doc.restoreGraphicsState();
+    }
+
+    y = Math.max(y + leftBoxH + 5, sumY + 3);
+  } else if (isBast) {
+    // Box Khusus BAST: Pernyataan Serah Terima & Info SN
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, y, contentWidth, 22, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('PERNYATAAN RESMI SERAH TERIMA & UJI FUNGSI:', margin + 4, y + 5.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Pekerjaan instalasi telah selesai dilaksanakan, seluruh perangkat teruji menyala jernih, rekam aktif, dan terpantau online di aplikasi HP.', margin + 4, y + 10.5);
+    doc.text(`No. Seri DVR/NVR : ${data.snNvr || 'Tercatat di sistem'}    •    No. Seri Harddisk (HDD) : ${data.snHdd || 'Tercatat di sistem'}`, margin + 4, y + 15.5);
+    doc.text('Garansi resmi distributor berlaku 12 Bulan penuh sejak tanggal penandatanganan berita acara ini.', margin + 4, y + 19.5);
+
+    y += 26;
+  } else {
+    // Surat Jalan Box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, y, contentWidth, 16, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('CATATAN PENGELUARAN BARANG & INSTALASI:', margin + 4, y + 5.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Seluruh perangkat dan material di atas dikeluarkan dari toko Borneo Etam dalam kondisi baru, segel utuh, dan lengkap untuk dipasang di lokasi klien.', margin + 4, y + 10.5);
+
+    y += 20;
   }
 
   // =========================================================================
-  // 6. SYARAT KETENTUAN & TANDA TANGAN RESMI
+  // 6. SYARAT KETENTUAN & TANDA TANGAN + STEMPEL DIGITAL RESMI
   // =========================================================================
-  y = Math.max(y + leftBoxH + 5, sumY + 3);
-
   // Syarat Ketentuan Sisi Kiri
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.8);
@@ -476,29 +586,78 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     ty += 3.8;
   }
 
-  // Kolom Tanda Tangan Sisi Kanan
-  const signColX = rightX - 44;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Samarinda, ${formatDateIndo(data.dateStr) || data.dateStr}`, signColX, y + 4, { align: 'center' });
-  doc.text('Hormat kami,', signColX, y + 8, { align: 'center' });
+  // Kolom Tanda Tangan
+  if (isSuratJalan) {
+    // 3 Tanda Tangan: Gudang, Teknisi, Klien
+    const tWidth = contentWidth / 3;
+    const ySign = y + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.2);
-  doc.setTextColor(220, 38, 38);
-  doc.text('Borneo Etam CCTV & POS', signColX, y + 12, { align: 'center' });
+    doc.text('Diserahkan Oleh (Gudang):', margin + 15, ySign);
+    doc.text('Dibawa Oleh (Teknisi):', margin + tWidth + 15, ySign);
+    doc.text('Diterima Oleh (Klien):', margin + tWidth * 2 + 15, ySign);
 
-  // Tanda tangan nama
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.8);
-  doc.setTextColor(15, 23, 42);
-  doc.text('( Muhammad Wahyu )', signColX, y + 31, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(100, 116, 139);
+    doc.text('( ................................. )', margin + 15, ySign + 24);
+    doc.text('( ................................. )', margin + tWidth + 15, ySign + 24);
+    doc.text(`( ${data.clientName || '........................'} )`, margin + tWidth * 2 + 15, ySign + 24);
+  } else if (isBast) {
+    // 2 Tanda Tangan: Pihak Pertama (Borneo Etam) & Pihak Kedua (Klien)
+    const ySign = y + 4;
+    const colLeft = margin + 35;
+    const colRight = rightX - 35;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
-  doc.setTextColor(100, 116, 139);
-  doc.text('Owner / Technical Lead', signColX, y + 35, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Pihak Kedua (Konsumen / Klien)', colLeft, ySign, { align: 'center' });
+    doc.text('Pihak Pertama (Borneo Etam CCTV)', colRight, ySign, { align: 'center' });
+
+    // Stempel Digital Resmi di Pihak Pertama
+    drawOfficialStamp(doc, colRight, ySign + 17);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(`( ${data.clientName || 'Konsumen'} )`, colLeft, ySign + 25, { align: 'center' });
+    doc.text('( Muhammad Wahyu )', colRight, ySign + 25, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Pemilik / Penanggung Jawab Lokasi', colLeft, ySign + 29, { align: 'center' });
+    doc.text('Owner / Technical Lead', colRight, ySign + 29, { align: 'center' });
+  } else {
+    // Standar Quote & Invoice: Tanda Tangan Kanan + Stempel Resmi
+    const signColX = rightX - 44;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Samarinda, ${formatDateIndo(data.dateStr) || data.dateStr}`, signColX, y + 4, { align: 'center' });
+    doc.text('Hormat kami,', signColX, y + 8, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.2);
+    doc.setTextColor(220, 38, 38);
+    doc.text('Borneo Etam CCTV & POS', signColX, y + 12, { align: 'center' });
+
+    // Stempel Digital Resmi
+    drawOfficialStamp(doc, signColX - 6, y + 21);
+
+    // Tanda tangan nama
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('( Muhammad Wahyu )', signColX, y + 31, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Owner / Technical Lead', signColX, y + 35, { align: 'center' });
+  }
 
   // =========================================================================
   // 7. FOOTER RESMI BORNEO ETAM
