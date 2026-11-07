@@ -171,6 +171,7 @@ async function findQuoteOrInvoice(
     const client = (cand.to_client || '').toLowerCase();
     const rawLower = raw.toLowerCase();
 
+    if (cand.id && (cand.id === raw || cand.id.toLowerCase() === rawLower)) return 100;
     if (rawLower && num.includes(rawLower)) return 100;
     if (rawLower && client.includes(rawLower)) return 95;
 
@@ -221,6 +222,55 @@ async function findQuoteOrInvoice(
   return null;
 }
 
+async function findInstallation(targetText: string): Promise<any | null> {
+  const raw = (targetText || '').trim();
+  const clean = cleanSearchName(raw);
+
+  const { data: list } = await db
+    .from('cctv_installations')
+    .select('*, quotes(*, quote_items(*))')
+    .eq('user_id', OWNER_ID)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  if (!list || list.length === 0) return null;
+  if (!raw && !clean) return list[0];
+
+  let bestInst = null;
+  let bestScore = 0;
+
+  for (const inst of list) {
+    let score = 0;
+    const client = (inst.client_name || '').toLowerCase();
+    const project = (inst.project_name || '').toLowerCase();
+    const rawLower = raw.toLowerCase();
+
+    if (inst.id === raw || inst.quote_id === raw) score = 100;
+    else if (rawLower && (client.includes(rawLower) || project.includes(rawLower))) score = 95;
+    else {
+      const cClean = cleanSearchName(client);
+      const pClean = cleanSearchName(project);
+      if (clean && (cClean.includes(clean) || clean.includes(cClean) || pClean.includes(clean) || clean.includes(pClean))) {
+        score = 90;
+      } else {
+        const rawSkel = getConsonantSkeleton(raw);
+        const cSkel = getConsonantSkeleton(client);
+        const pSkel = getConsonantSkeleton(project);
+        if (rawSkel && (cSkel.includes(rawSkel) || rawSkel.includes(cSkel) || pSkel.includes(rawSkel) || rawSkel.includes(pSkel))) {
+          score = 80;
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestInst = inst;
+    }
+  }
+
+  return bestScore >= 70 ? bestInst : (!raw ? list[0] : null);
+}
+
 // ------------------------------------------------------------------ Gemini Schema & AI Core
 const SCHEMA = {
   type: 'OBJECT',
@@ -245,6 +295,7 @@ const SCHEMA = {
         'get_warranty',
         'storage_calculator',
         'record_payment',
+        'unpaid_invoices',
         'monthly_summary',
         'chat',
       ],
@@ -298,6 +349,8 @@ const SCHEMA = {
     discount_amount: { type: 'NUMBER', nullable: true },
     down_payment_percent: { type: 'NUMBER', nullable: true },
     down_payment_amount: { type: 'NUMBER', nullable: true },
+    payment_amount: { type: 'NUMBER', nullable: true },
+    is_paid_off: { type: 'BOOLEAN', nullable: true },
     target_text: { type: 'STRING', nullable: true },
     project_name: { type: 'STRING', nullable: true },
     service_type: { type: 'STRING', enum: ['CCTV', 'POS', 'BUNDLING'], nullable: true },
@@ -383,12 +436,14 @@ PANDUAN INTENT & ALUR KERJA:
 10. get_warranty: Mas Wahyu minta kartu garansi digital / cek garansi / link garansi / sertifikat garansi (misal: "garansi digital sudah?", "garansi digital", "kartu garansi", "minta kartu garansi Pak Suhabuddin", "link garansi", "cetak garansi"). target_text = nama klien (opsional).
 11. storage_calculator: Mas Wahyu tanya kapasitas / lama hari rekaman CCTV (misal: "4 kamera 2MP HDD 1TB tahan rekam berapa hari bro?", "8 kamera 4MP harddisk 2TB").
    - Jawab secara teknis presisi di field reply: sebutkan kompresi H.265+, estimasi hari rekaman 24 jam non-stop, dan perkiraan jika pakai motion detection.
-12. record_payment: Pembayaran DP / Pelunasan (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas").
-13. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
-14. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
+12. record_payment: Pembayaran DP / Pelunasan faktur (misal: "Pak Suhabuddin sudah transfer DP 1.5jt", "Pak Suhabuddin sudah lunas", "Pak Yusuf lunas bro", "catat pelunasan Pak Yusuf", "tadi Pak Yusuf bayar 5.410.000", "catat pelunasan faktur INV-2026-264").
+   - Ekstrak: target_text (nama klien / nomor faktur), payment_amount (jika ada nominal yang dibayar), is_paid_off (true jika dikatakan 'lunas' atau 'full').
+13. unpaid_invoices: Mas Wahyu ingin mengecek daftar tagihan yang belum lunas / rekap piutang konsumen (misal: "rekap piutang", "siapa yang belum lunas", "cek tagihan belum lunas", "daftar piutang bulan ini", "tagihan berjalan").
+14. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
+15. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
    - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran).
-15. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
-16. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
+16. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
+17. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
@@ -1090,10 +1145,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
     // ---------------------------------------------------- DEAL PROYEK (OTOMATIS PROYEK & PETA)
     case 'deal_project': {
       const t = (r.target_text || r.client_name || '').trim();
-      let q = db.from('quotes').select('*, quote_items(*), clients(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-      if (t) q = q.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-      const { data } = await q;
-      const quote: any = data?.[0];
+      const match = await findQuoteOrInvoice(t, 'quote');
+      const quote: any = match?.doc;
 
       if (!quote) {
         return send(chat_id, `Penawaran untuk klien "${esc(t || 'terakhir')}" belum ditemukan bro. Pastikan penawarannya sudah dibuat dulu ya.`);
@@ -1186,10 +1239,34 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
       if (t) {
         const { data: pList } = await db.from('projects').select('id, name')
-          .eq('user_id', OWNER_ID).ilike('name', `%${t}%`).order('created_at', { ascending: false }).limit(1);
-        if (pList && pList[0]) {
-          projectId = pList[0].id;
-          projName = pList[0].name;
+          .eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(30);
+
+        let bestProj: any = null;
+        let bestScore = 0;
+        const clean = cleanSearchName(t);
+        const rawSkel = getConsonantSkeleton(t);
+
+        for (const p of pList || []) {
+          const pName = (p.name || '').toLowerCase();
+          let score = 0;
+          if (pName.includes(t.toLowerCase())) score = 95;
+          else {
+            const pClean = cleanSearchName(pName);
+            if (clean && (pClean.includes(clean) || clean.includes(pClean))) score = 90;
+            else {
+              const pSkel = getConsonantSkeleton(pName);
+              if (rawSkel && (pSkel.includes(rawSkel) || rawSkel.includes(pSkel))) score = 80;
+            }
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestProj = p;
+          }
+        }
+
+        if (bestProj && bestScore >= 70) {
+          projectId = bestProj.id;
+          projName = bestProj.name;
         }
       }
 
@@ -1264,11 +1341,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
     // ---------------------------------------------------- PROYEK SELESAI (FAKTUR & GARANSI & REKAP LABA)
     case 'complete_project': {
       const t = (r.target_text || r.client_name || r.project_name || '').trim();
-      let q = db.from('cctv_installations').select('*, quotes(*, quote_items(*))')
-        .eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-      if (t) q = q.or(`project_name.ilike.%${t}%,client_name.ilike.%${t}%`);
-      const { data } = await q;
-      const inst: any = data?.[0];
+      const inst: any = await findInstallation(t);
 
       if (!inst) {
         return send(chat_id, `Data proyek "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
@@ -1483,25 +1556,17 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- KARTU GARANSI DIGITAL
     case 'get_warranty': {
-      const t = (r.target_text || '').trim();
-      let inst: any = null;
+      const t = (r.target_text || r.client_name || '').trim();
+      let inst: any = await findInstallation(t);
+      let quote: any = inst?.quotes;
 
-      // 1. Cari dari cctv_installations
-      let qi = db.from('cctv_installations').select('*').eq('user_id', OWNER_ID).order('created_at', { ascending: false });
-      if (t) qi = qi.or(`client_name.ilike.%${t}%,project_name.ilike.%${t}%`);
-      const { data: instData } = await qi.limit(1);
-      inst = instData?.[0];
-
-      let quote: any = null;
-      if (inst?.quote_id) {
-        const { data: qData } = await db.from('quotes').select('*, quote_items(*)').eq('id', inst.quote_id).maybeSingle();
-        quote = qData;
-      } else {
-        // Cari dari quotes jika cctv_installations belum ada
-        let qq = db.from('quotes').select('*, quote_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-        if (t) qq = qq.or(`quote_number.ilike.%${t}%,to_client.ilike.%${t}%`);
-        const { data: qData } = await qq;
-        quote = qData?.[0];
+      if (!inst) {
+        const match = await findQuoteOrInvoice(t, 'auto');
+        if (match) {
+          quote = match.doc;
+          const { data: instData } = await db.from('cctv_installations').select('*').eq('quote_id', quote.id).limit(1);
+          inst = instData?.[0] || null;
+        }
       }
 
       if (!inst && !quote) {
@@ -1619,6 +1684,132 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `💰 <b>Laba Bersih Aktual Bulan Ini: ${rp(labaBersih)}</b>\n` +
         `───────────────────────\n\n` +
         `<i>Tetap semangat dan jaga kualitas instalasi rapi khas Borneo Etam, bro! 🚀</i>`
+      );
+    }
+
+    // ---------------------------------------------------- CATAT PEMBAYARAN / PELUNASAN (RECORD PAYMENT)
+    case 'record_payment': {
+      const t = (r.target_text || r.client_name || '').trim();
+      const match = await findQuoteOrInvoice(t, 'invoice');
+      const inv: any = match?.doc;
+
+      if (!inv) {
+        return send(
+          chat_id,
+          `Faktur tagihan untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan faktur sudah dibuat ya.`
+        );
+      }
+
+      const items = inv.invoice_items || [];
+      const totalAmount = items.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(inv.discount_amount || 0);
+      const isLunas = r.is_paid_off || /lunas|selesai|full|lunasin/i.test(text);
+
+      let payAmount = Number(r.payment_amount || 0);
+      const prevDp = Number(inv.down_payment_amount || 0);
+
+      if (isLunas) {
+        payAmount = Math.max(0, totalAmount - prevDp);
+      } else if (!payAmount && r.down_payment_amount) {
+        payAmount = Number(r.down_payment_amount);
+      }
+
+      const newDp = isLunas ? totalAmount : Math.min(totalAmount, prevDp + payAmount);
+      const newStatus = newDp >= totalAmount || isLunas ? 'Lunas' : 'Sebagian';
+
+      await db.from('invoices').update({
+        down_payment_amount: newDp,
+        status: newStatus,
+      }).eq('id', inv.id);
+
+      const sisa = Math.max(0, totalAmount - newDp);
+
+      const waReceipt =
+        `*BUKTI PEMBAYARAN RESMI*\n` +
+        `*Borneo Etam CCTV & Komputer Kasir*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Pelanggan: *${inv.to_client}*\n` +
+        `No. Faktur: *${inv.invoice_number}*\n` +
+        `Tanggal: *${formatDateIndo(nowParts().iso)}*\n` +
+        `Pembayaran Diterima: *${rp(payAmount || (isLunas ? totalAmount : newDp))}*\n` +
+        `Total Tagihan: *${rp(totalAmount)}*\n` +
+        `Status: *${newStatus === 'Lunas' ? 'LUNAS (LUNAS PENUH)' : `SEBAGIAN (Sisa ${rp(sisa)})`}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Terima kasih banyak atas kepercayaannya! 🙏`;
+
+      return send(
+        chat_id,
+        `💰 <b>Pembayaran Berhasil Dicatat &amp; Disimpan!</b>\n\n` +
+        `• Klien: <b>${esc(inv.to_client)}</b>\n` +
+        `• No. Faktur: <code>${esc(inv.invoice_number)}</code>\n` +
+        `• Nominal Masuk: <b>${rp(payAmount || totalAmount)}</b>\n` +
+        `• Total Nilai Tagihan: <b>${rp(totalAmount)}</b>\n` +
+        `• Total Sudah Dibayar: <b>${rp(newDp)}</b>\n` +
+        `• Status Faktur: <b>${newStatus === 'Lunas' ? '✅ LUNAS PENUH' : `⏳ DIBAYAR SEBAGIAN (Sisa: ${rp(sisa)})`}</b>\n\n` +
+        `<i>Data di database aplikasi sudah otomatis terupdate menjadi status <b>${newStatus}</b>.</i>\n\n` +
+        `📲 <b>Teks Tanda Terima (Siap kirim ke WA Klien):</b>\n` +
+        `<code>${esc(waReceipt)}</code>`,
+        [
+          [
+            { text: '🧾 Cetak Faktur Terkini', data: `pdf:${inv.id}` },
+            { text: '🛡️ Cek Garansi', data: `warranty:${inv.id}` },
+          ]
+        ]
+      );
+    }
+
+    // ---------------------------------------------------- REKAP PIUTANG / TAGIHAN BELUM LUNAS
+    case 'unpaid_invoices': {
+      const { data: invList } = await db
+        .from('invoices')
+        .select('*, invoice_items(*)')
+        .eq('user_id', OWNER_ID)
+        .neq('status', 'Lunas')
+        .order('created_at', { ascending: false });
+
+      if (!invList || invList.length === 0) {
+        return send(
+          chat_id,
+          `🎉 <b>Alhamdulillah, Luar Biasa Bro!</b>\nSemua faktur tagihan sudah <b>LUNAS</b>, tidak ada piutang tertunggak saat ini. Arus kas lancar jaya! 🚀`
+        );
+      }
+
+      let grandTotalTagihan = 0;
+      let grandTotalMasuk = 0;
+      let grandTotalSisa = 0;
+
+      const lines: string[] = [];
+
+      invList.forEach((inv: any, idx: number) => {
+        const items = inv.invoice_items || [];
+        const tot = items.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(inv.discount_amount || 0);
+        const dp = Number(inv.down_payment_amount || 0);
+        const sisa = Math.max(0, tot - dp);
+
+        grandTotalTagihan += tot;
+        grandTotalMasuk += dp;
+        grandTotalSisa += sisa;
+
+        const dueInfo = inv.due_date ? ` (Tempo: ${inv.due_date.slice(0, 10)})` : '';
+        lines.push(
+          `<b>${idx + 1}. ${esc(inv.to_client)}</b> [<code>${esc(inv.invoice_number)}</code>]\n` +
+          `   • Sisa Tagihan : <b>${rp(sisa)}</b> (dari total ${rp(tot)})\n` +
+          `   • Masuk : ${rp(dp)} | Status: <i>${esc(inv.status || 'Belum Lunas')}</i>${dueInfo}`
+        );
+      });
+
+      return send(
+        chat_id,
+        `📊 <b>Daftar Rekap Piutang &amp; Tagihan Berjalan</b>\n` +
+        `Borneo Etam CCTV &amp; Komputer Kasir\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        lines.join('\n\n') + '\n\n' +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `• Total Nilai Tagihan : <b>${rp(grandTotalTagihan)}</b>\n` +
+        `• Total Uang Muka Masuk : <b>${rp(grandTotalMasuk)}</b>\n` +
+        `• 🔴 <b>Total Piutang Belum Tertagih : ${rp(grandTotalSisa)}</b>\n\n` +
+        `💡 <i>Untuk mencatat pelunasan, cukup ketik:</i>\n` +
+        `• <code>Pak Yusuf sudah lunas</code>\n` +
+        `• <code>Pak Sahabuddin transfer 2jt</code>`
       );
     }
 
@@ -1954,9 +2145,15 @@ async function execQuote(chat_id: number, p: any): Promise<void> {
   const waDraft = makeWhatsAppText('quote', number, name, tot, 0, undefined, docCategory);
   await send(
     chat_id,
-    `<b>✅ Penawaran Berhasil Dibuat &amp; Tersimpan!</b>\n\n${waDraft}\n\n<i>Kalau konsumen sudah konfirmasi deal, cukup balas: <b>"Deal bro, lanjut buat proyek"</b></i>`,
+    `<b>✅ Penawaran Berhasil Dibuat &amp; Tersimpan!</b>\n\n${waDraft}\n\n<i>Kalau konsumen sudah konfirmasi deal, cukup balas: <b>"Deal bro, lanjut buat proyek"</b> atau klik tombol di bawah:</i>`,
     [
-      [{ text: '🤝 Konfirmasi Deal & Buat Proyek', data: `deal:${quote.id}` }],
+      [
+        { text: '🤝 Konfirmasi Deal & Buat Proyek', data: `deal:${quote.id}` },
+        { text: '📦 Cetak Surat Jalan', data: `sj:${quote.id}` },
+      ],
+      [
+        { text: '📄 Unduh PDF Penawaran', data: `pdf:${quote.id}` },
+      ],
     ]
   );
 }
@@ -2099,10 +2296,20 @@ async function execInvoice(chat_id: number, p: any): Promise<void> {
 
   const publicWarrantyUrl = instId ? `${APP_URL}/garansi/${instId}` : undefined;
   const waDraft = makeWhatsAppText('invoice', number, name, tot, dp, publicWarrantyUrl, docCategory);
+
+  const actionButtons: { text: string; data?: string; url?: string }[][] = [];
+  const row1: any[] = [{ text: '📜 Cetak BAST', data: `bast:${inv.id}` }];
+  if (publicWarrantyUrl) row1.push({ text: '🛡️ Garansi Live', url: publicWarrantyUrl });
+  actionButtons.push(row1);
+
+  if (dp < tot) {
+    actionButtons.push([{ text: '💰 Tandai Sudah Lunas', data: `pay_lunas:${inv.id}` }]);
+  }
+
   await send(
     chat_id,
     `<b>✅ Faktur Berhasil Diterbitkan &amp; Tersimpan!</b>\n\n${waDraft}`,
-    publicWarrantyUrl ? [[{ text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl }]] : undefined
+    actionButtons.length > 0 ? actionButtons : undefined
   );
 }
 
@@ -2129,7 +2336,11 @@ async function handleCallback(cb: any) {
     return;
   }
   if (action === 'deal') {
-    await handleText(chat_id, `penawaran ini deal bro`);
+    await handleText(chat_id, `deal proyek ${id}`);
+    return;
+  }
+  if (action === 'pay_lunas') {
+    await handleText(chat_id, `catat pelunasan faktur ${id}`);
     return;
   }
 
@@ -2243,6 +2454,9 @@ Deno.serve(async (req) => {
               '• <i>garansi digital Pak Suhabuddin</i>\n' +
               '• <i>4 kamera 2MP HDD 1TB tahan berapa hari bro?</i>\n' +
               '• <i>tolong masukkan barang ini: Kamera ColorVu 4MP jual 450rb modal 320rb</i>\n' +
+              '• <i>Pak Yusuf sudah lunas</i> (catat pelunasan faktur)\n' +
+              '• <i>Pak Sahabuddin transfer DP 2jt</i> (catat DP faktur)\n' +
+              '• <i>rekap piutang bro</i> (cek daftar tagihan yang belum lunas)\n' +
               '• <i>rekap performa bulan ini bro</i>'
             );
           } else if (t === '/batal') {
