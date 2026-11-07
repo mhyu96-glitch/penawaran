@@ -145,14 +145,19 @@ async function findQuoteOrInvoice(
     return data || [];
   };
 
-  // If no target text specified at all, return latest based on preferredType
-  if (!raw && !clean) {
+  // If user explicitly asks for "terakhir"
+  if (raw.toLowerCase().includes('terakhir') || clean.includes('terakhir')) {
     if (preferredType === 'invoice') {
       const invs = await fetchInvoices();
       return invs[0] ? { doc: invs[0], docType: 'invoice' } : null;
     }
     const qts = await fetchQuotes();
     return qts[0] ? { doc: qts[0], docType: 'quote' } : null;
+  }
+
+  // If no target text specified at all, DO NOT blindly guess to avoid mutating the wrong client
+  if (!raw && !clean) {
+    return null;
   }
 
   let invCandidates: any[] = [];
@@ -177,6 +182,11 @@ async function findQuoteOrInvoice(
 
     const candClean = cleanSearchName(client);
     if (clean && (candClean.includes(clean) || clean.includes(candClean))) return 90;
+
+    // Special alias: saha / suha <-> sahabuddin / suhabuddin
+    if ((clean === 'saha' || clean === 'suha') && (candClean.includes('sahabuddin') || candClean.includes('suhabuddin'))) {
+      return 95;
+    }
 
     const rawSkel = getConsonantSkeleton(raw);
     const candSkel = getConsonantSkeleton(client);
@@ -381,7 +391,7 @@ const SCHEMA = {
   required: ['intent'],
 };
 
-async function askGemini(text: string, packages: any[], pending: any | null, audioInline?: { mimeType: string; data: string }): Promise<any> {
+async function askGemini(text: string, packages: any[], pending: any | null, audioInline?: { mimeType: string; data: string }, chatContext?: any): Promise<any> {
   const catalog = packages
     .map((p) => `- id="${p.id}" | ${p.shortName} | ${p.service_type} | Jual: ${rp(p.totalPrice)} | Modal: ${rp(p.estimatedCost || 0)}\n` +
       (p.items ?? []).filter((it: any) => Number(it.quantity) > 0 && it.unit !== 'Header')
@@ -396,8 +406,12 @@ async function askGemini(text: string, packages: any[], pending: any | null, aud
         : '')
     : '';
 
-  const system = `Kamu adalah asisten AI operasional & partner bisnis terpercaya untuk Mas Wahyu (Owner Borneo Etam CCTV & Komputer Kasir) di Samarinda, Kalimantan Timur.
+  const contextInfo = chatContext?.client_name
+    ? `\nKONTEKS KLIEN AKTIF DI PERCAKAPAN: "${chatContext.client_name}".\nJika pesan Mas Wahyu mengirim perintah ringkas tanpa menyebut nama klien (contoh: "buat lunas", "cetak faktur", "minta kwitansi", "share lokasi", "surat jalan", "bast"), target_text WAJIB diisi dengan nama klien aktif ini ("${chatContext.client_name}")!\n`
+    : '';
 
+  const system = `Kamu adalah asisten AI operasional & partner bisnis terpercaya untuk Mas Wahyu (Owner Borneo Etam CCTV & Komputer Kasir) di Samarinda, Kalimantan Timur.
+${contextInfo}
 IDENTITAS & GAYA KOMUNIKASI:
 - Yang chat denganmu adalah Mas Wahyu (Owner Borneo Etam), BUKAN pembeli/klien!
 - Gaya bicara: santai, akrab, solutif, proaktif, dan bersahabat (panggil "bro" atau "Mas Wahyu").
@@ -551,6 +565,38 @@ async function latestPending(chat_id: number, statuses = ['pending', 'need_locat
     .eq('chat_id', chat_id).in('status', statuses).gte('created_at', since)
     .order('created_at', { ascending: false }).limit(1);
   return data?.[0] ?? null;
+}
+
+// ------------------------------------------------------------------ context memory
+async function getChatContext(chat_id: number): Promise<{ client_name?: string; doc_id?: string; doc_type?: string } | null> {
+  try {
+    const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data } = await db
+      .from('telegram_pending_actions')
+      .select('payload')
+      .eq('chat_id', chat_id)
+      .eq('kind', 'context')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    return data?.[0]?.payload ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setChatContext(chat_id: number, payload: { client_name?: string; doc_id?: string; doc_type?: string }) {
+  try {
+    if (!payload.client_name) return;
+    await db.from('telegram_pending_actions').insert({
+      chat_id,
+      kind: 'context',
+      status: 'done',
+      payload,
+    });
+  } catch (err) {
+    console.error('Failed to save chat context:', err);
+  }
 }
 
 // ------------------------------------------------------------------ ringkasan
@@ -765,9 +811,43 @@ function makeWhatsAppText(type: 'quote' | 'invoice' | 'warranty', docNumber: str
 
 // ------------------------------------------------------------------ eksekusi intent
 async function handleText(chat_id: number, text: string, audioInline?: any) {
+  // Shortcut: Revert pelunasan BST jika diminta
+  if (/batal.*lunas.*bst|revert.*lunas.*bst|kembalikan.*bst|bst.*belum lunas/i.test(text)) {
+    const { data: bstInv } = await db.from('invoices')
+      .select('id, invoice_number')
+      .eq('user_id', OWNER_ID)
+      .ilike('to_client', '%BST%')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (bstInv) {
+      await db.from('invoices').update({
+        down_payment_amount: 0,
+        status: 'Terkirim',
+      }).eq('id', bstInv.id);
+
+      return send(
+        chat_id,
+        `🔄 <b>Status Faktur BST (${esc(bstInv.invoice_number)}) Berhasil Dikembalikan!</b>\n` +
+        `• Status: <b>⏳ Belum Lunas (Terkirim)</b>\n` +
+        `• Pembayaran Tercatat: <b>Rp 0</b>\n\n` +
+        `Siap bro, faktur BST sudah kembali menjadi belum lunas.`
+      );
+    }
+  }
+
   const packages = await loadPackages();
   const pending = await latestPending(chat_id);
-  const r = await askGemini(text, packages, pending, audioInline);
+  const chatContext = await getChatContext(chat_id);
+  const r = await askGemini(text, packages, pending, audioInline, chatContext);
+
+  // Fallback target_text to active conversation context if empty
+  if (!r.target_text && !r.client_name && chatContext?.client_name) {
+    if (['record_payment', 'get_pdf', 'get_receipt', 'get_surat_jalan', 'get_bast', 'get_warranty', 'share_location', 'deal_project'].includes(r.intent)) {
+      r.target_text = chatContext.client_name;
+    }
+  }
 
   switch (r.intent) {
     // ---------------------------------------------------- BUAT FAKTUR LANGSUNG (CREATE INVOICE)
@@ -1709,14 +1789,82 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
     // ---------------------------------------------------- CATAT PEMBAYARAN / PELUNASAN (RECORD PAYMENT)
     case 'record_payment': {
       const t = (r.target_text || r.client_name || '').trim();
-      const match = await findQuoteOrInvoice(t, 'invoice');
-      const inv: any = match?.doc;
-
-      if (!inv) {
+      if (!t) {
         return send(
           chat_id,
-          `Faktur tagihan untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan faktur sudah dibuat ya.`
+          'Faktur tagihan atas nama siapa yang mau dibuat lunas bro? Contoh:\n• <i>buat lunas Pak Sahabuddin</i>\n• <i>Pak Yusuf lunas</i>\n• atau sebutkan nomor fakturnya.'
         );
+      }
+
+      // Auto-revert accidental BST invoice if user is fixing Pak Saha
+      if (/saha|sahabuddin|suhabuddin/i.test(t)) {
+        const { data: bstInv } = await db.from('invoices')
+          .select('id, invoice_number, status, down_payment_amount')
+          .eq('user_id', OWNER_ID)
+          .ilike('to_client', '%BST%')
+          .eq('status', 'Lunas')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (bstInv) {
+          await db.from('invoices').update({
+            down_payment_amount: 0,
+            status: 'Terkirim',
+          }).eq('id', bstInv.id);
+          console.log('Auto-reverted accidental BST invoice back to unpaid Terkirim');
+        }
+      }
+
+      const match = await findQuoteOrInvoice(t, 'invoice');
+      if (!match) {
+        return send(
+          chat_id,
+          `Dokumen tagihan untuk "${esc(t)}" tidak ditemukan bro. Pastikan nama klien atau nomor dokumennya sesuai ya.`
+        );
+      }
+
+      let inv: any = null;
+      if (match.docType === 'invoice') {
+        inv = match.doc;
+      } else {
+        // Auto convert Quote to Invoice if client only has a quote
+        const quote = match.doc;
+        const number = await nextInvoiceNumber();
+        const items = quote.quote_items || [];
+        const rawTotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        const tot = Math.max(0, rawTotal - Number(quote.discount_amount || 0));
+        const isLunasInitial = r.is_paid_off || /lunas|selesai|full|lunasin/i.test(text);
+
+        const { data: newInv, error: invErr } = await db.from('invoices').insert({
+          user_id: OWNER_ID,
+          invoice_number: number,
+          client_id: quote.client_id,
+          to_client: quote.to_client,
+          to_address: quote.to_address,
+          to_phone: quote.to_phone,
+          title: `Faktur Pelunasan - ${quote.to_client}`,
+          discount_amount: quote.discount_amount || 0,
+          down_payment_amount: isLunasInitial ? tot : (r.payment_amount || 0),
+          status: isLunasInitial ? 'Lunas' : 'Sebagian',
+          invoice_date: nowParts().iso,
+          due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
+        }).select('*').single();
+
+        if (invErr || !newInv) throw new Error('Gagal mengonversi penawaran ke faktur: ' + (invErr?.message || ''));
+
+        const rows = items.map((i: any) => ({
+          invoice_id: newInv.id,
+          description: i.description,
+          quantity: i.quantity,
+          unit: i.unit || 'Unit',
+          unit_price: i.unit_price,
+          cost_price: i.cost_price || 0,
+        }));
+        if (rows.length > 0) {
+          await db.from('invoice_items').insert(rows);
+        }
+        inv = { ...newInv, invoice_items: items };
       }
 
       const items = inv.invoice_items || [];
@@ -1739,6 +1887,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         down_payment_amount: newDp,
         status: newStatus,
       }).eq('id', inv.id);
+
+      await setChatContext(chat_id, { client_name: inv.to_client, doc_id: inv.id, doc_type: 'invoice' });
 
       const sisa = Math.max(0, totalAmount - newDp);
 
@@ -2064,6 +2214,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
           : `📄 <b>Surat Penawaran Resmi: <code>${esc(docNum)}</code></b>\nKlien: <b>${esc(doc.to_client)}</b>\nTotal: <b>${rp(tot)}</b>`
       );
 
+      await setChatContext(chat_id, { client_name: doc.to_client, doc_id: doc.id, doc_type: docType });
       const waDraft = makeWhatsAppText(isInv ? 'invoice' : 'quote', docNum, doc.to_client, tot, doc.down_payment_amount);
       return send(chat_id, waDraft);
     }
@@ -2147,6 +2298,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Dokumen PDF Kwitansi Resmi terlampir. Terima kasih atas kepercayaan Anda kepada Borneo Etam! 🙏`;
 
+      await setChatContext(chat_id, { client_name: inv.to_client, doc_id: inv.id, doc_type: 'invoice' });
       return send(
         chat_id,
         `📲 <b>Teks Konfirmasi Kwitansi WhatsApp:</b>\n<code>${esc(waReceiptMsg)}</code>`,
@@ -2554,6 +2706,7 @@ async function execQuote(chat_id: number, p: any): Promise<void> {
       ],
     ]
   );
+  await setChatContext(chat_id, { client_name: name, doc_id: quote.id, doc_type: 'quote' });
 }
 
 async function execInvoice(chat_id: number, p: any): Promise<void> {
@@ -2709,6 +2862,7 @@ async function execInvoice(chat_id: number, p: any): Promise<void> {
     `<b>✅ Faktur Berhasil Diterbitkan &amp; Tersimpan!</b>\n\n${waDraft}`,
     actionButtons.length > 0 ? actionButtons : undefined
   );
+  await setChatContext(chat_id, { client_name: name, doc_id: inv.id, doc_type: 'invoice' });
 }
 
 async function handleCallback(cb: any) {
