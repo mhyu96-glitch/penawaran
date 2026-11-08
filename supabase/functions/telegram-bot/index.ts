@@ -151,8 +151,21 @@ async function findQuoteOrInvoice(
       const invs = await fetchInvoices();
       return invs[0] ? { doc: invs[0], docType: 'invoice' } : null;
     }
-    const qts = await fetchQuotes();
-    return qts[0] ? { doc: qts[0], docType: 'quote' } : null;
+    if (preferredType === 'quote') {
+      const qts = await fetchQuotes();
+      return qts[0] ? { doc: qts[0], docType: 'quote' } : null;
+    }
+    const [invs, qts] = await Promise.all([fetchInvoices(), fetchQuotes()]);
+    const latestInv = invs[0];
+    const latestQt = qts[0];
+    if (latestInv && latestQt) {
+      const invTime = new Date(latestInv.created_at || 0).getTime();
+      const qtTime = new Date(latestQt.created_at || 0).getTime();
+      return invTime >= qtTime ? { doc: latestInv, docType: 'invoice' } : { doc: latestQt, docType: 'quote' };
+    }
+    if (latestInv) return { doc: latestInv, docType: 'invoice' };
+    if (latestQt) return { doc: latestQt, docType: 'quote' };
+    return null;
   }
 
   // If no target text specified at all, DO NOT blindly guess to avoid mutating the wrong client
@@ -244,7 +257,7 @@ async function findInstallation(targetText: string): Promise<any | null> {
     .limit(30);
 
   if (!list || list.length === 0) return null;
-  if (!raw && !clean) return list[0];
+  if (!raw && !clean) return null; // NEVER blind fallback to list[0]
 
   let bestInst = null;
   let bestScore = 0;
@@ -263,11 +276,16 @@ async function findInstallation(targetText: string): Promise<any | null> {
       if (clean && (cClean.includes(clean) || clean.includes(cClean) || pClean.includes(clean) || clean.includes(pClean))) {
         score = 90;
       } else {
-        const rawSkel = getConsonantSkeleton(raw);
-        const cSkel = getConsonantSkeleton(client);
-        const pSkel = getConsonantSkeleton(project);
-        if (rawSkel && (cSkel.includes(rawSkel) || rawSkel.includes(cSkel) || pSkel.includes(rawSkel) || rawSkel.includes(pSkel))) {
-          score = 80;
+        // Special alias: saha / suha <-> sahabuddin / suhabuddin
+        if ((clean === 'saha' || clean === 'suha') && (cClean.includes('sahabuddin') || cClean.includes('suhabuddin'))) {
+          score = 95;
+        } else {
+          const rawSkel = getConsonantSkeleton(raw);
+          const cSkel = getConsonantSkeleton(client);
+          const pSkel = getConsonantSkeleton(project);
+          if (rawSkel && (cSkel.includes(rawSkel) || rawSkel.includes(cSkel) || pSkel.includes(rawSkel) || rawSkel.includes(pSkel))) {
+            score = 80;
+          }
         }
       }
     }
@@ -278,7 +296,7 @@ async function findInstallation(targetText: string): Promise<any | null> {
     }
   }
 
-  return bestScore >= 70 ? bestInst : (!raw ? list[0] : null);
+  return bestScore >= 70 ? bestInst : null; // NEVER return list[0]
 }
 
 // ------------------------------------------------------------------ Gemini Schema & AI Core
@@ -845,8 +863,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const chatContext = await getChatContext(chat_id);
   const r = await askGemini(text, packages, pending, audioInline, chatContext);
 
-  // Fallback target_text to active conversation context if empty
-  if (!r.target_text && !r.client_name && chatContext?.client_name) {
+  // Fallback target_text to active conversation context if empty or generic "terakhir"
+  const isGenericPrompt = !r.target_text || /^(terakhir|last|terbaru|kemarin)$/i.test((r.target_text || '').trim());
+  if (isGenericPrompt && !r.client_name && chatContext?.client_name) {
     if (['record_payment', 'get_pdf', 'get_receipt', 'get_surat_jalan', 'get_bast', 'get_warranty', 'share_location', 'deal_project'].includes(r.intent)) {
       r.target_text = chatContext.client_name;
     }
@@ -1597,73 +1616,97 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- CETAK SURAT JALAN
     case 'get_surat_jalan': {
-      const t = (r.target_text || r.client_name || '').trim();
-      const match = await findQuoteOrInvoice(t, 'quote');
-      const quote = match?.doc;
-      if (!quote) return send(chat_id, `Data penawaran/proyek untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+      const match = await findQuoteOrInvoice(t, 'auto');
+      const doc = match?.doc;
+      if (!doc) return send(chat_id, `Data penawaran/faktur untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan nama kliennya sesuai ya (contoh: <i>surat jalan Pak Sahabuddin</i>).`);
 
-      const sjNumber = `SJ/BE-CCTV/${nowParts().y}/${String(quote.quote_number).split('/').pop() || '001'}`;
+      const isInv = match.docType === 'invoice';
+      const items = (isInv ? doc.invoice_items : doc.quote_items) || [];
+      const docNum = isInv ? doc.invoice_number : doc.quote_number;
+
+      const sjNumber = `SJ/BE-CCTV/${nowParts().y}/${String(docNum).split('/').pop() || '001'}`;
       const pdfBytes = generateBorneoDocumentPdf({
         type: 'surat_jalan',
         docNumber: sjNumber,
         dateStr: nowParts().iso,
-        clientName: quote.to_client,
-        clientPhone: quote.to_phone,
-        clientAddress: quote.to_address,
+        clientName: doc.to_client,
+        clientPhone: doc.to_phone,
+        clientAddress: doc.to_address,
         companyName: 'Borneo Etam CCTV & Komputer Kasir',
-        items: quote.quote_items || [],
+        items,
       });
 
-      const safeName = `Surat_Jalan-${quote.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const safeName = `Surat_Jalan-${doc.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      await setChatContext(chat_id, { client_name: doc.to_client, doc_id: doc.id, doc_type: match.docType });
       return sendDocument(
         chat_id,
         pdfBytes,
         safeName,
-        `📦 <b>Surat Jalan Pengeluaran Barang Resmi</b>\nNo: <code>${sjNumber}</code>\nKlien: <b>${esc(quote.to_client)}</b>\n\n<i>Daftar perangkat & material tanpa harga, siap dibawa teknisi ke lokasi!</i>`
+        `📦 <b>Surat Jalan Pengeluaran Barang Resmi</b>\nNo: <code>${sjNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Daftar perangkat & material tanpa harga, siap dibawa teknisi ke lokasi!</i>`
       );
     }
 
     // ---------------------------------------------------- CETAK BAST (BERITA ACARA SERAH TERIMA)
     case 'get_bast': {
-      const t = (r.target_text || r.client_name || '').trim();
-      const match = await findQuoteOrInvoice(t, 'quote');
-      const quote = match?.doc;
-      if (!quote) return send(chat_id, `Data proyek untuk "${esc(t || 'terakhir')}" tidak ditemukan bro.`);
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+      const match = await findQuoteOrInvoice(t, 'auto');
+      const doc = match?.doc;
+      if (!doc) return send(chat_id, `Data proyek/dokumen untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan penawaran/faktur klien sudah dibuat ya (contoh: <i>cetak BAST Pak Sahabuddin</i>).`);
+
+      const isInv = match.docType === 'invoice';
+      const items = (isInv ? doc.invoice_items : doc.quote_items) || [];
+      const docNum = isInv ? doc.invoice_number : doc.quote_number;
 
       // Ambil SN dari cctv_installations jika ada
-      const { data: inst } = await db.from('cctv_installations').select('sn_nvr, sn_hdd').eq('quote_id', quote.id).maybeSingle();
+      const { data: inst } = await db.from('cctv_installations')
+        .select('sn_nvr, sn_hdd')
+        .or(`client_name.ilike.%${doc.to_client}%,quote_id.eq.${doc.id}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const bastNumber = `BAST/BE-CCTV/${nowParts().y}/${String(quote.quote_number).split('/').pop() || '001'}`;
+      const bastNumber = `BAST/BE-CCTV/${nowParts().y}/${String(docNum).split('/').pop() || '001'}`;
       const pdfBytes = generateBorneoDocumentPdf({
         type: 'bast',
         docNumber: bastNumber,
         dateStr: nowParts().iso,
-        clientName: quote.to_client,
-        clientPhone: quote.to_phone,
-        clientAddress: quote.to_address,
+        clientName: doc.to_client,
+        clientPhone: doc.to_phone,
+        clientAddress: doc.to_address,
         companyName: 'Borneo Etam CCTV & Komputer Kasir',
-        items: quote.quote_items || [],
+        items,
         snNvr: inst?.sn_nvr || r.sn_nvr || 'Tercatat di sistem',
         snHdd: inst?.sn_hdd || r.sn_hdd || 'Tercatat di sistem',
       });
 
-      const safeName = `BAST-${quote.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const safeName = `BAST-${doc.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      await setChatContext(chat_id, { client_name: doc.to_client, doc_id: doc.id, doc_type: match.docType });
       return sendDocument(
         chat_id,
         pdfBytes,
         safeName,
-        `📜 <b>Berita Acara Serah Terima (BAST) Resmi</b>\nNo: <code>${bastNumber}</code>\nKlien: <b>${esc(quote.to_client)}</b>\n\n<i>Lengkap dengan pernyataan serah terima, nomor seri unit, dan stempel resmi!</i>`
+        `📜 <b>Berita Acara Serah Terima (BAST) Resmi</b>\nNo: <code>${bastNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Lengkap dengan pernyataan serah terima, nomor seri unit, dan stempel resmi!</i>`
       );
     }
 
     // ---------------------------------------------------- KARTU GARANSI DIGITAL
     case 'get_warranty': {
       let t = (r.target_text || r.client_name || '').trim();
-      if (!t && chatContext?.client_name) {
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
         t = chatContext.client_name;
       }
 
-      let inst: any = t ? await findInstallation(t) : null;
+      let inst: any = t && !isGeneric ? await findInstallation(t) : null;
       let docObj: any = inst?.quotes;
       let docType: 'invoice' | 'quote' = 'quote';
 
@@ -1683,31 +1726,11 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         }
       }
 
-      // Fallback: check latest installation or latest invoice if still no target
       if (!inst && !docObj) {
-        const { data: latestInst } = await db.from('cctv_installations')
-          .select('*, quotes(*, quote_items(*))')
-          .eq('user_id', OWNER_ID)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (latestInst?.[0]) {
-          inst = latestInst[0];
-          docObj = inst.quotes;
-        } else {
-          const { data: latestInvs } = await db.from('invoices')
-            .select('*, invoice_items(*)')
-            .eq('user_id', OWNER_ID)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (latestInvs?.[0]) {
-            docObj = latestInvs[0];
-            docType = 'invoice';
-          }
-        }
-      }
-
-      if (!inst && !docObj) {
-        return send(chat_id, `Data proyek/garansi untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan penawaran/faktur klien sudah dibuat ya.`);
+        return send(
+          chat_id,
+          `Data proyek/garansi untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan penawaran/faktur klien sudah dibuat ya (contoh: <i>cetak garansi Pak Sahabuddin</i>).`
+        );
       }
 
       const clientName = inst?.client_name || docObj?.to_client || 'Pelanggan';
@@ -1852,8 +1875,12 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- CATAT PEMBAYARAN / PELUNASAN (RECORD PAYMENT)
     case 'record_payment': {
-      const t = (r.target_text || r.client_name || '').trim();
-      if (!t) {
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+      if (!t || isGeneric) {
         return send(
           chat_id,
           'Faktur tagihan atas nama siapa yang mau dibuat lunas bro? Contoh:\n• <i>buat lunas Pak Sahabuddin</i>\n• <i>Pak Yusuf lunas</i>\n• atau sebutkan nomor fakturnya.'
@@ -2227,7 +2254,11 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- GET PDF
     case 'get_pdf': {
-      const t = (r.target_text || r.client_name || '').trim();
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
       const wantInvoice = r.target_doc_type === 'invoice' || /faktur|inv|tagihan/i.test(text);
       const wantQuote = r.target_doc_type === 'quote' || /penawaran|quote|quo/i.test(text);
       const prefType = wantInvoice && !wantQuote ? 'invoice' : wantQuote && !wantInvoice ? 'quote' : 'auto';
@@ -2285,7 +2316,11 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- CETAK KWITANSI PEMBAYARAN RESMI (GET RECEIPT)
     case 'get_receipt': {
-      const t = (r.target_text || r.client_name || '').trim();
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
       const match = await findQuoteOrInvoice(t, 'invoice');
       const inv: any = match?.doc;
 
