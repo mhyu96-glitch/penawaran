@@ -425,7 +425,7 @@ async function askGemini(text: string, packages: any[], pending: any | null, aud
     : '';
 
   const contextInfo = chatContext?.client_name
-    ? `\nKONTEKS KLIEN AKTIF DI PERCAKAPAN: "${chatContext.client_name}".\nJika pesan Mas Wahyu mengirim perintah ringkas tanpa menyebut nama klien (contoh: "buat lunas", "cetak faktur", "minta kwitansi", "share lokasi", "surat jalan", "bast"), target_text WAJIB diisi dengan nama klien aktif ini ("${chatContext.client_name}")!\n`
+    ? `\nKONTEKS KLIEN AKTIF DI PERCAKAPAN: "${chatContext.client_name}".\nJika pesan Mas Wahyu mengirim perintah ringkas tanpa menyebut nama klien (contoh: "buat lunas", "cetak garansi", "garansi digital", "cetak faktur", "minta kwitansi", "share lokasi", "surat jalan", "bast"), target_text WAJIB diisi dengan nama klien aktif ini ("${chatContext.client_name}")!\n`
     : '';
 
   const system = `Kamu adalah asisten AI operasional & partner bisnis terpercaya untuk Mas Wahyu (Owner Borneo Etam CCTV & Komputer Kasir) di Samarinda, Kalimantan Timur.
