@@ -598,14 +598,14 @@ function renderWarrantyCertificate(doc: jsPDF, data: QuotePdfData): Uint8Array {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
-  doc.setTextColor(185, 28, 28);
+  doc.setTextColor(15, 23, 42);
   doc.text('Borneo Etam CCTV & Komputer Kasir', signColX, y + 15, { align: 'center' });
 
   // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
   const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
   if (sigImg) {
     try {
-      doc.addImage(sigImg, 'PNG', signColX - 18, y + 17, 36, 18);
+      doc.addImage(sigImg, 'PNG', signColX - 14, y + 16.5, 28, 21.4);
     } catch (e) {
       console.warn('Failed to add signature image to warranty:', e);
     }
@@ -614,12 +614,12 @@ function renderWarrantyCertificate(doc: jsPDF, data: QuotePdfData): Uint8Array {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.8);
   doc.setTextColor(15, 23, 42);
-  doc.text('( Muhammad Wahyu )', signColX, y + 37, { align: 'center' });
+  doc.text('( Muhammad Wahyu )', signColX, y + 40, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(100, 116, 139);
-  doc.text('Owner / Technical Lead', signColX, y + 41.5, { align: 'center' });
+  doc.text('Owner / Technical Lead', signColX, y + 44, { align: 'center' });
 
   // Bottom Certificate Security Strip
   doc.setDrawColor(226, 232, 240);
@@ -833,14 +833,14 @@ function renderKwitansi(doc: jsPDF, data: QuotePdfData): Uint8Array {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
-  doc.setTextColor(190, 24, 24);
-  doc.text('Borneo Etam CCTV & POS', signColX, signY + 9.5, { align: 'center' });
+  doc.setTextColor(15, 23, 42);
+  doc.text('Borneo Etam CCTV & Komputer Kasir', signColX, signY + 9.5, { align: 'center' });
 
   // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
   const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
   if (sigImg) {
     try {
-      doc.addImage(sigImg, 'PNG', signColX - 18, signY + 13, 36, 18);
+      doc.addImage(sigImg, 'PNG', signColX - 14, signY + 11.5, 28, 21.4);
     } catch (e) {
       console.warn('Failed to add signature image to kwitansi:', e);
     }
@@ -849,12 +849,12 @@ function renderKwitansi(doc: jsPDF, data: QuotePdfData): Uint8Array {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.8);
   doc.setTextColor(15, 23, 42);
-  doc.text('( Muhammad Wahyu )', signColX, signY + 34, { align: 'center' });
+  doc.text('( Muhammad Wahyu )', signColX, signY + 35, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(100, 116, 139);
-  doc.text('Owner / Technical Lead', signColX, signY + 38.5, { align: 'center' });
+  doc.text('Owner / Technical Lead', signColX, signY + 39, { align: 'center' });
 
   // Box Informasi Perhatian
   const infoY = bottomY + 46;
@@ -1390,7 +1390,7 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
     if (sigImg) {
       try {
-        doc.addImage(sigImg, 'PNG', colRight - 18, ySign + 6, 36, 16);
+        doc.addImage(sigImg, 'PNG', colRight - 14, ySign + 3, 28, 21.4);
       } catch (e) {
         console.warn('Failed to add signature image to BAST:', e);
       }
@@ -1398,16 +1398,16 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text(`( ${data.clientName || 'Konsumen'} )`, colLeft, ySign + 25, { align: 'center' });
-    doc.text('( Muhammad Wahyu )', colRight, ySign + 25, { align: 'center' });
+    doc.text(`( ${data.clientName || 'Konsumen'} )`, colLeft, ySign + 27, { align: 'center' });
+    doc.text('( Muhammad Wahyu )', colRight, ySign + 27, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.2);
     doc.setTextColor(100, 116, 139);
-    doc.text('Pemilik / Penanggung Jawab Lokasi', colLeft, ySign + 29, { align: 'center' });
-    doc.text('Owner / Technical Lead', colRight, ySign + 29, { align: 'center' });
+    doc.text('Pemilik / Penanggung Jawab Lokasi', colLeft, ySign + 31, { align: 'center' });
+    doc.text('Owner / Technical Lead', colRight, ySign + 31, { align: 'center' });
   } else {
-    // Standar Quote & Invoice: Tanda Tangan Kanan + Stempel Resmi
+    // Standar Quote & Invoice: Tanda Tangan Kanan (TANPA STEMPEL)
     const signColX = rightX - 44;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -1417,14 +1417,14 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.2);
-    doc.setTextColor(220, 38, 38);
-    doc.text('Borneo Etam CCTV & POS', signColX, y + 12, { align: 'center' });
+    doc.setTextColor(15, 23, 42);
+    doc.text('Borneo Etam CCTV & Komputer Kasir', signColX, y + 12, { align: 'center' });
 
     // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
     const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
     if (sigImg) {
       try {
-        doc.addImage(sigImg, 'PNG', signColX - 18, y + 14, 36, 16);
+        doc.addImage(sigImg, 'PNG', signColX - 14, y + 13.5, 28, 21.4);
       } catch (e) {
         console.warn('Failed to add signature image to doc:', e);
       }
@@ -1434,12 +1434,12 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.8);
     doc.setTextColor(15, 23, 42);
-    doc.text('( Muhammad Wahyu )', signColX, y + 31, { align: 'center' });
+    doc.text('( Muhammad Wahyu )', signColX, y + 37, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.2);
     doc.setTextColor(100, 116, 139);
-    doc.text('Owner / Technical Lead', signColX, y + 35, { align: 'center' });
+    doc.text('Owner / Technical Lead', signColX, y + 41, { align: 'center' });
   }
 
   // =========================================================================
