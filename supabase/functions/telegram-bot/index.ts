@@ -575,11 +575,14 @@ async function getChatContext(chat_id: number): Promise<{ client_name?: string; 
       .from('telegram_pending_actions')
       .select('payload')
       .eq('chat_id', chat_id)
-      .eq('kind', 'context')
+      .eq('kind', 'project')
+      .eq('status', 'done')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
-      .limit(1);
-    return data?.[0]?.payload ?? null;
+      .limit(10);
+
+    const match = (data || []).find((r: any) => r.payload?.is_context && r.payload?.client_name);
+    return match?.payload ?? null;
   } catch {
     return null;
   }
@@ -590,9 +593,9 @@ async function setChatContext(chat_id: number, payload: { client_name?: string; 
     if (!payload.client_name) return;
     await db.from('telegram_pending_actions').insert({
       chat_id,
-      kind: 'context',
+      kind: 'project',
       status: 'done',
-      payload,
+      payload: { ...payload, is_context: true },
     });
   } catch (err) {
     console.error('Failed to save chat context:', err);
@@ -1655,32 +1658,91 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- KARTU GARANSI DIGITAL
     case 'get_warranty': {
-      const t = (r.target_text || r.client_name || '').trim();
-      let inst: any = await findInstallation(t);
-      let quote: any = inst?.quotes;
+      let t = (r.target_text || r.client_name || '').trim();
+      if (!t && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
 
-      if (!inst) {
+      let inst: any = t ? await findInstallation(t) : null;
+      let docObj: any = inst?.quotes;
+      let docType: 'invoice' | 'quote' = 'quote';
+
+      if (!inst && t) {
         const match = await findQuoteOrInvoice(t, 'auto');
         if (match) {
-          quote = match.doc;
-          const { data: instData } = await db.from('cctv_installations').select('*').eq('quote_id', quote.id).limit(1);
+          docObj = match.doc;
+          docType = match.docType;
+          const cName = docObj.to_client;
+          const { data: instData } = await db.from('cctv_installations')
+            .select('*')
+            .eq('user_id', OWNER_ID)
+            .or(`client_name.ilike.%${cName}%,quote_id.eq.${docObj.id}`)
+            .order('created_at', { ascending: false })
+            .limit(1);
           inst = instData?.[0] || null;
         }
       }
 
-      if (!inst && !quote) {
-        return send(chat_id, `Data proyek/garansi untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan penawaran/proyek klien sudah dibuat ya.`);
+      // Fallback: check latest installation or latest invoice if still no target
+      if (!inst && !docObj) {
+        const { data: latestInst } = await db.from('cctv_installations')
+          .select('*, quotes(*, quote_items(*))')
+          .eq('user_id', OWNER_ID)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (latestInst?.[0]) {
+          inst = latestInst[0];
+          docObj = inst.quotes;
+        } else {
+          const { data: latestInvs } = await db.from('invoices')
+            .select('*, invoice_items(*)')
+            .eq('user_id', OWNER_ID)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (latestInvs?.[0]) {
+            docObj = latestInvs[0];
+            docType = 'invoice';
+          }
+        }
       }
 
-      const clientName = inst?.client_name || quote?.to_client || 'Pelanggan';
-      const clientPhone = inst?.client_phone || quote?.to_phone || '';
-      const clientAddress = inst?.address_landmark || quote?.to_address || 'Samarinda, Kalimantan Timur';
-      const items = quote?.quote_items || [];
-      const tglPasang = inst?.installed_at ? String(inst.installed_at).slice(0, 10) : nowParts().iso;
-      const snNvr = inst?.sn_nvr || r.sn_nvr || 'Tercatat di sistem distributor';
-      const snHdd = inst?.sn_hdd || r.sn_hdd || 'Tercatat di sistem distributor';
-      const qNum = quote?.quote_number || '001';
-      const warNumber = `WAR/BE-CCTV/${nowParts().y}/${String(qNum).split('/').pop() || '001'}`;
+      if (!inst && !docObj) {
+        return send(chat_id, `Data proyek/garansi untuk "${esc(t || 'terakhir')}" tidak ditemukan bro. Pastikan penawaran/faktur klien sudah dibuat ya.`);
+      }
+
+      const clientName = inst?.client_name || docObj?.to_client || 'Pelanggan';
+      const clientPhone = inst?.client_phone || docObj?.to_phone || '';
+      const clientAddress = inst?.address_landmark || docObj?.to_address || 'Samarinda, Kalimantan Timur';
+      const items = (docType === 'invoice' ? docObj?.invoice_items : docObj?.quote_items) || inst?.quotes?.quote_items || [];
+      const tglPasang = inst?.installed_at ? String(inst.installed_at).slice(0, 10) : (docObj?.invoice_date || docObj?.created_at?.slice(0, 10) || nowParts().iso);
+      const snNvr = inst?.sn_nvr || r.sn_nvr || docObj?.sn_nvr || 'Tercatat di sistem distributor';
+      const snHdd = inst?.sn_hdd || r.sn_hdd || docObj?.sn_hdd || 'Tercatat di sistem distributor';
+      
+      const docNum = docObj ? (docType === 'invoice' ? docObj.invoice_number : docObj.quote_number) : (inst?.quotes?.quote_number || '001');
+      const numCode = String(docNum).split('/').pop() || '001';
+      const warNumber = `WAR/BE-CCTV/${nowParts().y}/${numCode}`;
+
+      // Auto-insert cctv_installations if missing so live web link works
+      if (!inst) {
+        const { data: newInst } = await db.from('cctv_installations').insert({
+          user_id: OWNER_ID,
+          client_name: clientName,
+          client_phone: clientPhone,
+          address_landmark: clientAddress,
+          project_name: `Instalasi CCTV - ${clientName}`,
+          public_display_name: `Instalasi CCTV - ${clientName}`,
+          service_type: 'CCTV',
+          city: 'Samarinda',
+          latitude: -0.502106,
+          longitude: 117.153709,
+          progress: 100,
+          installed_at: tglPasang,
+          sn_nvr: snNvr !== 'Tercatat di sistem distributor' ? snNvr : null,
+          sn_hdd: snHdd !== 'Tercatat di sistem distributor' ? snHdd : null,
+          warranty_months: 12,
+        }).select('*').single();
+        inst = newInst;
+      }
 
       const pdfBytes = generateBorneoDocumentPdf({
         type: 'warranty',
@@ -1697,7 +1759,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       });
 
       const safeName = `Sertifikat_Garansi-${clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      const instId = inst?.id || quote?.id;
+      const instId = inst?.id || docObj?.id;
       const publicWarrantyUrl = `${APP_URL}/garansi/${instId}`;
 
       await sendDocument(
@@ -1712,6 +1774,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`
       );
 
+      await setChatContext(chat_id, { client_name: clientName, doc_id: instId, doc_type: 'warranty' });
+
       const waMsg = makeWhatsAppText('warranty', warNumber, clientName, 0, 0, publicWarrantyUrl);
 
       return send(
@@ -1720,7 +1784,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         [
           [
             { text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl },
-            { text: '📜 Cetak BAST', data: `bast:${quote?.id || instId}` },
+            { text: '📜 Cetak BAST', data: `bast:${docObj?.id || instId}` },
           ],
         ]
       );
