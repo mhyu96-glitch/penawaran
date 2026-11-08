@@ -203,16 +203,16 @@ async function findQuoteOrInvoice(
     if (rawLower && client.includes(rawLower)) return 95;
 
     const candClean = cleanSearchName(client);
-    if (clean && (candClean.includes(clean) || clean.includes(candClean))) return 90;
+    if (clean && candClean && candClean.length >= 3 && (candClean.includes(clean) || clean.includes(candClean))) return 90;
 
     // Special alias: saha / suha <-> sahabuddin / suhabuddin
-    if ((clean === 'saha' || clean === 'suha') && (candClean.includes('sahabuddin') || candClean.includes('suhabuddin'))) {
+    if ((clean === 'saha' || clean === 'suha') && candClean && (candClean.includes('sahabuddin') || candClean.includes('suhabuddin'))) {
       return 95;
     }
 
     const rawSkel = getConsonantSkeleton(raw);
     const candSkel = getConsonantSkeleton(client);
-    if (rawSkel && candSkel && (candSkel.includes(rawSkel) || rawSkel.includes(candSkel))) return 80;
+    if (rawSkel && candSkel && candSkel.length >= 2 && rawSkel.length >= 2 && (candSkel.includes(rawSkel) || rawSkel.includes(candSkel))) return 80;
 
     return 0;
   };
@@ -995,6 +995,114 @@ async function handleMorningBriefing(chat_id: number) {
   );
 }
 
+// ------------------------------------------------------------------ helper parser item custom
+function parseCustomItemsFromText(text: string): any[] {
+  const items: any[] = [];
+  const lines = text.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+
+  const parseNum = (s: string) => {
+    if (!s) return 0;
+    let clean = s.toLowerCase().trim();
+    if (clean.includes('jt') || clean.includes('juta')) {
+      const n = parseFloat(clean.replace(/[^0-9.,]/g, '').replace(',', '.'));
+      return Math.round(n * 1000000);
+    }
+    if (clean.includes('rb') || clean.includes('k') || clean.includes('ribu')) {
+      const n = parseFloat(clean.replace(/[^0-9.,]/g, '').replace(',', '.'));
+      return Math.round(n * 1000);
+    }
+    const digits = clean.replace(/[^0-9]/g, '');
+    return digits ? parseInt(digits, 10) : 0;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    if (/^(?:bro|buat|buatkan|bikin|terbitkan|faktur|penawaran|alamat|lokasi)\b/i.test(line) && !line.toLowerCase().includes('modal') && !line.toLowerCase().includes('jual')) continue;
+
+    // Strip leading 'item nya:' or 'item:'
+    line = line.replace(/^(?:item\s+nya|item)\s*[:=]?\s*/i, '').trim();
+    if (!line) continue;
+
+    const lower = line.toLowerCase();
+    const modalIdx = lower.indexOf('modal');
+    const jualIdx = lower.indexOf('jual');
+
+    if (modalIdx !== -1 && jualIdx !== -1 && modalIdx < jualIdx) {
+      const desc = line.slice(0, modalIdx).trim();
+      const modalStr = line.slice(modalIdx + 5, jualIdx).trim();
+      const jualStr = line.slice(jualIdx + 4).trim();
+
+      let qty = 1;
+      let unit = 'Unit';
+
+      const jualParts = jualStr.split(/\s+/);
+      const priceStr = jualParts[0];
+      if (jualParts.length >= 2 && /^\d+$/.test(jualParts[1])) {
+        qty = parseInt(jualParts[1], 10);
+        if (jualParts[2]) unit = jualParts[2];
+      } else if (i + 1 < lines.length) {
+        const nextMatch = lines[i + 1].match(/^(\d+)\s*([a-zA-Z]+)?$/);
+        if (nextMatch) {
+          qty = parseInt(nextMatch[1], 10);
+          if (nextMatch[2]) unit = nextMatch[2];
+          i++;
+        }
+      }
+
+      items.push({
+        description: desc,
+        cost_price: parseNum(modalStr),
+        unit_price: parseNum(priceStr),
+        quantity: qty,
+        unit,
+        category: 'item_utama',
+      });
+      continue;
+    }
+
+    if (modalIdx !== -1 && jualIdx === -1 && i + 1 < lines.length && lines[i + 1].toLowerCase().startsWith('jual')) {
+      const desc = line.slice(0, modalIdx).trim();
+      const modalStr = line.slice(modalIdx + 5).trim();
+      const nextLine = lines[i + 1];
+      const jualStr = nextLine.slice(4).trim();
+      const jualParts = jualStr.split(/\s+/);
+      const priceStr = jualParts[0];
+      let qty = 1;
+      let unit = 'Unit';
+      if (jualParts.length >= 2 && /^\d+$/.test(jualParts[1])) {
+        qty = parseInt(jualParts[1], 10);
+        if (jualParts[2]) unit = jualParts[2];
+      }
+      items.push({
+        description: desc,
+        cost_price: parseNum(modalStr),
+        unit_price: parseNum(priceStr),
+        quantity: qty,
+        unit,
+        category: 'item_utama',
+      });
+      i++;
+      continue;
+    }
+
+    if (jualIdx !== -1 && modalIdx === -1) {
+      const desc = line.slice(0, jualIdx).trim();
+      const priceStr = line.slice(jualIdx + 4).trim().split(/\s+/)[0];
+      const qtyMatch = desc.match(/(\d+)\s*(titik|unit|roll|meter|pcs)/i);
+      items.push({
+        description: desc,
+        cost_price: 0,
+        unit_price: parseNum(priceStr),
+        quantity: qtyMatch ? parseInt(qtyMatch[1], 10) : 1,
+        unit: qtyMatch ? qtyMatch[2] : 'Titik',
+        category: 'jasa_akomodasi',
+      });
+      continue;
+    }
+  }
+  return items;
+}
+
 // ------------------------------------------------------------------ eksekusi intent
 async function handleText(chat_id: number, text: string, audioInline?: any) {
   // Shortcut: Revert pelunasan BST jika diminta
@@ -1029,7 +1137,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const isExplicitNewDoc = /^(?:bro\s+)?(?:buat|buatkan|bikin|terbitkan)\s+(?:faktur|penawaran|invoice|quote)/i.test(text.trim());
   let pending = await latestPending(chat_id);
 
-  if (isExplicitNewDoc && pending) {
+  if (isExplicitNewDoc) {
     // Batalkan aksi pending usang agar item lama tidak bocor ke faktur/penawaran baru
     await db.from('telegram_pending_actions')
       .update({ status: 'cancelled' })
@@ -1055,6 +1163,14 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       r.intent = pending.kind === 'invoice' ? 'create_invoice' : 'create_quote';
       await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', pending.id);
       pending = null;
+    }
+  }
+
+  // Fallback custom items parser if AI missed extra_items
+  if (text && (!r.extra_items || r.extra_items.length === 0)) {
+    const customParsed = parseCustomItemsFromText(text);
+    if (customParsed.length > 0) {
+      r.extra_items = customParsed;
     }
   }
 
@@ -1086,23 +1202,28 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       let items = cloneItems(pkg);
 
       // Jika item kosong, cari apakah klien ini punya penawaran tersimpan sebelumnya untuk ditarik itemnya
-      if (items.length === 0 && (r.extra_items ?? []).length === 0) {
+      // HANYA jika pesan Mas Wahyu TIDAK mencantumkan rincian item sendiri
+      const userMentionedItems = /(?:item|barang|jasa|unit|pcs|modal|jual|\d+\s*(?:rb|k|jt))/i.test(text);
+      if (!userMentionedItems && items.length === 0 && (r.extra_items ?? []).length === 0) {
         const t = (r.client_name || r.target_text || '').trim();
         if (t) {
           const match = await findQuoteOrInvoice(t, 'quote');
-          const exQuote = match?.doc;
-          if (exQuote?.quote_items && exQuote.quote_items.length > 0) {
-            items = exQuote.quote_items.map((i: any) => ({
-              description: i.description,
-              quantity: i.quantity,
-              unit: i.unit || 'Unit',
-              unit_price: i.unit_price,
-              cost_price: i.cost_price || 0,
-              category: classifyItem(i),
-            }));
-            if (!r.client_address && exQuote.to_address) r.client_address = exQuote.to_address;
-            if (!r.client_phone && exQuote.to_phone) r.client_phone = exQuote.to_phone;
-            if (r.discount_amount == null && exQuote.discount_amount) r.discount_amount = exQuote.discount_amount;
+          // Pastikan nama klien benar-benar cocok dan bukan nama kosong
+          if (match?.doc?.to_client && cleanSearchName(match.doc.to_client) === cleanSearchName(t)) {
+            const exQuote = match.doc;
+            if (exQuote?.quote_items && exQuote.quote_items.length > 0) {
+              items = exQuote.quote_items.map((i: any) => ({
+                description: i.description,
+                quantity: i.quantity,
+                unit: i.unit || 'Unit',
+                unit_price: i.unit_price,
+                cost_price: i.cost_price || 0,
+                category: classifyItem(i),
+              }));
+              if (!r.client_address && exQuote.to_address) r.client_address = exQuote.to_address;
+              if (!r.client_phone && exQuote.to_phone) r.client_phone = exQuote.to_phone;
+              if (r.discount_amount == null && exQuote.discount_amount) r.discount_amount = exQuote.discount_amount;
+            }
           }
         }
       }
