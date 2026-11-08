@@ -11,6 +11,7 @@ import {
   ItemCategory,
   DocItem,
 } from './pdf.ts';
+import { convertToWebP } from './image.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const TOKEN = env('TELEGRAM_BOT_TOKEN');
@@ -3316,25 +3317,169 @@ Caption Mas Wahyu: "${caption || 'Tidak ada'}".`;
   return null;
 }
 
-async function saveInstallationPhoto(chat_id: number, photoUrl: string, cap: string, chatContext: any) {
-  let q = db.from('cctv_installations').select('id, project_name, photos').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-  const target = cap || chatContext?.client_name;
-  if (target) q = q.or(`project_name.ilike.%${target}%,client_name.ilike.%${target}%`);
-  const { data: instList } = await q;
-  const targetInst = instList?.[0];
+function extractProjectTargetFromCaption(cap: string, chatContext: any): string {
+  if (!cap) return chatContext?.client_name || '';
 
-  if (targetInst) {
-    const currentPhotos = Array.isArray(targetInst.photos) ? targetInst.photos : [];
-    currentPhotos.push({
-      url: photoUrl,
-      caption: cap || 'Dokumentasi instalasi lapangan',
-      uploaded_at: new Date().toISOString(),
-    });
-    await db.from('cctv_installations').update({ photos: currentPhotos }).eq('id', targetInst.id);
-    return send(chat_id, `📸 <b>Foto Dokumentasi Berhasil Disimpan!</b>\nProyek: <b>${esc(targetInst.project_name)}</b>\nFoto sudah otomatis muncul di Peta Command Center dan Portofolio Publik.`);
-  } else {
-    return send(chat_id, 'Foto diterima bro! Kalau mau disimpan ke proyek tertentu, sertakan nama proyeknya ya (misal: <i>Foto proyek Pak Suhabuddin</i>).');
+  // Bersihkan kata-kata umum seperti "ini foto", "foto project", "foto projeck", "dokumentasi", "hasil pasang", dll
+  let cleaned = cap
+    .replace(/^(ini\s+)?(foto|dokumentasi)\s*(project|projeck|projek|proyek|instalasi|pemasangan|hasil\s*pasang|cctv)?(\s*(ini|itu|nya))?/i, '')
+    .replace(/\b(ini|itu|project|projeck|projek|proyek|foto|dokumentasi|instalasi|cctv|hasil|pasang|pemasangan|tolong|masukkan|ke|ya|otomatis|akan|situ)\b/gi, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .trim();
+
+  if (cleaned.length >= 3) {
+    return cleaned;
   }
+
+  // Jika umum seperti "ini foto projeck ini", gunakan konteks chat aktif!
+  return chatContext?.client_name || '';
+}
+
+async function saveInstallationPhoto(
+  chat_id: number,
+  rawBytes: Uint8Array,
+  cap: string,
+  chatContext: any,
+  aiSummary?: string
+) {
+  // 1. Ekstrak target proyek/klien dari teks caption atau ingatan chat
+  const target = extractProjectTargetFromCaption(cap, chatContext);
+  let targetInst: any = null;
+
+  if (target) {
+    const cleanT = cleanSearchName(target);
+    // Cari di tabel cctv_installations
+    const { data: insts } = await db.from('cctv_installations')
+      .select('*')
+      .eq('user_id', OWNER_ID)
+      .or(`client_name.ilike.%${cleanT}%,project_name.ilike.%${cleanT}%,public_display_name.ilike.%${cleanT}%`)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    targetInst = insts?.[0] || null;
+
+    if (!targetInst) {
+      // Cari di quotes atau invoices
+      const match = await findQuoteOrInvoice(target, 'auto');
+      if (match) {
+        const cName = match.doc.to_client;
+        const { data: insts2 } = await db.from('cctv_installations')
+          .select('*')
+          .eq('user_id', OWNER_ID)
+          .or(`client_name.ilike.%${cName}%,quote_id.eq.${match.doc.id}`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        targetInst = insts2?.[0] || null;
+
+        if (!targetInst) {
+          // Buat otomatis jika belum ada entri instalasi
+          const { data: newInst } = await db.from('cctv_installations').insert({
+            user_id: OWNER_ID,
+            client_name: cName,
+            client_phone: match.doc.to_phone || '',
+            address_landmark: match.doc.to_address || 'Samarinda, Kalimantan Timur',
+            project_name: `Instalasi CCTV - ${cName}`,
+            public_display_name: `Instalasi CCTV - ${cName}`,
+            service_type: 'CCTV',
+            city: 'Samarinda',
+            latitude: -0.502106,
+            longitude: 117.153709,
+            progress: 80,
+            installed_at: match.doc.invoice_date || match.doc.created_at?.slice(0, 10) || nowParts().iso,
+            quote_id: match.doc.id,
+            photos: [],
+            warranty_months: 12,
+          }).select('*').single();
+          targetInst = newInst;
+        }
+      }
+    }
+  }
+
+  // Jika target masih belum ketemu, gunakan instalasi proyek terbaru
+  if (!targetInst) {
+    const { data: latestInsts } = await db.from('cctv_installations')
+      .select('*')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    targetInst = latestInsts?.[0] || null;
+  }
+
+  if (!targetInst) {
+    return send(chat_id, 'Belum ada proyek/instalasi terdaftar bro. Buat penawaran atau proyek dulu ya!');
+  }
+
+  // 2. Konversi foto ke format WebP (efisiensi tinggi, kompresi maksimal & cepat dimuat)
+  const { bytes: webpBytes, isConverted } = await convertToWebP(rawBytes);
+
+  // 3. Unggah ke Supabase Storage (bucket: document_attachments)
+  const instId = targetInst.id;
+  const fileName = `${Date.now()}.webp`;
+  const storagePath = `${OWNER_ID}/projects/${instId}/${fileName}`;
+
+  const { error: uploadErr } = await db.storage
+    .from('document_attachments')
+    .upload(storagePath, webpBytes, {
+      contentType: 'image/webp',
+      upsert: true,
+    });
+
+  if (uploadErr) {
+    console.error('Storage upload error:', uploadErr);
+    return send(chat_id, `Gagal mengunggah foto ke storage cloud: ${esc(uploadErr.message)}`);
+  }
+
+  const { data: urlData } = db.storage
+    .from('document_attachments')
+    .getPublicUrl(storagePath);
+  const photoWebpUrl = urlData.publicUrl;
+
+  // 4. Update data foto di cctv_installations (taruh foto terbaru di index 0 agar jadi sampul peta)
+  const existingPhotos = Array.isArray(targetInst.photos)
+    ? targetInst.photos.map((p: any) => typeof p === 'string' ? p : p?.url).filter(Boolean)
+    : [];
+  const updatedPhotos = [photoWebpUrl, ...existingPhotos];
+
+  await db.from('cctv_installations').update({
+    photos: updatedPhotos,
+    progress: Math.max(targetInst.progress || 0, 80),
+    updated_at: new Date().toISOString(),
+  }).eq('id', targetInst.id);
+
+  // 5. Update konteks percakapan agar ingatan terkunci ke proyek ini
+  await setChatContext(chat_id, {
+    client_name: targetInst.client_name,
+    doc_id: targetInst.id,
+    doc_type: 'project',
+  });
+
+  const sizeKb = Math.round(webpBytes.length / 1024);
+  const publicWarrantyUrl = `${APP_URL}/garansi/${targetInst.id}`;
+
+  const buttons = [
+    [
+      { text: '🌐 Buka Garansi Live', url: publicWarrantyUrl },
+      { text: '🗺️ Buka Peta Command Center', url: `${APP_URL}/peta` }
+    ],
+    [
+      { text: '🛡️ Cetak Garansi', data: `warranty:${targetInst.id}` },
+      { text: '📜 Cetak BAST', data: `bast:${targetInst.id}` }
+    ]
+  ];
+
+  return send(
+    chat_id,
+    `📸 <b>Foto Dokumentasi Proyek Berhasil Disimpan &amp; Dioptimalkan!</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `• Klien / Proyek : <b>${esc(targetInst.project_name || targetInst.client_name)}</b>\n` +
+    `• Format File : <b>WebP High-Efficiency (${sizeKb} KB${isConverted ? ' • WASM' : ''})</b>\n` +
+    (aiSummary ? `• Rincian Visual : <i>${esc(aiSummary)}</i>\n` : '') +
+    `• Cloud Storage : <code>document_attachments</code>\n` +
+    `• Total Koleksi : <b>${updatedPhotos.length} Foto Dokumentasi</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Foto otomatis dijadikan sampul utama di Peta Interaktif Command Center dan Portofolio Publik Borneo Etam!</i>`,
+    buttons
+  );
 }
 
 async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatContext: any) {
@@ -3354,14 +3499,13 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
   const bytes = new Uint8Array(arrayBuf);
   const base64 = toBase64(bytes);
 
+  // Jika caption secara eksplisit menyatakan ini foto proyek (misal: "ini foto projeck ini", "foto project", dll)
+  const isExplicitProjectPhoto = /foto\s*(proje[ck]|proyek|instalasi|lapangan|cctv|pemasangan|hasil)|dokumentasi|^ini\s*foto/i.test(cap);
+
   const analysis = await analyzePhotoWithVision(base64, cap, chatContext);
 
-  if (!analysis) {
-    return saveInstallationPhoto(chat_id, photoUrl, cap, chatContext);
-  }
-
-  // A. DETEKSI STIKER BARCODE / SERIAL NUMBER (SN)
-  if (analysis.photo_type === 'barcode_sn') {
+  // A. DETEKSI STIKER BARCODE / SERIAL NUMBER (SN) (Hanya jika BUKAN foto proyek eksplisit)
+  if (!isExplicitProjectPhoto && analysis?.photo_type === 'barcode_sn') {
     let clientName = analysis.project_name_detected || chatContext?.client_name || '';
     let snNvr = analysis.sn_nvr;
     let snHdd = analysis.sn_hdd;
@@ -3417,13 +3561,13 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
 
     return send(
       chat_id,
-      `📸 <b>Serial Number (SN) Berhasil Terbaca dari Foto!</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📷 <b>Serial Number (SN) Berhasil Terbaca dari Foto!</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
       `• Klien Terkait : <b>${esc(clientName || 'Tersimpan')}</b>\n` +
       (snNvr ? `• <b>SN NVR/DVR :</b> <code>${esc(snNvr)}</code>\n` : '') +
       (snHdd ? `• <b>SN Harddisk:</b> <code>${esc(snHdd)}</code>\n` : '') +
       (analysis.brand ? `• Perangkat : <b>${esc(analysis.brand)}</b> (${analysis.device_type?.toUpperCase() || 'CCTV'})\n` : '') +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
       `<i>Nomor seri otomatis ter-update di Faktur dan Kartu Garansi Digital Konsumen bro!</i>`,
       targetDoc ? [
         [
@@ -3434,8 +3578,8 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
     );
   }
 
-  // B. DETEKSI NOTA BELANJA / STRUK BIAYA
-  if (analysis.photo_type === 'expense_receipt') {
+  // B. DETEKSI NOTA BELANJA / STRUK BIAYA (Hanya jika BUKAN foto proyek eksplisit)
+  if (!isExplicitProjectPhoto && analysis?.photo_type === 'expense_receipt') {
     const amount = Number(analysis.expense_amount || 0);
     const store = analysis.expense_store || 'Toko Material Lapangan';
     const cat = analysis.expense_category || 'Material Lapangan';
@@ -3471,19 +3615,19 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
     return send(
       chat_id,
       `🧾 <b>Nota Belanja Lapangan Berhasil Di-Scan &amp; Dicatat!</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
       `• Toko / Tempat : <b>${esc(store)}</b>\n` +
       `• Total Pengeluaran : <b>${rp(amount)}</b>\n` +
       `• Kategori Beban : <b>${esc(cat)}</b>\n` +
       (projName ? `• Proyek Terbeban : <b>${esc(projName)}</b>\n` : '') +
       `• Rincian Item : <i>${esc(desc)}</i>\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
       `<i>Laba riil proyek dan buku kas Borneo Etam otomatis terpotong rapi!</i>`
     );
   }
 
-  // C. DOKUMENTASI FISIK INSTALASI
-  return saveInstallationPhoto(chat_id, photoUrl, cap || analysis.caption_summary, chatContext);
+  // C. DOKUMENTASI FISIK INSTALASI PROYEK (Upload WebP & Hubungkan ke Proyek)
+  return saveInstallationPhoto(chat_id, bytes, cap, chatContext, analysis?.caption_summary);
 }
 
 // ------------------------------------------------------------------ webhook
