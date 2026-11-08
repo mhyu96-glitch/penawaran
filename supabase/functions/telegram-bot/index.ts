@@ -513,7 +513,7 @@ PANDUAN INTENT & ALUR KERJA:
    - Ekstrak: target_text (nama klien jika spesifik, atau kosongkan untuk semua).
 21. tech_troubleshoot: Mas Wahyu atau teknisi tanya kendala teknis lapangan seputar CCTV & POS (misal: "kamera hikvision malam hari gambar hitam putih gak mau nyala warnanya", "printer thermal 80mm gak keluar kertas lampu merah kedip", "kamera poe sering disconnect tiap siang", "nvr bunyi tit tit terus", "dvr hilook lupa sandi", "ip kamera bentrok").
    - Jawab secara teknis, taktis, to-the-point, dan aplikatif di lapangan untuk teknisi Borneo Etam di Samarinda (spesifik merek Hikvision, Hilook, Dahua, Imou, Sunmi, Xprinter, Epson POS).
-22. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
+22. modify_pending: HANYA untuk revisi kecil/ringkas pada dokumen yang baru saja diminta konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang", "dp 500rb"). JANGAN PERNAH gunakan intent ini jika Mas Wahyu menulis "buat faktur...", "buat penawaran...", atau menyebut nama klien baru (wajib gunakan create_invoice atau create_quote)!
 23. morning_briefing: Mas Wahyu menyapa di pagi hari atau minta rekap agenda hari ini (misal: "pagi bro", "selamat pagi", "briefing pagi", "agenda hari ini", "cek hari ini", "morning briefing", "rekap pagi").
 24. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
@@ -611,7 +611,7 @@ async function savePending(chat_id: number, kind: string, payload: any, status =
 }
 
 async function latestPending(chat_id: number, statuses = ['pending', 'need_location']) {
-  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString(); // 15 menit masa aktif konfirmasi
   const { data } = await db.from('telegram_pending_actions').select('*')
     .eq('chat_id', chat_id).in('status', statuses).gte('created_at', since)
     .order('created_at', { ascending: false }).limit(1);
@@ -1024,9 +1024,39 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   }
 
   const packages = await loadPackages();
-  const pending = await latestPending(chat_id);
+
+  // Deteksi perintah pembuatan dokumen baru secara eksplisit
+  const isExplicitNewDoc = /^(?:bro\s+)?(?:buat|buatkan|bikin|terbitkan)\s+(?:faktur|penawaran|invoice|quote)/i.test(text.trim());
+  let pending = await latestPending(chat_id);
+
+  if (isExplicitNewDoc && pending) {
+    // Batalkan aksi pending usang agar item lama tidak bocor ke faktur/penawaran baru
+    await db.from('telegram_pending_actions')
+      .update({ status: 'cancelled' })
+      .eq('chat_id', chat_id)
+      .eq('status', 'pending');
+    pending = null;
+  }
+
   const chatContext = await getChatContext(chat_id);
   const r = await askGemini(text, packages, pending, audioInline, chatContext);
+
+  // Intent Guard: Jika user jelas minta buat faktur/penawaran baru, paksa intent yang sesuai
+  if (isExplicitNewDoc) {
+    if (/faktur|invoice/i.test(text)) r.intent = 'create_invoice';
+    else if (/penawaran|quote/i.test(text)) r.intent = 'create_quote';
+  }
+
+  // Pending Mismatch Guard: Jika r.intent === 'modify_pending' tapi menyebut nama klien berbeda dari pending
+  if (r.intent === 'modify_pending' && pending?.payload?.client_name && r.client_name) {
+    const cn1 = cleanSearchName(r.client_name);
+    const cn2 = cleanSearchName(pending.payload.client_name);
+    if (cn1 && cn2 && cn1 !== cn2) {
+      r.intent = pending.kind === 'invoice' ? 'create_invoice' : 'create_quote';
+      await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', pending.id);
+      pending = null;
+    }
+  }
 
   // Regex fallback for client_address if user explicitly mentioned address but AI missed it
   if (!r.client_address && text) {
