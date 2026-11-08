@@ -8,6 +8,8 @@ import {
   classifyItem,
   formatRupiah,
   formatDateIndo,
+  terbilang,
+  angkaKeKata,
   ItemCategory,
   DocItem,
 } from './pdf.ts';
@@ -181,6 +183,23 @@ async function findQuoteOrInvoice(
   // If no target text specified at all, DO NOT blindly guess to avoid mutating the wrong client
   if (!raw && !clean) {
     return null;
+  }
+
+  // Direct UUID lookup (guaranteed to find document even if outside recent 30 pool)
+  if (/^[0-9a-f-]{36}$/i.test(raw)) {
+    if (preferredType === 'invoice' || preferredType === 'auto') {
+      const { data: directInv } = await db.from('invoices').select('*, invoice_items(*), clients(*)').eq('id', raw).maybeSingle();
+      if (directInv) return { doc: directInv, docType: 'invoice', score: 100 };
+    }
+    if (preferredType === 'quote' || preferredType === 'auto') {
+      const { data: directQt } = await db.from('quotes').select('*, quote_items(*), clients(*)').eq('id', raw).maybeSingle();
+      if (directQt) return { doc: directQt, docType: 'quote', score: 100 };
+    }
+    const { data: inst } = await db.from('cctv_installations').select('client_name, quote_id').eq('id', raw).maybeSingle();
+    if (inst?.client_name) {
+      const cMatch = await findQuoteOrInvoice(inst.client_name, preferredType);
+      if (cMatch) return cMatch;
+    }
   }
 
   let invCandidates: any[] = [];
