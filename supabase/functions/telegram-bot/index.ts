@@ -3045,9 +3045,13 @@ async function execInvoice(chat_id: number, p: any): Promise<void> {
   const discount = Number(p.discount_amount || 0);
   const tot = Math.max(0, sub - discount);
   const dp = Number(p.dp_amount || 0);
-  const invoiceTerms = isStore
+  let invoiceTerms = isStore
     ? `[CATEGORY:partner_service]\n1. Faktur ini khusus tagihan jasa instalasi teknis & akomodasi lapangan.\n2. Pembayaran ditransfer ke rekening resmi BCA 5135400278 a.n Muhammad Wahyu.\n3. Garansi instalasi kabel & kerapian 3 bulan sejak tanggal faktur.`
     : (p.terms || profile?.default_terms || '');
+
+  if (p.notes) {
+    invoiceTerms = invoiceTerms ? `${invoiceTerms}\n\nCatatan: ${p.notes}` : `Catatan: ${p.notes}`;
+  }
 
   const { data: inv, error } = await db.from('invoices').insert({
     user_id: OWNER_ID,
@@ -3067,7 +3071,6 @@ async function execInvoice(chat_id: number, p: any): Promise<void> {
     tax_amount: 0,
     down_payment_amount: dp,
     terms: invoiceTerms,
-    notes: p.notes || null,
     invoice_date: nowParts().iso,
     due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
   }).select('id').single();
