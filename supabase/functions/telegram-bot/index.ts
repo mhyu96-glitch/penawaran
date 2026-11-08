@@ -23,8 +23,9 @@ const APP_URL = (env('APP_BASE_URL') || 'https://quoteapp-glass.vercel.app').rep
 
 const CANDIDATE_MODELS = [
   env('GEMINI_MODEL') || 'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-pro',
 ].filter(Boolean);
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
@@ -456,11 +457,21 @@ Semua nilai nominal harus selalu diekstrak sebagai NUMBER integer murni!
 
 PANDUAN INTENT & ALUR KERJA:
 1. create_quote: Mas Wahyu ingin buat penawaran baru.
+   - JIKA MAS WAHYU MENYEBUTKAN DAFTAR ITEM/BARANG/JASA (misal: "Item nya kamera analog 2 mp fullcolor modal 268.000 jual 550.000 2 unit, Jasa instalasi 2 titik jual 100.000"):
+     WAJIB ekstrak seluruh barang & jasa tersebut ke array "extra_items"! Setiap item harus memiliki:
+     • description: nama item (contoh: "kamera analog 2 mp fullcolor")
+     • quantity: jumlah unit (contoh: 2)
+     • unit_price: harga jual per unit (contoh: 550000)
+     • cost_price: harga modal per unit jika disebutkan (contoh: 268000)
+     • category: 'item_utama' (kamera/dvr/nvr), 'material_tambahan' (kabel/pipa/konektor), atau 'jasa_akomodasi' (jasa pasang/setting)
+   - JIKA MEMILIH DARI KATALOG PAKET: set package_id sesuai id katalog.
+   - PENTING ALAMAT: Jika Mas Wahyu menyebutkan alamat (misal: "Alamat m said gg kita blok n no 9"), WAJIB isi client_address dengan alamat tersebut! Jika belum ada alamatnya, beritahu ramah di proactive_note agar alamat lengkap diinput.
    - MODE TOKO / SUBKON (doc_category: 'partner_service'): Jika penawaran ditujukan ke Toko / Mitra / Subkon (misal: "buat penawaran ke Toko Surya jasa pasang 4 titik 600rb, akomodasi 150rb, unit dari toko"):
      Set doc_category: 'partner_service'. Perangkat dari toko diberi unit_price: 0 (non-tagihan), dan item jasa/akomodasi diisi nominal tagihannya.
-   - PENTING: Periksa apakah Mas Wahyu sudah menyebutkan ALAMAT LENGKAP klien. Jika belum ada alamatnya, beritahu ramah di proactive_note agar alamat lengkap diinput.
    - Ekstrak: client_name, client_phone, client_address, package_id, item_adjustments, extra_items (dengan cost_price & category), discount_amount, total_cost_override, doc_category.
-2. create_invoice: Mas Wahyu ingin buat FAKTUR TAGIHAN LANGSUNG tanpa lewat penawaran dulu (misal: "buat faktur Pak Yusuf paket 4 kamera 3.5jt DP 1.5jt", "buat faktur ke Toko Berkah Jaya jasa pasang 8 kamera 1.2jt, transportasi 200rb", "buatkan faktur pak yusuf").
+2. create_invoice: Mas Wahyu ingin buat FAKTUR TAGIHAN LANGSUNG tanpa lewat penawaran dulu (misal: "buat faktur Pak Yusuf paket 4 kamera 3.5jt DP 1.5jt", "buat faktur penawaran pak Sahabuddin...", "buat faktur ke Toko Berkah Jaya jasa pasang 8 kamera 1.2jt, transportasi 200rb", "buatkan faktur pak yusuf").
+   - Jika Mas Wahyu menyebutkan daftar item custom/khusus, WAJIB ekstrak ke array "extra_items" lengkap dengan description, quantity, unit_price, cost_price, dan category.
+   - PENTING ALAMAT: Jika ada alamat yang disebutkan, WAJIB isi client_address.
    - Ekstrak: client_name, client_phone, client_address, package_id, extra_items, down_payment_amount, discount_amount, sn_nvr, sn_hdd, doc_category ('partner_service' jika ditujukan ke Toko/Subkon).
 3. edit_document: Mas Wahyu ingin MENGEDIT penawaran, faktur, item, atau memasukkan/mengubah Serial Number (SN) hardware yang SUDAH TERSIMPAN di sistem (misal: "faktur pak yusuf kita mau edit nvr nya untuk masukkan sn nya SN: NVR-HL-8899", "edit penawaran pak suhabuddin tambah kabel 1 roll 300rb", "update SN NVR faktur pak yusuf NVR-9988 SN HDD WD-1234", "edit harga jasa di faktur pak yusuf jadi 500rb", "ubah alamat penawaran pak suhabuddin jadi Jl. Juanda", "edit nvr pak yusuf masukkan SN 123456").
    - Ekstrak:
@@ -520,7 +531,11 @@ ${catalog}${pendingInfo}`;
   const payloadBody = JSON.stringify({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.1 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: SCHEMA,
+      temperature: 0.1,
+    },
   });
 
   let lastError: Error | null = null;
@@ -529,7 +544,7 @@ ${catalog}${pendingInfo}`;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout max per attempt
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout max per attempt
         let res: Response;
         try {
           res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -555,7 +570,15 @@ ${catalog}${pendingInfo}`;
 
         const json = await res.json();
         const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+
+        // Safety fallback: if Gemini put address into installed_at
+        if (!parsed.client_address && parsed.installed_at && !/^\d{4}-\d{2}-\d{2}/.test(parsed.installed_at)) {
+          parsed.client_address = parsed.installed_at;
+          parsed.installed_at = null;
+        }
+
+        return parsed;
       } catch (err: any) {
         lastError = err;
         console.warn(`Error on model ${model} (attempt ${attempt}):`, err.message);
@@ -1004,6 +1027,12 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const pending = await latestPending(chat_id);
   const chatContext = await getChatContext(chat_id);
   const r = await askGemini(text, packages, pending, audioInline, chatContext);
+
+  // Regex fallback for client_address if user explicitly mentioned address but AI missed it
+  if (!r.client_address && text) {
+    const addrMatch = text.match(/(?:alamat|lokasi)\s*[:=]?\s*([^\n\r]+)/i);
+    if (addrMatch) r.client_address = addrMatch[1].trim();
+  }
 
   // Fallback target_text to active conversation context if empty or generic "terakhir"
   const isGenericPrompt = !r.target_text || /^(terakhir|last|terbaru|kemarin)$/i.test((r.target_text || '').trim());
