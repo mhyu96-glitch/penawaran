@@ -4,6 +4,7 @@
 import { jsPDF } from 'https://esm.sh/jspdf@3.0.3';
 // @ts-ignore
 import qrcode from 'https://esm.sh/qrcode-generator@1.4.4';
+import { DEFAULT_OWNER_SIGNATURE } from './signature.ts';
 
 export type DocType = 'quote' | 'invoice' | 'surat_jalan' | 'bast' | 'warranty' | 'kwitansi';
 export type ItemCategory = 'item_utama' | 'material_tambahan' | 'jasa_akomodasi';
@@ -44,6 +45,7 @@ export interface QuotePdfData {
   snHdd?: string;
   warrantyMonths?: number;
   warrantyUrl?: string;
+  signatureBase64?: string;
 }
 
 export const formatRupiah = (val: number): string => {
@@ -177,30 +179,6 @@ function getItemWarrantyInfo(desc: string, defaultMonths = 12): { period: string
     return { period: `${defaultMonths} Bulan`, coverage: 'Dukungan Teknisi' };
   }
   return { period: `${defaultMonths} Bulan`, coverage: 'Garansi Resmi' };
-}
-
-function drawOfficialStamp(doc: jsPDF, x: number, y: number) {
-  // Stempel Digital Resmi Borneo Etam (Warna Crimson Red Stempel Klasik)
-  doc.saveGraphicsState();
-  doc.setDrawColor(190, 24, 24); // Rich Crimson Red Stamp
-  doc.setTextColor(190, 24, 24);
-  doc.setLineWidth(0.8);
-
-  // Outer Oval
-  doc.roundedRect(x - 22, y - 11, 44, 22, 5, 5, 'D');
-  doc.setLineWidth(0.3);
-  doc.roundedRect(x - 20.5, y - 9.5, 41, 19, 4, 4, 'D');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.2);
-  doc.text('BORNEO ETAM CCTV', x, y - 3.8, { align: 'center' });
-
-  doc.setFontSize(6.2);
-  doc.text('* SAMARINDA *', x, y + 0.2, { align: 'center' });
-
-  doc.setFontSize(6.8);
-  doc.text('DOKUMEN RESMI SAH', x, y + 5.2, { align: 'center' });
-  doc.restoreGraphicsState();
 }
 
 function drawQrCode(doc: jsPDF, text: string, x: number, y: number, size: number) {
@@ -623,8 +601,15 @@ function renderWarrantyCertificate(doc: jsPDF, data: QuotePdfData): Uint8Array {
   doc.setTextColor(185, 28, 28);
   doc.text('Borneo Etam CCTV & Komputer Kasir', signColX, y + 15, { align: 'center' });
 
-  // Stempel Digital Resmi: positioned authentically overlapping on the left without blocking text
-  drawOfficialStamp(doc, signColX - 16, y + 26);
+  // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
+  const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
+  if (sigImg) {
+    try {
+      doc.addImage(sigImg, 'PNG', signColX - 18, y + 17, 36, 18);
+    } catch (e) {
+      console.warn('Failed to add signature image to warranty:', e);
+    }
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.8);
@@ -851,8 +836,15 @@ function renderKwitansi(doc: jsPDF, data: QuotePdfData): Uint8Array {
   doc.setTextColor(190, 24, 24);
   doc.text('Borneo Etam CCTV & POS', signColX, signY + 9.5, { align: 'center' });
 
-  // Stempel Digital Resmi: digeser proporsional ke kiri agar tidak menabrak teks nama & jabatan
-  drawOfficialStamp(doc, signColX - 20, signY + 23);
+  // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
+  const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
+  if (sigImg) {
+    try {
+      doc.addImage(sigImg, 'PNG', signColX - 18, signY + 13, 36, 18);
+    } catch (e) {
+      console.warn('Failed to add signature image to kwitansi:', e);
+    }
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.8);
@@ -1394,8 +1386,15 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     doc.text('Pihak Kedua (Konsumen / Klien)', colLeft, ySign, { align: 'center' });
     doc.text('Pihak Pertama (Borneo Etam CCTV)', colRight, ySign, { align: 'center' });
 
-    // Stempel Digital Resmi di Pihak Pertama
-    drawOfficialStamp(doc, colRight - 16, ySign + 17);
+    // Tanda Tangan Digital Resmi dari Aplikasi di Pihak Pertama (TANPA STEMPEL)
+    const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
+    if (sigImg) {
+      try {
+        doc.addImage(sigImg, 'PNG', colRight - 18, ySign + 6, 36, 16);
+      } catch (e) {
+        console.warn('Failed to add signature image to BAST:', e);
+      }
+    }
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
@@ -1421,8 +1420,15 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     doc.setTextColor(220, 38, 38);
     doc.text('Borneo Etam CCTV & POS', signColX, y + 12, { align: 'center' });
 
-    // Stempel Digital Resmi
-    drawOfficialStamp(doc, signColX - 16, y + 21);
+    // Tanda Tangan Digital Resmi dari Aplikasi (TANPA STEMPEL)
+    const sigImg = data.signatureBase64 || DEFAULT_OWNER_SIGNATURE;
+    if (sigImg) {
+      try {
+        doc.addImage(sigImg, 'PNG', signColX - 18, y + 14, 36, 16);
+      } catch (e) {
+        console.warn('Failed to add signature image to doc:', e);
+      }
+    }
 
     // Tanda tangan nama
     doc.setFont('helvetica', 'bold');
