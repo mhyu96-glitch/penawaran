@@ -2343,6 +2343,27 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Terima kasih banyak atas kepercayaannya! 🙏`;
 
+      // Cari link kartu garansi live / instalasi proyek terkait klien ini (jika ada)
+      let publicWarrantyUrl: string | undefined = undefined;
+      const cleanName = cleanSearchName(inv.to_client) || inv.to_client;
+      const { data: instData } = await db.from('cctv_installations')
+        .select('id, progress')
+        .eq('user_id', OWNER_ID)
+        .or(`client_name.ilike.%${cleanName}%,project_name.ilike.%${cleanName}%,client_name.ilike.%${inv.to_client}%`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (instData?.id) {
+        publicWarrantyUrl = `${APP_URL}/garansi/${instData.id}`;
+        if (newStatus === 'Lunas' && (instData.progress ?? 0) < 100) {
+          await db.from('cctv_installations').update({
+            progress: 100,
+            installed_at: nowParts().iso,
+          }).eq('id', instData.id);
+        }
+      }
+
       return send(
         chat_id,
         `💰 <b>Pembayaran Berhasil Dicatat &amp; Disimpan!</b>\n\n` +
