@@ -17,10 +17,12 @@ import {
   ExternalLink,
   MessageCircle,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 import { safeFormat } from '@/lib/utils';
 import { calculateWarrantyStatus, WarrantyStatusInfo } from '@/services/cctvCommandService';
+import { jsPDF } from 'jspdf';
 
 interface CCTVInstallation {
   id: string;
@@ -43,7 +45,9 @@ interface CCTVInstallation {
 export default function PublicWarrantyView() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<CCTVInstallation | null>(null);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export default function PublicWarrantyView() {
       try {
         const { data: item, error: err } = await supabase
           .from('cctv_installations')
-          .select('*')
+          .select('*, quotes(*, quote_items(*))')
           .eq('id', id)
           .maybeSingle();
 
@@ -65,6 +69,20 @@ export default function PublicWarrantyView() {
           setError('Kartu garansi tidak ditemukan atau tautan telah kedaluwarsa.');
         } else {
           setData(item);
+          let its: any[] = (item as any)?.quotes?.quote_items || [];
+          if (its.length === 0 && item.client_name) {
+            const { data: invData } = await supabase
+              .from('invoices')
+              .select('invoice_items(*)')
+              .ilike('to_client', `%${item.client_name}%`)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (invData?.invoice_items && invData.invoice_items.length > 0) {
+              its = invData.invoice_items;
+            }
+          }
+          setItems(its);
         }
       } catch (e: any) {
         setError(e.message || 'Terjadi kesalahan sistem.');
@@ -75,6 +93,183 @@ export default function PublicWarrantyView() {
 
     loadWarranty();
   }, [id]);
+
+  const handleDownloadPdf = () => {
+    if (!data) return;
+    setIsGeneratingPdf(true);
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const w = doc.internal.pageSize.getWidth();
+      const h = doc.internal.pageSize.getHeight();
+
+      // Outer Red Border & Inner Dark Border
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(1.5);
+      doc.rect(8, 8, w - 16, h - 16);
+
+      doc.setDrawColor(30, 41, 59);
+      doc.setLineWidth(0.5);
+      doc.rect(10, 10, w - 20, h - 20);
+
+      // Red Top Accent Header
+      doc.setFillColor(220, 38, 38);
+      doc.rect(10, 10, w - 20, 22, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.text('BORNEO ETAM CCTV & KOMPUTER KASIR', w / 2, 21, { align: 'center' });
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Spesialis Kamera CCTV HD/IP PoE & Komputer Kasir • Samarinda, Kaltim • 0822-5131-4646', w / 2, 27, { align: 'center' });
+
+      // Title & Reg Number
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.text('SERTIFIKAT JAMINAN GARANSI DIGITAL RESMI', w / 2, 42, { align: 'center' });
+
+      const regNo = `WAR/BE-CCTV/${data.id.slice(0, 8).toUpperCase()}`;
+      doc.setFontSize(9.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Nomor Registrasi Unit: ${regNo}`, w / 2, 48, { align: 'center' });
+
+      // Status Badge
+      doc.setFillColor(16, 185, 129);
+      doc.roundedRect(w / 2 - 45, 52, 90, 7.5, 3, 3, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text('GARANSI 12 BULAN AKTIF PENUH', w / 2, 57, { align: 'center' });
+
+      // Client Details Box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(16, 64, w - 32, 34, 3, 3, 'FD');
+
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(8.5);
+      doc.text('Nama Pemilik / Klien', 22, 71);
+      doc.text('Lokasi Instalasi', 22, 79);
+      doc.text('Tanggal Pemasangan', 22, 87);
+      doc.text('Masa Perlindungan', 22, 95);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`:  ${data.client_name}`, 62, 71);
+      doc.text(`:  ${data.address_landmark || data.city || 'Samarinda'}`, 62, 79);
+      doc.text(`:  ${data.installed_at || safeFormat(new Date(), 'dd MMMM yyyy')}`, 62, 87);
+      doc.text(`:  ${data.warranty_months || 12} Bulan Penuh (Jaminan Penggantian Hardware)`, 62, 95);
+
+      // Hardware Serials Box
+      doc.setFillColor(254, 242, 242);
+      doc.setDrawColor(254, 202, 202);
+      doc.roundedRect(16, 102, w - 32, 22, 3, 3, 'FD');
+
+      doc.setTextColor(185, 28, 28);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.text('NOMOR SERI PERANGKAT RESMI TERDAFTAR (HARDWARE IDENTIFICATION)', 22, 108);
+
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`• Serial Number NVR/DVR : ${data.sn_nvr || 'Tercatat di sistem distributor'}`, 22, 115);
+      doc.text(`• Serial Number Harddisk : ${data.sn_hdd || 'Tercatat di sistem distributor'}`, 22, 121);
+
+      // Installed Units Table
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.text('DAFTAR PERANGKAT YANG DILINDUNGI GARANSI', 16, 132);
+
+      // Table header
+      doc.setFillColor(30, 41, 59);
+      doc.rect(16, 135, w - 32, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.text('No', 20, 140);
+      doc.text('Deskripsi Perangkat / Material', 32, 140);
+      doc.text('Jumlah', 140, 140);
+      doc.text('Masa Garansi', 165, 140);
+
+      let curY = 142;
+      const displayItems = items.length > 0 ? items : [
+        { description: 'Paket Kamera CCTV HD/IP PoE Borneo Etam', quantity: 1, unit: 'Paket' },
+        { description: 'Digital Video Recorder / Network Video Recorder', quantity: 1, unit: 'Unit' },
+        { description: 'Harddisk Khusus CCTV Surveillance', quantity: 1, unit: 'Unit' },
+        { description: 'Power Supply / Adaptor CCTV & Aksesoris Instalasi', quantity: 1, unit: 'Set' }
+      ];
+
+      displayItems.slice(0, 7).forEach((it: any, idx: number) => {
+        curY += 7;
+        doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
+        doc.rect(16, curY - 5, w - 32, 7, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.line(16, curY + 2, w - 16, curY + 2);
+
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(String(idx + 1), 20, curY);
+        doc.text(String(it.description || '').slice(0, 52), 32, curY);
+        doc.text(`${it.quantity} ${it.unit || 'Unit'}`, 140, curY);
+        doc.text('12 Bulan', 165, curY);
+      });
+
+      // Terms Box
+      curY += 9;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(16, curY, w - 32, 36, 3, 3, 'FD');
+
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('KETENTUAN JAMINAN & KLAIM GARANSI RESMI:', 22, curY + 6);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text('1. Garansi mencakup kerusakan fungsi hardware internal perangkat (NVR/DVR, Kamera, Harddisk).', 22, curY + 12);
+      doc.text('2. Garansi tidak berlaku untuk kerusakan akibat petir hebat, kebakaran, bencana alam, atau modifikasi pihak ketiga.', 22, curY + 18);
+      doc.text('3. Klaim garansi dapat dilakukan dengan menunjukkan sertifikat ini atau menyebutkan No. Registrasi di atas.', 22, curY + 24);
+      doc.text('4. Layanan bantuan darurat & teknisi resmi WhatsApp: 0822-5131-4646 (Borneo Etam Samarinda).', 22, curY + 30);
+
+      // Signature and Stamp
+      curY += 42;
+      doc.setTextColor(30, 41, 59);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Samarinda, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, w - 65, curY);
+      doc.text('Borneo Etam CCTV & Komputer Kasir', w - 65, curY + 4.5);
+
+      // Digital Stamp Box
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.8);
+      doc.rect(w - 65, curY + 8, 44, 18);
+      doc.setTextColor(220, 38, 38);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text('BORNEO ETAM', w - 43, curY + 13.5, { align: 'center' });
+      doc.setFontSize(6);
+      doc.text('OFFICIAL DIGITAL STAMP', w - 43, curY + 17.5, { align: 'center' });
+      doc.text('VERIFIED & SECURED', w - 43, curY + 21.5, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Muhammad Wahyu', w - 65, curY + 32);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Owner / Technical Lead', w - 65, curY + 36);
+
+      const safeClient = (data.client_name || 'Pelanggan').replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`Sertifikat_Garansi_BorneoEtam_${safeClient}.pdf`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -206,6 +401,23 @@ export default function PublicWarrantyView() {
               </div>
             </div>
 
+            {/* Installed Units Breakdown */}
+            {items.length > 0 && (
+              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-400" /> Rincian Perangkat Terlindungi ({items.length} Item)
+                </p>
+                <div className="divide-y divide-slate-800/60 text-xs">
+                  {items.map((it: any, i: number) => (
+                    <div key={i} className="py-2 flex items-center justify-between">
+                      <span className="text-slate-300 font-medium">{it.description}</span>
+                      <span className="font-bold text-slate-400 font-mono">{it.quantity} {it.unit || 'Unit'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Warranty Commitments */}
             <div className="text-[11px] text-slate-400 space-y-1.5 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/40">
               <p className="font-bold text-slate-300 flex items-center gap-1">
@@ -217,8 +429,16 @@ export default function PublicWarrantyView() {
               </ul>
             </div>
 
-            {/* WhatsApp Claim Button */}
-            <div className="pt-2 space-y-2">
+            {/* Download PDF & WhatsApp Buttons */}
+            <div className="pt-2 space-y-2.5">
+              <Button
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold h-11 rounded-2xl border border-slate-700 shadow-md flex items-center justify-center gap-2"
+              >
+                <Download className="h-4 w-4 text-sky-400" />
+                {isGeneratingPdf ? 'Menyiapkan Dokumen PDF...' : 'Unduh Dokumen Garansi Resmi (PDF)'}
+              </Button>
               <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 rounded-2xl shadow-lg">
                 <a href={whatsappUrl} target="_blank" rel="noreferrer">
                   <MessageCircle className="h-4 w-4 mr-2" /> Hubungi Layanan Servis Teknisi

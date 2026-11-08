@@ -58,13 +58,20 @@ const send = (chat_id: number, text: string, buttons?: { text: string; data?: st
       : {}),
   });
 
-async function sendDocument(chat_id: number, bytes: Uint8Array, filename: string, caption?: string) {
+async function sendDocument(chat_id: number, bytes: Uint8Array, filename: string, caption?: string, buttons?: { text: string; data?: string; url?: string }[][]) {
   const blob = new Blob([bytes as any], { type: 'application/pdf' });
   const form = new FormData();
   form.append('chat_id', String(chat_id));
   form.append('document', blob, filename);
   if (caption) form.append('caption', caption);
   form.append('parse_mode', 'HTML');
+  if (buttons) {
+    form.append('reply_markup', JSON.stringify({
+      inline_keyboard: buttons.map((r) =>
+        r.map((b) => (b.url ? { text: b.text, url: b.url } : { text: b.text, callback_data: b.data || '' }))
+      ),
+    }));
+  }
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendDocument`, {
     method: 'POST',
     body: form,
@@ -330,6 +337,7 @@ const SCHEMA = {
         'record_payment',
         'unpaid_invoices',
         'monthly_summary',
+        'morning_briefing',
         'chat',
       ],
     },
@@ -494,7 +502,8 @@ PANDUAN INTENT & ALUR KERJA:
 21. tech_troubleshoot: Mas Wahyu atau teknisi tanya kendala teknis lapangan seputar CCTV & POS (misal: "kamera hikvision malam hari gambar hitam putih gak mau nyala warnanya", "printer thermal 80mm gak keluar kertas lampu merah kedip", "kamera poe sering disconnect tiap siang", "nvr bunyi tit tit terus", "dvr hilook lupa sandi", "ip kamera bentrok").
    - Jawab secara teknis, taktis, to-the-point, dan aplikatif di lapangan untuk teknisi Borneo Etam di Samarinda (spesifik merek Hikvision, Hilook, Dahua, Imou, Sunmi, Xprinter, Epson POS).
 22. modify_pending: Revisi penawaran yang sedang menunggu konfirmasi (misal: "diskon 200rb", "modal kamera jadi 190rb", "tambah pipa 5 batang").
-23. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
+23. morning_briefing: Mas Wahyu menyapa di pagi hari atau minta rekap agenda hari ini (misal: "pagi bro", "selamat pagi", "briefing pagi", "agenda hari ini", "cek hari ini", "morning briefing", "rekap pagi").
+24. chat: Obrolan santai, konsultasi nego harga klien, atau pertanyaan teknis lain.
 
 KATALOG PAKET:
 ${catalog}${pendingInfo}`;
@@ -828,6 +837,138 @@ function makeWhatsAppText(type: 'quote' | 'invoice' | 'warranty', docNumber: str
     (warrantyUrl ? `Kartu Garansi Digital dapat dipantau di:\n👉 ${warrantyUrl}\n\n` : '') +
     `Dokumen Faktur PDF terlampir. Terima kasih banyak atas kerjasamanya!\n\n` +
     `Salam hormat,\nBorneo Etam CCTV & Komputer Kasir\n0822-5131-4646</code>`;
+}
+
+function buildDocActionButtons(
+  docId: string,
+  clientName: string,
+  publicWarrantyUrl?: string,
+  docType: 'invoice' | 'quote' | 'warranty' | 'bast' | 'surat_jalan' = 'invoice'
+) {
+  const rows: { text: string; data?: string; url?: string }[][] = [];
+
+  if (docType === 'invoice') {
+    rows.push([
+      { text: '📄 Unduh Kwitansi', data: `kwitansi:${docId}` },
+      { text: '🛡️ Cetak Garansi', data: `warranty:${docId}` },
+    ]);
+    rows.push([
+      { text: '📜 Cetak BAST', data: `bast:${docId}` },
+      { text: '📦 Surat Jalan', data: `sj:${docId}` },
+    ]);
+    const row3: any[] = [{ text: '📍 Share Lokasi GPS', data: `loc:${clientName}` }];
+    if (publicWarrantyUrl) row3.unshift({ text: '🌐 Garansi Live', url: publicWarrantyUrl });
+    rows.push(row3);
+  } else if (docType === 'warranty') {
+    const row1: any[] = [{ text: '📜 Cetak BAST', data: `bast:${docId}` }];
+    if (publicWarrantyUrl) row1.unshift({ text: '🌐 Buka Garansi Live', url: publicWarrantyUrl });
+    rows.push(row1);
+    rows.push([
+      { text: '🧾 Lihat Faktur', data: `pdf:${docId}` },
+      { text: '📄 Unduh Kwitansi', data: `kwitansi:${docId}` },
+    ]);
+  } else if (docType === 'bast') {
+    rows.push([
+      { text: '🛡️ Cetak Garansi', data: `warranty:${docId}` },
+      { text: '📦 Surat Jalan', data: `sj:${docId}` },
+    ]);
+    rows.push([
+      { text: '🧾 Lihat Faktur', data: `pdf:${docId}` },
+      { text: '📄 Unduh Kwitansi', data: `kwitansi:${docId}` },
+    ]);
+  } else if (docType === 'surat_jalan') {
+    rows.push([
+      { text: '📜 Cetak BAST', data: `bast:${docId}` },
+      { text: '📍 Lokasi GPS', data: `loc:${clientName}` },
+    ]);
+    rows.push([
+      { text: '🧾 Lihat Faktur', data: `pdf:${docId}` },
+      { text: '🛡️ Cetak Garansi', data: `warranty:${docId}` },
+    ]);
+  } else if (docType === 'quote') {
+    rows.push([
+      { text: '🤝 Tandai Deal', data: `deal:${docId}` },
+      { text: '📦 Surat Jalan', data: `sj:${docId}` },
+    ]);
+  }
+  return rows;
+}
+
+async function handleMorningBriefing(chat_id: number) {
+  const { iso } = nowParts();
+
+  // 1. Proyek berjalan
+  const { data: ongoingInst } = await db.from('cctv_installations')
+    .select('project_name, client_name, address_landmark, progress')
+    .eq('user_id', OWNER_ID)
+    .lt('progress', 100)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  // 2. Piutang / tagihan belum lunas
+  const { data: unpaidInvs } = await db.from('invoices')
+    .select('id, invoice_number, to_client, down_payment_amount, due_date, invoice_items(quantity, unit_price)')
+    .eq('user_id', OWNER_ID)
+    .neq('status', 'Lunas')
+    .order('due_date', { ascending: true })
+    .limit(5);
+
+  // 3. Stok menipis
+  const { data: lowStock } = await db.from('items')
+    .select('description, stock, unit')
+    .eq('user_id', OWNER_ID)
+    .eq('track_stock', true)
+    .lte('stock', 2)
+    .limit(5);
+
+  let projSection = '• <i>Tidak ada proyek tertunda. Seluruh pekerjaan terselesaikan! 👍</i>';
+  if (ongoingInst && ongoingInst.length > 0) {
+    projSection = ongoingInst.map((p: any, i: number) =>
+      `<b>${i + 1}. ${esc(p.project_name || p.client_name)}</b> (${p.progress}%)\n   📍 <i>${esc(p.address_landmark || 'Samarinda')}</i>`
+    ).join('\n');
+  }
+
+  let debtSection = '• 🟢 <i>Alhamdulillah semua tagihan berstatus Lunas! Arus kas aman.</i>';
+  let topUnpaidId: string | null = null;
+  if (unpaidInvs && unpaidInvs.length > 0) {
+    topUnpaidId = unpaidInvs[0].id;
+    debtSection = unpaidInvs.map((inv: any, i: number) => {
+      const items = inv.invoice_items || [];
+      const tot = items.reduce((s: number, it: any) => s + Number(it.quantity) * Number(it.unit_price), 0);
+      const sisa = Math.max(0, tot - Number(inv.down_payment_amount || 0));
+      return `<b>${i + 1}. ${esc(inv.to_client)}</b> [<code>${esc(inv.invoice_number)}</code>] - Sisa: <b>${rp(sisa)}</b>`;
+    }).join('\n');
+  }
+
+  let stockSection = '• 🟢 <i>Semua stok material utama di toko aman.</i>';
+  if (lowStock && lowStock.length > 0) {
+    stockSection = lowStock.map((it: any) =>
+      `• ⚠️ <b>${esc(it.description)}</b>: sisa <b>${it.stock} ${it.unit || 'Unit'}</b>`
+    ).join('\n');
+  }
+
+  const buttons: any[] = [
+    [
+      { text: '📊 Rekap Piutang', data: 'briefing:unpaid' },
+      { text: '📦 Cek Semua Stok', data: 'briefing:stock' },
+    ]
+  ];
+  if (topUnpaidId) {
+    buttons.push([{ text: '💰 Catat Pelunasan Terkini', data: `pay_lunas:${topUnpaidId}` }]);
+  }
+
+  return send(
+    chat_id,
+    `🌅 <b>Selamat Pagi Mas Wahyu! Briefing Eksekutif Borneo Etam</b>\n` +
+    `📅 <b>${formatDateIndo(iso)}</b> • Samarinda, Kalimantan Timur\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `📌 <b>Proyek Berjalan Lapangan:</b>\n${projSection}\n\n` +
+    `⏳ <b>Monitoring Piutang Berjalan:</b>\n${debtSection}\n\n` +
+    `📦 <b>Peringatan Stok Kritis Gudang:</b>\n${stockSection}\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Bismillah, lancar rezeki, instalasi rapi presisi, dan amanah hari ini bro! 🚀</i>`,
+    buttons
+  );
 }
 
 // ------------------------------------------------------------------ eksekusi intent
@@ -1647,7 +1788,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         chat_id,
         pdfBytes,
         safeName,
-        `📦 <b>Surat Jalan Pengeluaran Barang Resmi</b>\nNo: <code>${sjNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Daftar perangkat & material tanpa harga, siap dibawa teknisi ke lokasi!</i>`
+        `📦 <b>Surat Jalan Pengeluaran Barang Resmi</b>\nNo: <code>${sjNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Daftar perangkat & material tanpa harga, siap dibawa teknisi ke lokasi!</i>`,
+        buildDocActionButtons(doc.id, doc.to_client, undefined, 'surat_jalan')
       );
     }
 
@@ -1694,7 +1836,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         chat_id,
         pdfBytes,
         safeName,
-        `📜 <b>Berita Acara Serah Terima (BAST) Resmi</b>\nNo: <code>${bastNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Lengkap dengan pernyataan serah terima, nomor seri unit, dan stempel resmi!</i>`
+        `📜 <b>Berita Acara Serah Terima (BAST) Resmi</b>\nNo: <code>${bastNumber}</code>\nKlien: <b>${esc(doc.to_client)}</b>\n\n<i>Lengkap dengan pernyataan serah terima, nomor seri unit, dan stempel resmi!</i>`,
+        buildDocActionButtons(doc.id, doc.to_client, undefined, 'bast')
       );
     }
 
@@ -1794,7 +1937,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `Klien: <b>${esc(clientName)}</b>\n` +
         `SN NVR: <code>${esc(snNvr)}</code> | SN HDD: <code>${esc(snHdd)}</code>\n` +
         `Mulai Garansi: <b>${formatDateIndo(tglPasang)}</b>\n\n` +
-        `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`
+        `🌐 <b>Link Verifikasi Live Konsumen:</b>\n${publicWarrantyUrl}`,
+        buildDocActionButtons(docObj?.id || instId, clientName, publicWarrantyUrl, 'warranty')
       );
 
       await setChatContext(chat_id, { client_name: clientName, doc_id: instId, doc_type: 'warranty' });
@@ -1804,12 +1948,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       return send(
         chat_id,
         `${waMsg}`,
-        [
-          [
-            { text: '🌐 Buka Garansi Digital Live', url: publicWarrantyUrl },
-            { text: '📜 Cetak BAST', data: `bast:${docObj?.id || instId}` },
-          ],
-        ]
+        buildDocActionButtons(docObj?.id || instId, clientName, publicWarrantyUrl, 'warranty')
       );
     }
 
@@ -2008,13 +2147,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `<i>Data di database aplikasi sudah otomatis terupdate menjadi status <b>${newStatus}</b>.</i>\n\n` +
         `📲 <b>Teks Tanda Terima (Siap kirim ke WA Klien):</b>\n` +
         `<code>${esc(waReceipt)}</code>`,
-        [
-          [
-            { text: '🧾 Cetak Faktur Terkini', data: `pdf:${inv.id}` },
-            { text: '📄 Unduh Kwitansi', data: `kwitansi:${inv.id}` },
-            { text: '🛡️ Cek Garansi', data: `warranty:${inv.id}` },
-          ]
-        ]
+        buildDocActionButtons(inv.id, inv.to_client, publicWarrantyUrl, 'invoice')
       );
     }
 
@@ -2058,6 +2191,19 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         );
       });
 
+      const topInv = invList[0];
+      const topItems = topInv.invoice_items || [];
+      const topTot = topItems.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(topInv.discount_amount || 0);
+      const topSisa = Math.max(0, topTot - Number(topInv.down_payment_amount || 0));
+
+      const waReminderDraft =
+        `Halo ${topInv.to_client}, salam hormat dari Borneo Etam CCTV & POS Samarinda 🙏\n\n` +
+        `Kami ingin mengonfirmasikan kembali terkait sisa pelunasan Faktur No. *${topInv.invoice_number}* sebesar *${rp(topSisa)}*.\n\n` +
+        `Pembayaran dapat ditransfer via:\n` +
+        `*Bank BCA: 5135400278*\n` +
+        `a.n *Muhammad Wahyu*\n\n` +
+        `Terima kasih banyak atas kerjasamanya! 🙏`;
+
       return send(
         chat_id,
         `📊 <b>Daftar Rekap Piutang &amp; Tagihan Berjalan</b>\n` +
@@ -2068,9 +2214,14 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `• Total Nilai Tagihan : <b>${rp(grandTotalTagihan)}</b>\n` +
         `• Total Uang Muka Masuk : <b>${rp(grandTotalMasuk)}</b>\n` +
         `• 🔴 <b>Total Piutang Belum Tertagih : ${rp(grandTotalSisa)}</b>\n\n` +
-        `💡 <i>Untuk mencatat pelunasan, cukup ketik:</i>\n` +
-        `• <code>Pak Yusuf sudah lunas</code>\n` +
-        `• <code>Pak Sahabuddin transfer 2jt</code>`
+        `📲 <b>Draf WA Penagihan Ramah (${esc(topInv.to_client)}):</b>\n` +
+        `<code>${esc(waReminderDraft)}</code>`,
+        [
+          [
+            { text: `💰 Lunasi ${topInv.to_client}`, data: `pay_lunas:${topInv.id}` },
+            { text: `🧾 Faktur ${topInv.to_client}`, data: `pdf:${topInv.id}` }
+          ]
+        ]
       );
     }
 
@@ -2311,7 +2462,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
       await setChatContext(chat_id, { client_name: doc.to_client, doc_id: doc.id, doc_type: docType });
       const waDraft = makeWhatsAppText(isInv ? 'invoice' : 'quote', docNum, doc.to_client, tot, doc.down_payment_amount);
-      return send(chat_id, waDraft);
+      return send(chat_id, waDraft, buildDocActionButtons(doc.id, doc.to_client, undefined, isInv ? 'invoice' : 'quote'));
     }
 
     // ---------------------------------------------------- CETAK KWITANSI PEMBAYARAN RESMI (GET RECEIPT)
@@ -2401,7 +2552,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       return send(
         chat_id,
         `📲 <b>Teks Konfirmasi Kwitansi WhatsApp:</b>\n<code>${esc(waReceiptMsg)}</code>`,
-        [[{ text: '🛡️ Cek Garansi', data: `warranty:${inv.id}` }, { text: '🧾 Lihat Faktur', data: `pdf:${inv.id}` }]]
+        buildDocActionButtons(inv.id, inv.to_client, undefined, 'invoice')
       );
     }
 
@@ -2695,6 +2846,10 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `💡 <i>Ada kendala hardware, setting IP, atau barcode scanner lain di lokasi bro? Tanyakan saja langsung!</i>`
       );
+    }
+
+    case 'morning_briefing': {
+      return handleMorningBriefing(chat_id);
     }
 
     default:
@@ -2998,6 +3153,16 @@ async function handleCallback(cb: any) {
     await handleText(chat_id, `cetak kwitansi ${id}`);
     return;
   }
+  if (action === 'loc') {
+    await handleText(chat_id, `share lokasi ${id}`);
+    return;
+  }
+  if (action === 'briefing') {
+    if (id === 'unpaid') await handleText(chat_id, 'cek piutang');
+    else if (id === 'stock') await handleText(chat_id, 'cek stok');
+    else await handleMorningBriefing(chat_id);
+    return;
+  }
 
   const { data: row } = await db.from('telegram_pending_actions').select('*').eq('id', id).maybeSingle();
   if (!row || row.chat_id !== chat_id) return;
@@ -3037,6 +3202,263 @@ function startTyping(chatId: number) {
   };
 }
 
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  const chunkSize = 8192;
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
+async function analyzePhotoWithVision(photoBase64: string, caption: string, chatContext: any) {
+  const prompt = `Kamu adalah AI Visual Inspector & OCR untuk Borneo Etam CCTV & Komputer Kasir Samarinda.
+Tugasmu menganalisis foto yang dikirim Mas Wahyu (Owner Borneo Etam).
+
+Foto ini umumnya merupakan salah satu dari 3 kategori:
+1. BARCODE / SERIAL NUMBER (photo_type: "barcode_sn"):
+   - Foto stiker barcode, dus kemasan, atau stiker nomor seri (SN) perangkat CCTV (NVR, DVR, Kamera, Harddisk Seagate/WD Purple).
+   - Ekstrak nomor seri (SN) dengan sangat teliti!
+   - Tentukan apakah itu SN NVR/DVR atau SN Harddisk atau Kamera.
+2. STRUK / NOTA BELANJA / BON BIAYA (photo_type: "expense_receipt"):
+   - Foto nota belanja material lapangan (pipa conduit, kabel, baut, klem, konektor RJ45/BNC, stopkontak), struk BBM bensin SPBU, nota konsumsi teknisi, atau belanja toko material/elektronik.
+   - Ekstrak nama toko/tempat belanja, dan TOTAL NOMINAL belanja (angka integer murni tanpa titik/koma).
+   - Kategori: 'Material Lapangan', 'Transportasi', 'Konsumsi', atau 'Lainnya'.
+   - Rincian ringkas barang belanjaan.
+3. DOKUMENTASI FISIK INSTALASI LAPANGAN (photo_type: "installation_photo"):
+   - Foto fisik kamera terpasang di plafon/dinding, rak server/NVR, kabel rapi dalam pipa conduit, teknisi bekerja, atau layar monitor CCTV.
+   - Buat ringkasan teknis profesional apa yang tampak di foto.
+
+Konteks Klien Aktif di percakapan: "${chatContext?.client_name || 'Tidak ada'}".
+Caption Mas Wahyu: "${caption || 'Tidak ada'}".`;
+
+  const visionSchema = {
+    type: 'OBJECT',
+    properties: {
+      photo_type: { type: 'STRING', enum: ['barcode_sn', 'expense_receipt', 'installation_photo'] },
+      sn_nvr: { type: 'STRING', nullable: true },
+      sn_hdd: { type: 'STRING', nullable: true },
+      sn_general: { type: 'STRING', nullable: true },
+      device_type: { type: 'STRING', enum: ['nvr', 'hdd', 'camera', 'other'], nullable: true },
+      brand: { type: 'STRING', nullable: true },
+      expense_store: { type: 'STRING', nullable: true },
+      expense_amount: { type: 'INTEGER', nullable: true },
+      expense_description: { type: 'STRING', nullable: true },
+      expense_category: { type: 'STRING', enum: ['Material Lapangan', 'Transportasi', 'Konsumsi', 'Lainnya'], nullable: true },
+      project_name_detected: { type: 'STRING', nullable: true },
+      caption_summary: { type: 'STRING' },
+    },
+    required: ['photo_type', 'caption_summary'],
+  };
+
+  const payload = JSON.stringify({
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: photoBase64 } },
+          { text: prompt },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: visionSchema,
+      temperature: 0.1,
+    },
+  });
+
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+        body: payload,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return JSON.parse(text);
+      }
+    } catch (e) {
+      console.warn(`Vision attempt failed on ${model}:`, e);
+    }
+  }
+  return null;
+}
+
+async function saveInstallationPhoto(chat_id: number, photoUrl: string, cap: string, chatContext: any) {
+  let q = db.from('cctv_installations').select('id, project_name, photos').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+  const target = cap || chatContext?.client_name;
+  if (target) q = q.or(`project_name.ilike.%${target}%,client_name.ilike.%${target}%`);
+  const { data: instList } = await q;
+  const targetInst = instList?.[0];
+
+  if (targetInst) {
+    const currentPhotos = Array.isArray(targetInst.photos) ? targetInst.photos : [];
+    currentPhotos.push({
+      url: photoUrl,
+      caption: cap || 'Dokumentasi instalasi lapangan',
+      uploaded_at: new Date().toISOString(),
+    });
+    await db.from('cctv_installations').update({ photos: currentPhotos }).eq('id', targetInst.id);
+    return send(chat_id, `📸 <b>Foto Dokumentasi Berhasil Disimpan!</b>\nProyek: <b>${esc(targetInst.project_name)}</b>\nFoto sudah otomatis muncul di Peta Command Center dan Portofolio Publik.`);
+  } else {
+    return send(chat_id, 'Foto diterima bro! Kalau mau disimpan ke proyek tertentu, sertakan nama proyeknya ya (misal: <i>Foto proyek Pak Suhabuddin</i>).');
+  }
+}
+
+async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatContext: any) {
+  const fileInfo = await tg('getFile', { file_id: photo.file_id });
+  const filePath = fileInfo?.result?.file_path;
+  if (!filePath) {
+    return send(chat_id, 'Gagal mengambil foto dari Telegram bro. Coba kirim ulang ya.');
+  }
+
+  const photoUrl = `https://api.telegram.org/file/bot${TOKEN}/${filePath}`;
+  const res = await fetch(photoUrl);
+  if (!res.ok) {
+    return send(chat_id, 'Gagal mengunduh foto untuk dianalisis bro.');
+  }
+
+  const arrayBuf = await res.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuf);
+  const base64 = toBase64(bytes);
+
+  const analysis = await analyzePhotoWithVision(base64, cap, chatContext);
+
+  if (!analysis) {
+    return saveInstallationPhoto(chat_id, photoUrl, cap, chatContext);
+  }
+
+  // A. DETEKSI STIKER BARCODE / SERIAL NUMBER (SN)
+  if (analysis.photo_type === 'barcode_sn') {
+    let clientName = analysis.project_name_detected || chatContext?.client_name || '';
+    let snNvr = analysis.sn_nvr;
+    let snHdd = analysis.sn_hdd;
+
+    if (!snNvr && !snHdd && analysis.sn_general) {
+      if (analysis.device_type === 'hdd') snHdd = analysis.sn_general;
+      else snNvr = analysis.sn_general;
+    }
+
+    let targetDoc: any = null;
+    if (clientName) {
+      const match = await findQuoteOrInvoice(clientName, 'invoice');
+      targetDoc = match?.doc;
+    }
+    if (!targetDoc) {
+      const { data: latestInvs } = await db.from('invoices').select('*, invoice_items(*)').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
+      targetDoc = latestInvs?.[0];
+      if (targetDoc) clientName = targetDoc.to_client;
+    }
+
+    if (targetDoc) {
+      const updates: any = {};
+      if (snNvr) updates.sn_nvr = snNvr;
+      if (snHdd) updates.sn_hdd = snHdd;
+
+      if (Object.keys(updates).length > 0) {
+        await db.from('invoices').update(updates).eq('id', targetDoc.id);
+
+        await db.from('cctv_installations').update(updates)
+          .eq('user_id', OWNER_ID)
+          .or(`client_name.ilike.%${targetDoc.to_client}%,quote_id.eq.${targetDoc.id}`);
+
+        if (snNvr) {
+          const nvrItem = (targetDoc.invoice_items || []).find((i: any) => /nvr|dvr|perekam/i.test(i.description));
+          if (nvrItem) {
+            let desc = nvrItem.description;
+            desc = /\(SN:[^)]+\)/i.test(desc) ? desc.replace(/\(SN:[^)]+\)/i, `(SN: ${snNvr})`) : `${desc} (SN: ${snNvr})`;
+            await db.from('invoice_items').update({ description: desc }).eq('id', nvrItem.id);
+          }
+        }
+        if (snHdd) {
+          const hddItem = (targetDoc.invoice_items || []).find((i: any) => /hdd|harddisk|seagate|wd purple/i.test(i.description));
+          if (hddItem) {
+            let desc = hddItem.description;
+            desc = /\(SN:[^)]+\)/i.test(desc) ? desc.replace(/\(SN:[^)]+\)/i, `(SN: ${snHdd})`) : `${desc} (SN: ${snHdd})`;
+            await db.from('invoice_items').update({ description: desc }).eq('id', hddItem.id);
+          }
+        }
+
+        await setChatContext(chat_id, { client_name: targetDoc.to_client, doc_id: targetDoc.id, doc_type: 'invoice' });
+      }
+    }
+
+    return send(
+      chat_id,
+      `📸 <b>Serial Number (SN) Berhasil Terbaca dari Foto!</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `• Klien Terkait : <b>${esc(clientName || 'Tersimpan')}</b>\n` +
+      (snNvr ? `• <b>SN NVR/DVR :</b> <code>${esc(snNvr)}</code>\n` : '') +
+      (snHdd ? `• <b>SN Harddisk:</b> <code>${esc(snHdd)}</code>\n` : '') +
+      (analysis.brand ? `• Perangkat : <b>${esc(analysis.brand)}</b> (${analysis.device_type?.toUpperCase() || 'CCTV'})\n` : '') +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `<i>Nomor seri otomatis ter-update di Faktur dan Kartu Garansi Digital Konsumen bro!</i>`,
+      targetDoc ? [
+        [
+          { text: '🛡️ Cetak Garansi Terkini', data: `warranty:${targetDoc.id}` },
+          { text: '🧾 Lihat Faktur', data: `pdf:${targetDoc.id}` }
+        ]
+      ] : undefined
+    );
+  }
+
+  // B. DETEKSI NOTA BELANJA / STRUK BIAYA
+  if (analysis.photo_type === 'expense_receipt') {
+    const amount = Number(analysis.expense_amount || 0);
+    const store = analysis.expense_store || 'Toko Material Lapangan';
+    const cat = analysis.expense_category || 'Material Lapangan';
+    const desc = analysis.expense_description || `Belanja di ${store}`;
+
+    let projectId: string | null = null;
+    let projName: string | null = null;
+    const targetName = analysis.project_name_detected || chatContext?.client_name || cap;
+
+    if (targetName) {
+      const { data: pList } = await db.from('projects').select('id, name').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(10);
+      const cleanTarget = cleanSearchName(targetName);
+      const matched = (pList || []).find((p: any) => {
+        const pClean = cleanSearchName(p.name);
+        return cleanTarget && (pClean.includes(cleanTarget) || cleanTarget.includes(pClean));
+      });
+      if (matched) {
+        projectId = matched.id;
+        projName = matched.name;
+      }
+    }
+
+    await db.from('expenses').insert({
+      user_id: OWNER_ID,
+      project_id: projectId,
+      description: `${desc} (via Scan Nota)`,
+      amount,
+      category: cat,
+      expense_date: nowParts().iso,
+      notes: `Di-scan otomatis oleh AI dari nota ${store}`,
+    });
+
+    return send(
+      chat_id,
+      `🧾 <b>Nota Belanja Lapangan Berhasil Di-Scan &amp; Dicatat!</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `• Toko / Tempat : <b>${esc(store)}</b>\n` +
+      `• Total Pengeluaran : <b>${rp(amount)}</b>\n` +
+      `• Kategori Beban : <b>${esc(cat)}</b>\n` +
+      (projName ? `• Proyek Terbeban : <b>${esc(projName)}</b>\n` : '') +
+      `• Rincian Item : <i>${esc(desc)}</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `<i>Laba riil proyek dan buku kas Borneo Etam otomatis terpotong rapi!</i>`
+    );
+  }
+
+  // C. DOKUMENTASI FISIK INSTALASI
+  return saveInstallationPhoto(chat_id, photoUrl, cap || analysis.caption_summary, chatContext);
+}
+
 // ------------------------------------------------------------------ webhook
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok');
@@ -3059,34 +3481,12 @@ Deno.serve(async (req) => {
       } else if (update.message) {
         const m = update.message;
 
-        // 1. Tangani Foto Dokumentasi Lapangan
+        // 1. Tangani Foto Dokumentasi Lapangan, Scan Barcode SN, atau Nota Belanja
         if (m.photo && m.photo.length > 0) {
           const photo = m.photo[m.photo.length - 1]; // Resolusi tertinggi
           const cap = (m.caption || '').trim();
-
-          // Cari proyek aktif terdekat
-          let q = db.from('cctv_installations').select('id, project_name, photos').eq('user_id', OWNER_ID).order('created_at', { ascending: false }).limit(1);
-          if (cap) q = q.or(`project_name.ilike.%${cap}%,client_name.ilike.%${cap}%`);
-          const { data: instList } = await q;
-          const targetInst = instList?.[0];
-
-          if (targetInst) {
-            const fileInfo = await tg('getFile', { file_id: photo.file_id });
-            const filePath = fileInfo?.result?.file_path;
-            const photoUrl = filePath ? `https://api.telegram.org/file/bot${TOKEN}/${filePath}` : photo.file_id;
-
-            const currentPhotos = Array.isArray(targetInst.photos) ? targetInst.photos : [];
-            currentPhotos.push({
-              url: photoUrl,
-              caption: cap || 'Dokumentasi instalasi lapangan',
-              uploaded_at: new Date().toISOString(),
-            });
-
-            await db.from('cctv_installations').update({ photos: currentPhotos }).eq('id', targetInst.id);
-            await send(chat_id, `📸 <b>Foto Dokumentasi Berhasil Disimpan!</b>\nProyek: <b>${esc(targetInst.project_name)}</b>\nFoto sudah otomatis muncul di Peta Command Center dan Portofolio Publik.`);
-          } else {
-            await send(chat_id, 'Foto diterima bro! Kalau mau disimpan ke proyek tertentu, sertakan caption nama proyeknya ya (misal: <i>Foto proyek Pak Suhabuddin</i>).');
-          }
+          const chatContext = await getChatContext(chat_id);
+          await handlePhotoUpload(chat_id, photo, cap, chatContext);
         }
         // 2. Tangani Pesan Teks
         else if (m.text) {
@@ -3123,6 +3523,8 @@ Deno.serve(async (req) => {
             const row = await latestPending(chat_id);
             if (row) await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('id', row.id);
             await send(chat_id, row ? 'Aksi dibatalkan bro.' : 'Tidak ada aksi yang menunggu konfirmasi.');
+          } else if (t === '/briefing' || /^(briefing|selamat pagi|pagi bro|agenda hari ini|cek hari ini)$/i.test(t)) {
+            await handleMorningBriefing(chat_id);
           } else {
             await handleText(chat_id, t);
           }
