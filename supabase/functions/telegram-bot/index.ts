@@ -1378,6 +1378,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
           snNvr: snNvr || 'Tercatat di sistem',
           snHdd: snHdd || 'Tercatat di sistem',
           warrantyMonths: 12,
+          warrantyUrl: publicWarrantyUrl,
         });
 
         const safeWarName = `Sertifikat_Garansi-${doc.to_client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
@@ -1879,7 +1880,31 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const clientName = inst?.client_name || docObj?.to_client || 'Pelanggan';
       const clientPhone = inst?.client_phone || docObj?.to_phone || '';
       const clientAddress = inst?.address_landmark || docObj?.to_address || 'Samarinda, Kalimantan Timur';
-      const items = (docType === 'invoice' ? docObj?.invoice_items : docObj?.quote_items) || inst?.quotes?.quote_items || [];
+      let items = (docType === 'invoice' ? docObj?.invoice_items : docObj?.quote_items) || inst?.quotes?.quote_items || [];
+
+      // Fallback: pastikan item terisi dari invoice/quote terbaru jika belum ter-join
+      if ((!items || items.length === 0) && clientName) {
+        const { data: invData } = await db.from('invoices')
+          .select('*, invoice_items(*)')
+          .ilike('to_client', `%${clientName}%`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (invData?.invoice_items && invData.invoice_items.length > 0) {
+          items = invData.invoice_items;
+        } else {
+          const { data: qData } = await db.from('quotes')
+            .select('*, quote_items(*)')
+            .ilike('to_client', `%${clientName}%`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (qData?.quote_items && qData.quote_items.length > 0) {
+            items = qData.quote_items;
+          }
+        }
+      }
+
       const tglPasang = inst?.installed_at ? String(inst.installed_at).slice(0, 10) : (docObj?.invoice_date || docObj?.created_at?.slice(0, 10) || nowParts().iso);
       const snNvr = inst?.sn_nvr || r.sn_nvr || docObj?.sn_nvr || 'Tercatat di sistem distributor';
       const snHdd = inst?.sn_hdd || r.sn_hdd || docObj?.sn_hdd || 'Tercatat di sistem distributor';
@@ -1910,6 +1935,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         inst = newInst;
       }
 
+      const instId = inst?.id || docObj?.id;
+      const publicWarrantyUrl = `${APP_URL}/garansi/${instId}`;
+
       const pdfBytes = generateBorneoDocumentPdf({
         type: 'warranty',
         docNumber: warNumber,
@@ -1922,11 +1950,10 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         snNvr,
         snHdd,
         warrantyMonths: inst?.warranty_months || 12,
+        warrantyUrl: publicWarrantyUrl,
       });
 
       const safeName = `Sertifikat_Garansi-${clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      const instId = inst?.id || docObj?.id;
-      const publicWarrantyUrl = `${APP_URL}/garansi/${instId}`;
 
       await sendDocument(
         chat_id,
