@@ -196,7 +196,7 @@ function drawOfficialStamp(doc: jsPDF, x: number, y: number) {
   doc.text('BORNEO ETAM CCTV', x, y - 3.8, { align: 'center' });
 
   doc.setFontSize(6.2);
-  doc.text('★ SAMARINDA ★', x, y + 0.2, { align: 'center' });
+  doc.text('* SAMARINDA *', x, y + 0.2, { align: 'center' });
 
   doc.setFontSize(6.8);
   doc.text('DOKUMEN RESMI SAH', x, y + 5.2, { align: 'center' });
@@ -801,57 +801,71 @@ function renderKwitansi(doc: jsPDF, data: QuotePdfData): Uint8Array {
   doc.text(`${data.docNumber || '-'} (LUNAS / SAH)`, colValX, rowY);
 
   // Nominal Box (Terbilang Angka Besar)
-  y = y + 88 + 12;
+  y = y + 88 + 10;
+  const bottomY = y;
+
+  // Box 1: Jumlah Pembayaran
   doc.setFillColor(15, 23, 42); // Dark slate
-  doc.roundedRect(margin, y, 78, 22, 2, 2, 'F');
+  doc.roundedRect(margin, bottomY, 76, 24, 2, 2, 'F');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(226, 232, 240);
-  doc.text('JUMLAH PEMBAYARAN:', margin + 6, y + 6);
+  doc.text('JUMLAH PEMBAYARAN:', margin + 6, bottomY + 7);
 
   doc.setFontSize(14);
   doc.setTextColor(255, 255, 255);
-  doc.text(formatRupiah(amount), margin + 6, y + 16);
+  doc.text(formatRupiah(amount), margin + 6, bottomY + 17);
 
-  // Status Lunas Stamp on the Left next to Amount
+  // Box 2: Status Lunas Badge (Vector Checkmark + LUNAS)
   doc.setFillColor(240, 253, 244);
   doc.setDrawColor(34, 197, 94);
-  doc.roundedRect(margin + 82, y, 32, 22, 2, 2, 'FD');
+  doc.setLineWidth(0.6);
+  doc.roundedRect(margin + 80, bottomY, 36, 24, 2, 2, 'FD');
+
+  // Vector checkmark (sharp & clean, rendering presisi di semua viewer)
+  const checkX = margin + 89;
+  const checkY = bottomY + 12;
+  doc.setDrawColor(22, 101, 52);
+  doc.setLineWidth(1.4);
+  doc.line(checkX - 3.2, checkY, checkX - 0.8, checkY + 2.8);
+  doc.line(checkX - 0.8, checkY + 2.8, checkX + 3.8, checkY - 3.2);
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(10.5);
   doc.setTextColor(22, 101, 52);
-  doc.text('✓ LUNAS', margin + 98, y + 13, { align: 'center' });
+  doc.text('LUNAS', checkX + 6.5, checkY + 1.2, { align: 'left' });
 
   // Tanda Tangan & Stempel Resmi (Sisi Kanan)
-  const signColX = rightX - 38;
-  const signY = y - 2;
+  const signColX = rightX - 34;
+  const signY = bottomY - 1;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
   doc.text(`Samarinda, ${formatDateIndo(data.dateStr) || data.dateStr}`, signColX, signY, { align: 'center' });
-  doc.text('Penerima Pembayaran,', signColX, signY + 4, { align: 'center' });
+  doc.text('Penerima Pembayaran,', signColX, signY + 4.5, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
-  doc.setTextColor(220, 38, 38);
-  doc.text('Borneo Etam CCTV & POS', signColX, signY + 8, { align: 'center' });
+  doc.setTextColor(190, 24, 24);
+  doc.text('Borneo Etam CCTV & POS', signColX, signY + 9.5, { align: 'center' });
 
-  // Stempel Digital Resmi
-  drawOfficialStamp(doc, signColX - 6, signY + 18);
+  // Stempel Digital Resmi: digeser proporsional ke kiri agar tidak menabrak teks nama & jabatan
+  drawOfficialStamp(doc, signColX - 20, signY + 23);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.8);
   doc.setTextColor(15, 23, 42);
-  doc.text('( Muhammad Wahyu )', signColX, signY + 28, { align: 'center' });
+  doc.text('( Muhammad Wahyu )', signColX, signY + 34, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(100, 116, 139);
-  doc.text('Owner / Technical Lead', signColX, signY + 32, { align: 'center' });
+  doc.text('Owner / Technical Lead', signColX, signY + 38.5, { align: 'center' });
 
   // Box Informasi Perhatian
-  const infoY = y + 38;
+  const infoY = bottomY + 46;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margin, infoY, contentWidth, 24, 2, 2, 'FD');
@@ -1381,7 +1395,7 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     doc.text('Pihak Pertama (Borneo Etam CCTV)', colRight, ySign, { align: 'center' });
 
     // Stempel Digital Resmi di Pihak Pertama
-    drawOfficialStamp(doc, colRight, ySign + 17);
+    drawOfficialStamp(doc, colRight - 16, ySign + 17);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
@@ -1408,7 +1422,7 @@ export function generateBorneoDocumentPdf(data: QuotePdfData): Uint8Array {
     doc.text('Borneo Etam CCTV & POS', signColX, y + 12, { align: 'center' });
 
     // Stempel Digital Resmi
-    drawOfficialStamp(doc, signColX - 6, y + 21);
+    drawOfficialStamp(doc, signColX - 16, y + 21);
 
     // Tanda tangan nama
     doc.setFont('helvetica', 'bold');
