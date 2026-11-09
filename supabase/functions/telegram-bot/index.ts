@@ -23,15 +23,17 @@ const OWNER_ID = env('OWNER_USER_ID');
 const GEMINI_KEY = env('GEMINI_API_KEY');
 const APP_URL = (env('APP_BASE_URL') || 'https://quoteapp-glass.vercel.app').replace(/\/$/, '');
 
-const rawModel = env('GEMINI_MODEL');
-const initialModel = (rawModel && !rawModel.includes('2.5-pro') && !rawModel.includes('1.0')) ? rawModel : 'gemini-2.5-flash';
+const rawModel = (env('GEMINI_MODEL') || '').replace(/^models\//, '').trim();
+const initialModel = (rawModel && !/1\.5|2\.5-pro|1\.0|2\.0/.test(rawModel)) ? rawModel : 'gemini-2.5-flash';
 
 const CANDIDATE_MODELS = [
   initialModel,
   'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
   'gemini-3.1-pro-preview',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.5-flash',
 ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
@@ -651,8 +653,9 @@ ${catalog}${pendingInfo}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout max per attempt
         let res: Response;
+        const cleanModel = model.replace(/^models\//, '').trim();
         try {
-          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
             body: payloadBody,
@@ -1714,12 +1717,12 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
                         trimmed.match(/(\d{1,3})\s*%\s*(?:progr?es(?:s)?|selesai)/i);
   const isEditProject = /^(?:bro\s+)?(?:edit|ubah|ganti|update)\s+(?:proje(?:ct|ck|k|c)|proyek)\s*(.*)$/i.exec(trimmed);
   const isAddProject = /^(?:bro\s+)?(?:buat|bikin|tambah(?:kan)?|masukkan)\s+(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s*(?:baru\s*)?(.*)$/i.exec(trimmed);
-  const isInvoiceQuery = /^(?:bro\s+)?(?:cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:faktur|invoice)\s*(.*)$/i.exec(trimmed);
-  const isQuoteQuery = /^(?:bro\s+)?(?:cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:penawaran|quote)\s*(.*)$/i.exec(trimmed);
-  const isLunasQuery = /^(?:bro\s+)?(?:lunas|sudah lunas|tandai lunas|catat pelunasan|lunasin|bayar lunas)(?:\s+(?:bro|ya|faktur|tagihan))?(?:\s+(.*))?$/i.exec(trimmed);
-  const isReceiptQuery = /^(?:bro\s+)?(?:cek|lihat|minta|cetak|unduh)\s*(?:kwitansi|bukti bayar)\s*(.*)$/i.exec(trimmed);
-  const isBastQuery = /^(?:bro\s+)?(?:cek|lihat|minta|cetak|unduh)\s*(?:bast|berita acara)\s*(.*)$/i.exec(trimmed);
-  const isSjQuery = /^(?:bro\s+)?(?:cek|lihat|minta|cetak|unduh)\s*(?:surat jalan|sj)\s*(.*)$/i.exec(trimmed);
+  const isInvoiceQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:faktur|invoice)\s*(.*)$/i.exec(trimmed);
+  const isQuoteQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:penawaran|quote)\s*(.*)$/i.exec(trimmed);
+  const isLunasQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cetak)?\s*(?:faktur\s*pelunasan|pelunasan\s*faktur|faktur\s*lunas|pelunasan|lunas|sudah lunas|tandai lunas|catat pelunasan|lunasin|bayar lunas)(?:\s+(?:bro|ya|faktur|tagihan|untuk|atas\s*nama|ke|pak))?(?:\s+(.*))?$/i.exec(trimmed);
+  const isReceiptQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|cetak|unduh)\s*(?:kwitansi|bukti bayar)\s*(.*)$/i.exec(trimmed);
+  const isBastQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|cetak|unduh)\s*(?:bast|berita acara)\s*(.*)$/i.exec(trimmed);
+  const isSjQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|cetak|unduh)\s*(?:surat jalan|sj)\s*(.*)$/i.exec(trimmed);
   const isWarrantyQuery = /^(?:bro\s+)?(?:cek|lihat|minta|cetak|kartu|link|sertifikat)\s*(?:garansi|garansi digital)\s*(.*)$/i.exec(trimmed);
   const isUnpaidQuery = /^(?:bro\s+)?(?:rekap|cek|lihat|daftar|siapa)?\s*(?:piutang|tagihan belum lunas|faktur belum lunas)/i.test(trimmed);
   const isAddPhotoQuery = /^(?:bro\s+)?(?:tambah(?:kan)?\s*foto|foto\s*(?:ini\s*)?tambah|ini\s*foto\s*(?:buat|untuk)?\s*proje(?:ct|ck|k|c)|ini\s*foto\s*proyek|upload\s*foto|masukkan\s*foto|tambah\s*dokumentasi)(?:\s+(?:ini|itu|untuk|ke|proyek|project|projeck|pak))?(?:\s+(.*))?$/i.exec(trimmed);
@@ -1790,57 +1793,59 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       client_address: parsed.clientAddr,
       reply: `Membuat proyek baru untuk ${parsed.clientName || 'klien'}...`,
     };
-  } else if (!isCreateIntent && isInvoiceQuery) {
-    const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke)\s+/i, '').trim();
-    r = {
-      intent: 'get_pdf',
-      target_doc_type: 'invoice',
-      target_text: target || chatContext?.client_name || 'terakhir',
-      reply: 'Mencari dokumen faktur...',
-    };
-  } else if (!isCreateIntent && isQuoteQuery) {
-    const target = isQuoteQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke)\s+/i, '').trim();
-    r = {
-      intent: 'get_pdf',
-      target_doc_type: 'quote',
-      target_text: target || chatContext?.client_name || 'terakhir',
-      reply: 'Mencari dokumen penawaran...',
-    };
-  } else if (!isCreateIntent && isLunasQuery) {
-    const target = isLunasQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
+  } else if (isLunasQuery) {
+    const rawTarget = (isLunasQuery[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
+    const target = rawTarget || chatContext?.client_name || '';
     r = {
       intent: 'record_payment',
       is_paid_off: true,
-      target_text: target || chatContext?.client_name || '',
+      target_text: target,
+      client_name: target,
       reply: 'Mencatat pelunasan faktur...',
     };
-  } else if (!isCreateIntent && isReceiptQuery) {
+  } else if (isReceiptQuery) {
     const target = isReceiptQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
     r = {
       intent: 'get_receipt',
       target_text: target || chatContext?.client_name || 'terakhir',
       reply: 'Menyiapkan kwitansi pembayaran...',
     };
-  } else if (!isCreateIntent && isBastQuery) {
+  } else if (isBastQuery) {
     const target = isBastQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
     r = {
       intent: 'get_bast',
       target_text: target || chatContext?.client_name || 'terakhir',
       reply: 'Menyiapkan dokumen BAST...',
     };
-  } else if (!isCreateIntent && isSjQuery) {
+  } else if (isSjQuery) {
     const target = isSjQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
     r = {
       intent: 'get_surat_jalan',
       target_text: target || chatContext?.client_name || 'terakhir',
       reply: 'Menyiapkan Surat Jalan...',
     };
-  } else if (!isCreateIntent && isWarrantyQuery) {
+  } else if (isWarrantyQuery) {
     const target = isWarrantyQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
     r = {
       intent: 'get_warranty',
       target_text: target || chatContext?.client_name || 'terakhir',
       reply: 'Menyiapkan kartu garansi...',
+    };
+  } else if (isInvoiceQuery && !/(?:modal|jual)\s*[:=]?\s*\d+/i.test(trimmed)) {
+    const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    r = {
+      intent: 'get_pdf',
+      target_doc_type: 'invoice',
+      target_text: target || chatContext?.client_name || 'terakhir',
+      reply: 'Mencari dokumen faktur...',
+    };
+  } else if (isQuoteQuery && !/(?:modal|jual)\s*[:=]?\s*\d+/i.test(trimmed)) {
+    const target = isQuoteQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    r = {
+      intent: 'get_pdf',
+      target_doc_type: 'quote',
+      target_text: target || chatContext?.client_name || 'terakhir',
+      reply: 'Mencari dokumen penawaran...',
     };
   } else if (!isCreateIntent && isUnpaidQuery) {
     r = {
@@ -4713,7 +4718,8 @@ Caption Mas Wahyu: "${caption || 'Tidak ada'}".`;
 
   for (const model of CANDIDATE_MODELS) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      const cleanModel = model.replace(/^models\//, '').trim();
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
         body: payload,
