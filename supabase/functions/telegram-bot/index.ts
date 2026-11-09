@@ -675,6 +675,185 @@ async function setChatContext(chat_id: number, payload: { client_name?: string; 
   }
 }
 
+async function displayProjectCard(chat_id: number, targetInst: any) {
+  // Kunci konteks chat ke proyek ini agar bot mengarah ke proyek kita
+  await setChatContext(chat_id, {
+    client_name: targetInst.client_name,
+    doc_id: targetInst.id,
+    doc_type: 'project',
+  });
+
+  const photos: string[] = Array.isArray(targetInst.photos)
+    ? targetInst.photos.map((p: any) => typeof p === 'string' ? p : p?.url).filter(Boolean)
+    : [];
+
+  const prog = targetInst.progress || 0;
+  const filled = Math.min(10, Math.max(0, Math.round(prog / 10)));
+  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+  const statusLabel = prog >= 100
+    ? '✅ Selesai Pasang (100%)'
+    : prog >= 80
+    ? '⚙️ Pemasangan Selesai / Uji Coba (80%)'
+    : prog >= 50
+    ? '🔧 Sedang Dikerjakan (50%)'
+    : '📅 Terjadwal / Persiapan';
+
+  const coverInfo = photos.length > 0
+    ? `⭐ 1 Sampul Utama + ${photos.length - 1} Galeri`
+    : 'Belum ada foto';
+
+  const snNvr = targetInst.sn_nvr || '-';
+  const snHdd = targetInst.sn_hdd || '-';
+  const publicWarrantyUrl = `${APP_URL}/garansi/${targetInst.id}`;
+
+  const buttons = [
+    [
+      { text: '🌐 Buka Garansi Live', url: publicWarrantyUrl },
+      { text: '🗺️ Buka di Peta Command', url: `${APP_URL}/peta` }
+    ],
+    [
+      { text: '📸 Tambah Foto Proyek', data: `add_photo:${targetInst.id}` },
+      { text: '📍 Share Lokasi GPS', data: `loc:${targetInst.id}` }
+    ],
+    [
+      { text: '🛡️ Cetak Garansi', data: `warranty:${targetInst.id}` },
+      { text: '📜 Cetak BAST', data: `bast:${targetInst.id}` }
+    ]
+  ];
+
+  return send(
+    chat_id,
+    `📂 <b>Detail Proyek: ${esc(targetInst.project_name || targetInst.client_name)}</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `• Klien          : <b>${esc(targetInst.client_name)}</b>\n` +
+    `• Kontak HP      : <code>${esc(targetInst.client_phone || '-')}</code>\n` +
+    `• Lokasi         : <i>${esc(targetInst.address_landmark || 'Samarinda')}</i>\n` +
+    `• Status Progres : <b>${statusLabel}</b>\n` +
+    `  <code>[${bar}] ${prog}%</code>\n` +
+    `• Dokumentasi    : <b>${photos.length} Foto Tersimpan</b> (${coverInfo})\n` +
+    `• Serial Number  : NVR: <code>${snNvr}</code> | HDD: <code>${snHdd}</code>\n` +
+    `• Garansi Resmi  : <b>${targetInst.warranty_months || 12} Bulan</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🎯 <i>Konteks percakapan bot sekarang TERKUNCI ke proyek ini!</i>\n` +
+    `<i>Mas Wahyu bisa langsung:</i>\n` +
+    `• Kirim foto (otomatis masuk ke proyek ini)\n` +
+    `• Kirim foto + caption "jadikan sampul"\n` +
+    `• Balas "lokasi proyek" untuk Google Maps teknisi\n` +
+    `• Balas "selesai pasang" untuk terbitkan Faktur & BAST`,
+    buttons
+  );
+}
+
+async function handleProjectCheck(chat_id: number, rawTarget: string, chatContext: any, isListMode: boolean = false) {
+  // Jika diminta list atau tidak ada target dan tidak ada konteks chat aktif
+  if (isListMode || (!rawTarget && !chatContext?.client_name)) {
+    const { data: list } = await db
+      .from('cctv_installations')
+      .select('*')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    if (!list || list.length === 0) {
+      return send(chat_id, 'Belum ada proyek/instalasi terdaftar bro. Buat penawaran atau proyek baru dulu ya!');
+    }
+
+    // Jika hanya ada 1 proyek dan bukan explicit list, langsung tampilkan proyek tersebut
+    if (list.length === 1 && !isListMode) {
+      return displayProjectCard(chat_id, list[0]);
+    }
+
+    let text = `📋 <b>Daftar Proyek CCTV &amp; POS Borneo Etam:</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    list.forEach((inst: any, idx: number) => {
+      const photos = Array.isArray(inst.photos) ? inst.photos : [];
+      const prog = inst.progress || 0;
+      const statusIcon = prog >= 100 ? '✅' : prog >= 80 ? '⚙️' : '🔧';
+      text += `${idx + 1}. <b>${esc(inst.client_name || inst.project_name)}</b>\n` +
+        `   • Status: ${statusIcon} <b>${prog}%</b> • Foto: <b>${photos.length} Foto</b>\n` +
+        `   • Lokasi: <i>${esc(inst.address_landmark || 'Samarinda')}</i>\n`;
+    });
+
+    text += `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `<i>Pilih salah satu proyek di bawah untuk membuka detail & mengunci arah bot ke proyek tersebut:</i>`;
+
+    const buttons = [];
+    for (let i = 0; i < list.length; i += 2) {
+      const row = [];
+      row.push({ text: `📂 ${list[i].client_name || 'Proyek'}`, data: `project:${list[i].id}` });
+      if (list[i + 1]) {
+        row.push({ text: `📂 ${list[i + 1].client_name || 'Proyek'}`, data: `project:${list[i + 1].id}` });
+      }
+      buttons.push(row);
+    }
+    buttons.push([
+      { text: '🗺️ Buka Peta Command Center', url: `${APP_URL}/peta` }
+    ]);
+
+    return send(chat_id, text, buttons);
+  }
+
+  // Cari proyek spesifik
+  const target = rawTarget || chatContext?.client_name || '';
+  let targetInst: any = null;
+
+  if (target && !/^(ini|itu|kita|nya)$/i.test(target)) {
+    targetInst = await findInstallation(target);
+
+    if (!targetInst) {
+      const cleanT = cleanSearchName(target);
+      const { data: insts } = await db.from('cctv_installations')
+        .select('*')
+        .eq('user_id', OWNER_ID)
+        .or(`client_name.ilike.%${cleanT}%,project_name.ilike.%${cleanT}%,public_display_name.ilike.%${cleanT}%`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      targetInst = insts?.[0] || null;
+    }
+
+    if (!targetInst) {
+      const match = await findQuoteOrInvoice(target, 'auto');
+      if (match) {
+        const cName = match.doc.to_client;
+        const { data: insts2 } = await db.from('cctv_installations')
+          .select('*')
+          .eq('user_id', OWNER_ID)
+          .or(`client_name.ilike.%${cName}%,quote_id.eq.${match.doc.id}`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        targetInst = insts2?.[0] || null;
+      }
+    }
+  }
+
+  if (!targetInst && chatContext?.client_name) {
+    const cleanCtx = cleanSearchName(chatContext.client_name);
+    const { data: insts3 } = await db.from('cctv_installations')
+      .select('*')
+      .eq('user_id', OWNER_ID)
+      .or(`client_name.ilike.%${cleanCtx}%,project_name.ilike.%${cleanCtx}%`)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    targetInst = insts3?.[0] || null;
+  }
+
+  if (!targetInst) {
+    const { data: latestInsts } = await db.from('cctv_installations')
+      .select('*')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    targetInst = latestInsts?.[0] || null;
+  }
+
+  if (!targetInst) {
+    return send(chat_id, `Data proyek untuk "${esc(target || 'terakhir')}" tidak ditemukan di database bro.`);
+  }
+
+  return displayProjectCard(chat_id, targetInst);
+}
+
 // ------------------------------------------------------------------ ringkasan
 function quoteSummary(p: any): string {
   const activeItems = (p.items ?? []).filter((i: any) => Number(i.quantity) > 0 && i.unit !== 'Header');
@@ -1184,6 +1363,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const isUnpaidQuery = /^(?:bro\s+)?(?:rekap|cek|lihat|daftar|siapa)?\s*(?:piutang|tagihan belum lunas|faktur belum lunas)/i.test(trimmed);
   const isAddPhotoQuery = /^(?:bro\s+)?(?:tambah(?:kan)?\s*foto|foto\s*(?:ini\s*)?tambah|ini\s*foto\s*(?:buat|untuk)?\s*proje(?:ct|ck|k|c)|ini\s*foto\s*proyek|upload\s*foto|masukkan\s*foto|tambah\s*dokumentasi)(?:\s+(?:ini|itu|untuk|ke|proyek|project|projeck|pak))?(?:\s+(.*))?$/i.exec(trimmed);
   const isCoverQuery = /^(?:bro\s+)?(?:(?:foto\s*ini\s*)?(?:jadi|jadikan|buat|set)\s*(?:sebagai\s*)?sampul|sampul\s*proyek|cover\s*proyek|jadikan\s*cover)(?:\s+(?:ini|itu|untuk|ke|proyek|project|pak))?(?:\s+(.*))?$/i.exec(trimmed);
+  const isProjectQuery = /^(?:bro\s+)?(?:cek|lihat|buka|info|detail|status|daftar)?(?:\s+semua)?\s*(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua|untuk|ke|milik|pak))?(?:\s+(.*))?$/i.exec(trimmed);
+  const isLocationQuery = /^(?:bro\s+)?(?:share\s+lokasi|lokasi|posisi|maps?|gps|rute)(?:\s+(?:proyek|project|projeck|pak|ke|untuk))?(?:\s+(.*))?$/i.exec(trimmed);
 
   if (!isCreateIntent && isInvoiceQuery) {
     const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke)\s+/i, '').trim();
@@ -1438,6 +1619,17 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `Proyek ini belum memiliki foto dokumentasi. Silakan <b>kirimkan fotonya sekarang</b>, dan foto pertama otomatis akan dijadikan <b>Sampul Utama (Cover)</b>!`
       );
     }
+  } else if (!isCreateIntent && isProjectQuery) {
+    const rawTarget = (isProjectQuery[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|proyek|project|pak)\s+/i, '').trim();
+    const isListMode = /daftar|semua|berjalan|aktif/i.test(trimmed);
+    return handleProjectCheck(chat_id, rawTarget, chatContext, isListMode);
+  } else if (!isCreateIntent && isLocationQuery) {
+    const target = isLocationQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
+    r = {
+      intent: 'share_location',
+      target_text: target || chatContext?.client_name || 'terakhir',
+      reply: 'Menyiapkan titik lokasi GPS proyek...',
+    };
   }
 
   if (!r) {
@@ -3651,6 +3843,15 @@ async function handleCallback(cb: any) {
   const [action, id] = String(cb.data).split(':');
   await tg('answerCallbackQuery', { callback_query_id: cb.id });
 
+  if (action === 'project' || action === 'proyek') {
+    const chatContext = await getChatContext(chat_id);
+    await handleProjectCheck(chat_id, id, chatContext);
+    return;
+  }
+  if (action === 'add_photo') {
+    await handleText(chat_id, `tambahkan foto ${id}`);
+    return;
+  }
   if (action === 'sj') {
     // Tombol cetak surat jalan langsung
     await handleText(chat_id, `cetak surat jalan ${id}`);
@@ -4298,6 +4499,7 @@ Deno.serve(async (req) => {
               '<b>Contoh Perintah Operasional:</b>\n' +
               '• <i>buatkan penawaran Pak Suhabuddin paket 4 titik diskon 200rb</i>\n' +
               '• <i>buat faktur ke Toko Berkah Jaya jasa pasang 4 titik 600rb, akomodasi 150rb</i> (Mode Toko / Subkon)\n' +
+              '• <i>cek proyek Pak Yusril</i> / <i>proyek kita</i> / <i>daftar proyek</i> (mengarahkan bot & kunci konteks proyek)\n' +
               '• <i>tambahkan foto proyek Pak Yusril</i> (kirim 1 atau banyak foto sekaligus / album)\n' +
               '• <i>foto ini jadi sampul proyek</i> (jadikan sampul utama di Peta & Garansi)\n' +
               '• <i>ini foto buat projeck pak hendra</i> / <i>foto ini tambah</i>\n' +
