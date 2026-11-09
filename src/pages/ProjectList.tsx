@@ -62,6 +62,11 @@ const EMPTY_PROJECT_STATS: ProjectStats = {
   quoteCount: 0,
 };
 
+const cleanDisplayName = (val?: string | null) => {
+  if (!val) return '';
+  return val.replace(/\s+(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|https?:\/\/).*$/i, '').trim() || val;
+};
+
 const ProjectList = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
@@ -590,10 +595,10 @@ const ProjectList = () => {
                     return (
                       <TableRow key={project.id} className="hover:bg-muted/30 transition-colors group">
                         <TableCell className="px-5 py-4">
-                          <Link to={`/project/${project.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs">{project.name}</Link>
+                          <Link to={`/project/${project.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate max-w-xs">{cleanDisplayName(project.name)}</Link>
                           <span className="text-[11px] text-muted-foreground">Dibuat {safeFormat(project.created_at, 'dd MMM yyyy')}</span>
                         </TableCell>
-                        <TableCell className="px-5 py-4 text-xs font-medium text-muted-foreground">{project.clients?.name || 'Klien Umum'}</TableCell>
+                        <TableCell className="px-5 py-4 text-xs font-medium text-muted-foreground">{cleanDisplayName(project.clients?.name) || 'Klien Umum'}</TableCell>
                         <TableCell className="px-5 py-4 text-center"><div className="flex justify-center">{getProjectStatusBadge(project.status)}</div></TableCell>
                         <TableCell className="px-5 py-4">
                           <div className="space-y-1.5 max-w-[180px]">
@@ -626,11 +631,11 @@ const ProjectList = () => {
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2.5">
-                          <Link to={`/project/${project.id}`} className="font-black text-base sm:text-lg text-foreground hover:text-primary transition-colors truncate">{project.name}</Link>
+                          <Link to={`/project/${project.id}`} className="font-black text-base sm:text-lg text-foreground hover:text-primary transition-colors truncate">{cleanDisplayName(project.name)}</Link>
                           {getProjectStatusBadge(project.status)}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1 font-medium text-foreground"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{project.clients?.name || 'Tanpa klien'}</span>
+                          <span className="flex items-center gap-1 font-medium text-foreground"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{cleanDisplayName(project.clients?.name) || 'Klien Umum'}</span>
                           <span>•</span>
                           <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Dibuat {safeFormat(project.created_at, 'dd MMM yyyy')}</span>
                           <span>•</span>

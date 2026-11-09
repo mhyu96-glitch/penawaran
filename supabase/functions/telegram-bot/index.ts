@@ -133,6 +133,74 @@ function getConsonantSkeleton(s: string): string {
   return cleanSearchName(s).replace(/[aiueo]/g, '');
 }
 
+async function resolveGoogleMapsCoordinates(url: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const finalUrl = res.url || '';
+    
+    // Format 1: /search/-0.464889,+117.155336
+    const searchMatch = finalUrl.match(/\/search\/([-0-9.]+),\s*\+?([-0-9.]+)/);
+    if (searchMatch) {
+      return { lat: parseFloat(searchMatch[1]), lng: parseFloat(searchMatch[2]) };
+    }
+
+    // Format 2: @-0.464889,117.155336
+    const atMatch = finalUrl.match(/@([-0-9.]+),([-0-9.]+)/);
+    if (atMatch) {
+      return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+    }
+
+    // Format 3: ?q=-0.464889,117.155336
+    const qMatch = finalUrl.match(/[?&]q=([-0-9.]+),([-0-9.]+)/);
+    if (qMatch) {
+      return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+    }
+  } catch (err: any) {
+    console.warn('[MAPS] Gagal resolve Google Maps link:', err?.message || err);
+  }
+  return null;
+}
+
+function parseProjectIntentText(raw: string) {
+  let text = (raw || '').trim();
+  let clientName = text;
+  let clientAddr = '';
+  let mapsUrl = '';
+
+  // 1. Cek apakah ada Google Maps link (short atau long)
+  const mapsMatch = text.match(/(https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|maps\.google\.com)\/[^\s]+)/i);
+  if (mapsMatch) {
+    mapsUrl = mapsMatch[1];
+    text = text.replace(mapsMatch[0], '').trim();
+  }
+
+  // 2. Pisahkan nama klien dan alamat berdasarkan keyword pemisah
+  // Contoh: "yusril alamat nya https://...", "pak yusuf jl pramuka", "pt jaya di pergudangan"
+  const splitMatch = text.match(/^(.*?)\s*(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s+alamat|di|jl\.?|jalan)\s*[:=]?\s*(.*)$/i);
+  if (splitMatch) {
+    clientName = splitMatch[1].trim();
+    clientAddr = splitMatch[2].trim();
+  } else {
+    clientName = text.trim();
+  }
+
+  // Bersihkan kata sambung di depan nama klien
+  clientName = clientName
+    .replace(/^(?:untuk|atas\s*nama|nama|punya|milik|ke)\s+/i, '')
+    .trim();
+
+  // Jika nama klien kosong tapi ada teks asal
+  if (!clientName && text) clientName = text.trim();
+  if (!clientName && raw) clientName = raw.split(/\s+/)[0];
+
+  // Gabungkan alamat jika ada Google Maps link
+  if (mapsUrl) {
+    clientAddr = clientAddr ? `${clientAddr} (${mapsUrl})` : mapsUrl;
+  }
+
+  return { clientName, clientAddr, mapsUrl };
+}
+
 async function findQuoteOrInvoice(
   targetText: string,
   preferredType: 'invoice' | 'quote' | 'auto' = 'auto'
@@ -631,7 +699,14 @@ ${catalog}${pendingInfo}`;
 
 // ------------------------------------------------------------------ geocode
 async function geocode(address: string, city?: string | null): Promise<{ lat: number; lng: number } | null> {
-  const q = [address, city, 'Kalimantan Timur', 'Indonesia'].filter(Boolean).join(', ');
+  const mapsMatch = (address || '').match(/(https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|maps\.google\.com)\/[^\s]+)/i);
+  if (mapsMatch) {
+    const coords = await resolveGoogleMapsCoordinates(mapsMatch[1]);
+    if (coords) return coords;
+  }
+
+  const cleanAddr = (address || '').replace(/https?:\/\/[^\s]+/g, '').trim();
+  const q = [cleanAddr, city, 'Kalimantan Timur', 'Indonesia'].filter(Boolean).join(', ');
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=${encodeURIComponent(q)}`, {
       headers: { 'User-Agent': 'BorneoEtamBot/1.0 (penawaran app)' },
@@ -876,6 +951,14 @@ async function ensureProjectAndLinks(
 
 async function healAllProjects() {
   try {
+    // 0. Bersihkan entri klien sampah yang namanya terkontaminasi URL / alamat
+    try {
+      await db.from('clients')
+        .delete()
+        .eq('user_id', OWNER_ID)
+        .or('name.ilike.%http%,name.ilike.%alamat nya%');
+    } catch (_) {}
+
     const { data: allProjs } = await db.from('projects')
       .select('id, name, client_id')
       .eq('user_id', OWNER_ID)
@@ -885,6 +968,55 @@ async function healAllProjects() {
 
     const results = [];
     for (const p of allProjs) {
+      let rawName = p.name || '';
+      let isCorrupted = /(?:alamat|lokasi|https?:\/\/)/i.test(rawName);
+
+      if (isCorrupted) {
+        const parsed = parseProjectIntentText(rawName.replace(/^proyek\s+/i, ''));
+        const cleanClient = parsed.clientName || 'Yusril';
+        const cleanProjName = `Proyek ${cleanClient}`;
+        const coords = parsed.clientAddr ? await geocode(parsed.clientAddr) : null;
+
+        // Cek apakah ada proyek asli lain yang namanya bersih
+        const { data: existingTarget } = await db.from('projects')
+          .select('id')
+          .eq('user_id', OWNER_ID)
+          .ilike('name', `%${cleanSearchName(cleanClient)}%`)
+          .neq('id', p.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingTarget?.id) {
+          // Ada proyek asli yang bersih, pindahkan instalasi dan hapus baris duplikat ini
+          await db.from('cctv_installations').update({
+            project_id: existingTarget.id,
+            address_landmark: parsed.clientAddr || undefined,
+            latitude: coords ? coords.lat : undefined,
+            longitude: coords ? coords.lng : undefined,
+          }).eq('project_id', p.id);
+
+          await db.from('projects').delete().eq('id', p.id);
+          console.log(`[HEAL] Duplikat ${p.id} berhasil digabung ke ${existingTarget.id}`);
+          continue;
+        } else {
+          // Rename proyek ini menjadi nama yang bersih
+          await db.from('projects').update({
+            name: cleanProjName,
+          }).eq('id', p.id);
+          p.name = cleanProjName;
+
+          if (coords || parsed.clientAddr) {
+            await db.from('cctv_installations').update({
+              project_name: cleanProjName,
+              client_name: cleanClient,
+              address_landmark: parsed.clientAddr || undefined,
+              latitude: coords ? coords.lat : undefined,
+              longitude: coords ? coords.lng : undefined,
+            }).eq('project_id', p.id);
+          }
+        }
+      }
+
       const rawClient = (p.name || '').replace(/^proyek\s+/i, '').trim();
       if (!rawClient) continue;
       const res = await ensureProjectAndLinks(rawClient);
@@ -1639,20 +1771,24 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       reply: `Memperbarui progres proyek jadi ${percent}%...`,
     };
   } else if (isEditProject) {
-    const rawTarget = (isEditProject[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const rawTarget = isEditProject[1] || '';
+    const parsed = parseProjectIntentText(rawTarget);
     r = {
       intent: 'edit_project',
-      target_text: rawTarget || chatContext?.client_name || '',
-      client_name: rawTarget || chatContext?.client_name || '',
+      target_text: parsed.clientName || chatContext?.client_name || '',
+      client_name: parsed.clientName || chatContext?.client_name || '',
+      client_address: parsed.clientAddr,
       reply: 'Memperbarui data proyek...',
     };
   } else if (isAddProject) {
-    const rawTarget = (isAddProject[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const rawTarget = isAddProject[1] || '';
+    const parsed = parseProjectIntentText(rawTarget);
     r = {
       intent: 'add_project',
-      target_text: rawTarget || '',
-      client_name: rawTarget || '',
-      reply: 'Membuat proyek baru...',
+      target_text: parsed.clientName || '',
+      client_name: parsed.clientName || '',
+      client_address: parsed.clientAddr,
+      reply: `Membuat proyek baru untuk ${parsed.clientName || 'klien'}...`,
     };
   } else if (!isCreateIntent && isInvoiceQuery) {
     const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke)\s+/i, '').trim();
