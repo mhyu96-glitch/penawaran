@@ -1020,10 +1020,74 @@ async function healAllProjects() {
         }
       }
 
-      const rawClient = (p.name || '').replace(/^proyek\s+/i, '').trim();
-      if (!rawClient) continue;
-      const res = await ensureProjectAndLinks(rawClient);
-      if (res) results.push({ name: p.name, ...res });
+      // Cari quotes dan invoices yang sudah tertaut ke project ini
+      const { data: pQuotes } = await db.from('quotes')
+        .select('id, discount_amount, quote_items(quantity, unit_price, cost_price)')
+        .eq('user_id', OWNER_ID)
+        .eq('project_id', p.id);
+
+      const { data: pInvoices } = await db.from('invoices')
+        .select('id, discount_amount, invoice_items(quantity, unit_price, cost_price)')
+        .eq('user_id', OWNER_ID)
+        .eq('project_id', p.id);
+
+      let totalQuote = 0;
+      let totalHpp = 0;
+      (pQuotes || []).forEach((q: any) => {
+        const items = q.quote_items || [];
+        const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        totalQuote += Math.max(0, subtotal - (Number(q.discount_amount) || 0));
+        totalHpp += items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.cost_price) || 0), 0);
+      });
+
+      let totalRevenue = 0;
+      (pInvoices || []).forEach((inv: any) => {
+        const items = inv.invoice_items || [];
+        const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+        totalRevenue += Math.max(0, subtotal - (Number(inv.discount_amount) || 0));
+        if (!pQuotes || pQuotes.length === 0) {
+          totalHpp += items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.cost_price) || 0), 0);
+        }
+      });
+
+      const finalBudget = totalRevenue || totalQuote;
+      if (finalBudget > 0) {
+        await db.from('projects').update({ budget: finalBudget }).eq('id', p.id);
+      }
+
+      // Pastikan milestone tasks otomatis ada
+      const { data: existingTasks } = await db.from('project_tasks')
+        .select('id')
+        .eq('project_id', p.id);
+
+      if (!existingTasks || existingTasks.length === 0) {
+        const defaultTasks = [
+          { name: 'Survei Lokasi & Penentuan Titik Kamera', completed: true },
+          { name: 'Penarikan Kabel & Instalasi Jalur Pipa', completed: true },
+          { name: 'Pemasangan Kamera, NVR, & Setting HDD', completed: true },
+          { name: 'Uji Coba Online / Monitoring HP Konsumen', completed: totalRevenue > 0 },
+          { name: 'Serah Terima Pekerjaan (BAST) & Garansi', completed: totalRevenue > 0 },
+        ];
+
+        for (const t of defaultTasks) {
+          await db.from('project_tasks').insert({
+            user_id: OWNER_ID,
+            project_id: p.id,
+            name: t.name,
+            is_completed: t.completed,
+          });
+        }
+      }
+
+      results.push({
+        name: p.name,
+        projectId: p.id,
+        quoteCount: pQuotes?.length || 0,
+        invoiceCount: pInvoices?.length || 0,
+        revenue: totalRevenue || totalQuote,
+        cost: totalHpp,
+        profit: (totalRevenue || totalQuote) - totalHpp,
+      });
     }
     return results;
   } catch (err: any) {
