@@ -23,13 +23,16 @@ const OWNER_ID = env('OWNER_USER_ID');
 const GEMINI_KEY = env('GEMINI_API_KEY');
 const APP_URL = (env('APP_BASE_URL') || 'https://quoteapp-glass.vercel.app').replace(/\/$/, '');
 
+const rawModel = env('GEMINI_MODEL');
+const initialModel = (rawModel && !rawModel.includes('2.5-pro') && !rawModel.includes('1.0')) ? rawModel : 'gemini-2.5-flash';
+
 const CANDIDATE_MODELS = [
-  env('GEMINI_MODEL') || 'gemini-2.5-flash',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-lite-latest',
+  initialModel,
+  'gemini-2.5-flash',
   'gemini-3.1-pro-preview',
-].filter(Boolean);
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
 
@@ -339,11 +342,14 @@ const SCHEMA = {
         'create_invoice',
         'edit_document',
         'deal_project',
+        'add_project',
+        'update_progress',
+        'edit_project',
+        'delete_project',
+        'delete_document',
         'add_expense',
         'add_item_master',
         'complete_project',
-        'add_project',
-        'update_progress',
         'modify_pending',
         'get_pdf',
         'get_receipt',
@@ -418,6 +424,9 @@ const SCHEMA = {
     project_name: { type: 'STRING', nullable: true },
     service_type: { type: 'STRING', enum: ['CCTV', 'POS', 'BUNDLING'], nullable: true },
     progress: { type: 'INTEGER', nullable: true },
+    progress_percent: { type: 'INTEGER', nullable: true },
+    notes: { type: 'STRING', nullable: true },
+    dvr_sn: { type: 'STRING', nullable: true },
     installed_at: { type: 'STRING', nullable: true },
     sn_nvr: { type: 'STRING', nullable: true },
     sn_hdd: { type: 'STRING', nullable: true },
@@ -503,8 +512,16 @@ PANDUAN INTENT & ALUR KERJA:
      - extra_items: item baru yang mau ditambahkan.
      - delete_items: keyword item yang mau dihapus (contoh: ["kabel"]).
      - client_address, client_phone, discount_amount, down_payment_amount.
-4. deal_project: Mas Wahyu menyatakan penawaran DEAL / disepakati (misal: "deal ya", "penawaran ini deal", "lanjut buat proyek", "proyek Pak Suhabuddin deal"). target_text = nama klien.
-5. add_expense: Mas Wahyu melapor belanja / pengeluaran lapangan (misal: "sudah beli pipa conduit 10 btg 150rb untuk proyek Pak Suhabuddin", "beli bensin 50rb proyek Suhabuddin").
+4. deal_project: Mas Wahyu menyatakan penawaran atau proyek DEAL / disepakati (misal: "deal ya", "penawaran ini deal", "proyek pak yusuf deal", "pak yusuf deal ya bro", "penawaran pak yusuf sudah deal", "deal pak yusuf", "proyeknya jadi deal"). target_text = nama klien (misal: "Pak Yusuf").
+5. add_project: Mas Wahyu ingin buat / tambah proyek baru (misal: "buat proyek Pak Yusuf jl pramuka 4 titik", "tambah proyek toko berkah antasari", "bikin proyek pak dimas baru", "masukkan proyek pak yusril").
+   - Ekstrak: client_name (nama klien), client_address (alamat lokasi), client_phone, progress_percent (default 20 jika baru), notes.
+6. update_progress / edit_project: Mas Wahyu update kemajuan progres atau edit detail proyek instalasi (misal: "progres pak yusuf 80%", "update progres jadi 90%", "progres 50%", "edit alamat proyek pak budi jadi jl pramuka", "sn nvr pak yusuf NVR-9988", "catatan proyek pak yusuf pipa sudah rapi").
+   - Ekstrak: target_text (nama klien/proyek), progress_percent (angka 0-100), client_address, client_phone, dvr_sn, notes.
+7. delete_project: Mas Wahyu ingin menghapus / membatalkan proyek dari sistem & peta (misal: "hapus proyek pak budi", "batalkan proyek pak yusuf", "delete proyek pak dimas").
+   - Ekstrak: target_text (nama klien / proyek yang mau dihapus).
+8. delete_document: Mas Wahyu ingin menghapus / membatalkan dokumen faktur atau penawaran (misal: "hapus faktur pak yusril", "batalkan faktur pak yusuf", "hapus penawaran pak budi", "delete invoice INV-001").
+   - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran).
+9. add_expense: Mas Wahyu melapor belanja / pengeluaran lapangan (misal: "sudah beli pipa conduit 10 btg 150rb untuk proyek Pak Suhabuddin", "beli bensin 50rb proyek Suhabuddin").
    - Ekstrak: target_text (nama klien/proyek), expense_amount, expense_description, expense_category ('Material Lapangan', 'Transportasi', 'Konsumsi', 'Lainnya').
 6. add_item_master: Mas Wahyu ingin menambah barang/jasa baru ke master pustaka (misal: "tolong masukkan barang ini di barang dan jasa: Kamera ColorVu 4MP jual 450rb modal 320rb satuan Unit").
    - Ekstrak: item_description, item_unit, item_unit_price, item_cost_price.
@@ -1353,6 +1370,13 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
   // FAST-PATH DETERMINISTIK: Tangani perintah rutin secara instan tanpa limit AI
   const isCreateIntent = /buat|buatkan|bikin|terbitkan|modal|jual|unit|pcs|\d+\s*(?:rb|k|jt)/i.test(trimmed);
+  const isDeal = /(?:^|\s)(?:deal|sepakat|disepakati|setuju|diterima|deal\s*ya|jadi\s*pasang|acc)(?:$|\s|[!?.,])/i.test(trimmed);
+  const isDeleteProject = /^(?:bro\s+)?(?:hapus|delete|batalkan|buang)\s+(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s*(.*)$/i.exec(trimmed);
+  const isDeleteDoc = /^(?:bro\s+)?(?:hapus|delete|batalkan|buang)\s+(?:faktur|invoice|penawaran|quote)\s*(.*)$/i.exec(trimmed);
+  const progressMatch = trimmed.match(/(?:progr?es(?:s)?|kemajuan|tahap)\s*(?:jadi|udah|sudah)?\s*(\d{1,3})\s*%/i) ||
+                        trimmed.match(/(\d{1,3})\s*%\s*(?:progr?es(?:s)?|selesai)/i);
+  const isEditProject = /^(?:bro\s+)?(?:edit|ubah|ganti|update)\s+(?:proje(?:ct|ck|k|c)|proyek)\s*(.*)$/i.exec(trimmed);
+  const isAddProject = /^(?:bro\s+)?(?:buat|bikin|tambah(?:kan)?|masukkan)\s+(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s*(?:baru\s*)?(.*)$/i.exec(trimmed);
   const isInvoiceQuery = /^(?:bro\s+)?(?:cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:faktur|invoice)\s*(.*)$/i.exec(trimmed);
   const isQuoteQuery = /^(?:bro\s+)?(?:cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:penawaran|quote)\s*(.*)$/i.exec(trimmed);
   const isLunasQuery = /^(?:bro\s+)?(?:lunas|sudah lunas|tandai lunas|catat pelunasan|lunasin|bayar lunas)(?:\s+(?:bro|ya|faktur|tagihan))?(?:\s+(.*))?$/i.exec(trimmed);
@@ -1363,10 +1387,69 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const isUnpaidQuery = /^(?:bro\s+)?(?:rekap|cek|lihat|daftar|siapa)?\s*(?:piutang|tagihan belum lunas|faktur belum lunas)/i.test(trimmed);
   const isAddPhotoQuery = /^(?:bro\s+)?(?:tambah(?:kan)?\s*foto|foto\s*(?:ini\s*)?tambah|ini\s*foto\s*(?:buat|untuk)?\s*proje(?:ct|ck|k|c)|ini\s*foto\s*proyek|upload\s*foto|masukkan\s*foto|tambah\s*dokumentasi)(?:\s+(?:ini|itu|untuk|ke|proyek|project|projeck|pak))?(?:\s+(.*))?$/i.exec(trimmed);
   const isCoverQuery = /^(?:bro\s+)?(?:(?:foto\s*ini\s*)?(?:jadi|jadikan|buat|set)\s*(?:sebagai\s*)?sampul|sampul\s*proyek|cover\s*proyek|jadikan\s*cover)(?:\s+(?:ini|itu|untuk|ke|proyek|project|pak))?(?:\s+(.*))?$/i.exec(trimmed);
-  const isProjectQuery = /^(?:bro\s+)?(?:cek|lihat|buka|info|detail|status|daftar)?(?:\s+semua)?\s*(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua|untuk|ke|milik|pak))?(?:\s+(.*))?$/i.exec(trimmed);
+  const isProjectQuery = /^(?:bro\s+)?(?:cek|lihat|buka|info|detail|status|daftar)\s+(?:semua\s+)?(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua|untuk|ke|milik|pak))?(?:\s+(.*))?$/i.exec(trimmed) ||
+                         /^(?:bro\s+)?(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua))$/i.exec(trimmed);
   const isLocationQuery = /^(?:bro\s+)?(?:share\s+lokasi|lokasi|posisi|maps?|gps|rute)(?:\s+(?:proyek|project|projeck|pak|ke|untuk))?(?:\s+(.*))?$/i.exec(trimmed);
 
-  if (!isCreateIntent && isInvoiceQuery) {
+  if (isDeal) {
+    const rawTarget = trimmed
+      .replace(/(?:^|\s)(?:bro|deal|sepakat|disepakati|setuju|diterima|deal\s*ya|jadi\s*pasang|acc|sudah|udah|proje(?:ct|ck|k|c)|proyek|pekerjaan|penawaran|quote|faktur|invoice|pak|bu|haji|om|mas|ya|dong|oke|ok|tolong)(?:\s|$)/gi, ' ')
+      .trim();
+    const target = rawTarget || chatContext?.client_name || '';
+    r = {
+      intent: 'deal_project',
+      target_text: target,
+      client_name: target,
+      reply: 'Memproses kesepakatan deal proyek...',
+    };
+  } else if (isDeleteProject) {
+    const rawTarget = (isDeleteProject[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    r = {
+      intent: 'delete_project',
+      target_text: rawTarget || chatContext?.client_name || '',
+      reply: 'Memproses penghapusan proyek...',
+    };
+  } else if (isDeleteDoc) {
+    const rawTarget = (isDeleteDoc[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const isInv = /faktur|invoice/i.test(trimmed);
+    r = {
+      intent: 'delete_document',
+      target_doc_type: isInv ? 'invoice' : 'quote',
+      target_text: rawTarget || chatContext?.client_name || '',
+      reply: 'Memproses pembatalan dokumen...',
+    };
+  } else if (progressMatch) {
+    const percent = parseInt(progressMatch[1], 10);
+    const rawTarget = trimmed
+      .replace(/(?:progr?es(?:s)?|kemajuan|tahap)\s*(?:jadi|udah|sudah)?\s*(\d{1,3})\s*%/gi, '')
+      .replace(/(\d{1,3})\s*%\s*(?:progr?es(?:s)?|selesai)/gi, '')
+      .replace(/(?:^|\s)(?:bro|update|edit|ubah|proje(?:ct|ck|k|c)|proyek|pekerjaan|pak|bu|haji|om|mas|ya|dong|sudah|udah|nya|jadi)(?:\s|$)/gi, ' ')
+      .trim();
+    const target = rawTarget || chatContext?.client_name || '';
+    r = {
+      intent: 'update_progress',
+      progress_percent: percent,
+      target_text: target,
+      client_name: target,
+      reply: `Memperbarui progres proyek jadi ${percent}%...`,
+    };
+  } else if (isEditProject) {
+    const rawTarget = (isEditProject[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    r = {
+      intent: 'edit_project',
+      target_text: rawTarget || chatContext?.client_name || '',
+      client_name: rawTarget || chatContext?.client_name || '',
+      reply: 'Memperbarui data proyek...',
+    };
+  } else if (isAddProject) {
+    const rawTarget = (isAddProject[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    r = {
+      intent: 'add_project',
+      target_text: rawTarget || '',
+      client_name: rawTarget || '',
+      reply: 'Membuat proyek baru...',
+    };
+  } else if (!isCreateIntent && isInvoiceQuery) {
     const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke)\s+/i, '').trim();
     r = {
       intent: 'get_pdf',
@@ -1668,9 +1751,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   }
 
   // Fallback target_text to active conversation context if empty or generic "terakhir"
-  const isGenericPrompt = !r.target_text || /^(terakhir|last|terbaru|kemarin)$/i.test((r.target_text || '').trim());
+  const isGenericPrompt = !r.target_text || /^(terakhir|last|terbaru|kemarin|ini|itu|nya)$/i.test((r.target_text || '').trim());
   if (isGenericPrompt && !r.client_name && chatContext?.client_name) {
-    if (['record_payment', 'get_pdf', 'get_receipt', 'get_surat_jalan', 'get_bast', 'get_warranty', 'share_location', 'deal_project'].includes(r.intent)) {
+    if (['record_payment', 'get_pdf', 'get_receipt', 'get_surat_jalan', 'get_bast', 'get_warranty', 'share_location', 'deal_project', 'update_progress', 'edit_project', 'delete_project', 'delete_document'].includes(r.intent)) {
       r.target_text = chatContext.client_name;
     }
   }
@@ -2075,85 +2158,362 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
 
     // ---------------------------------------------------- DEAL PROYEK (OTOMATIS PROYEK & PETA)
     case 'deal_project': {
-      const t = (r.target_text || r.client_name || '').trim();
-      const match = await findQuoteOrInvoice(t, 'quote');
-      const quote: any = match?.doc;
-
-      if (!quote) {
-        return send(chat_id, `Penawaran untuk klien "${esc(t || 'terakhir')}" belum ditemukan bro. Pastikan penawarannya sudah dibuat dulu ya.`);
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru|ini|itu|nya)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
       }
 
-      // 1. Update status quote jadi Diterima
-      await db.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
+      if (!t || isGeneric) {
+        return send(chat_id, 'Proyek / penawaran atas nama siapa yang sudah deal bro? Contoh: <i>proyek Pak Yusuf deal</i>');
+      }
 
-      // 2. Buat entri di tabel Proyek (projects)
-      const tot = (quote.quote_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
-      const projName = `Proyek ${quote.to_client || 'CCTV'}`;
+      // 1. Cari Penawaran (Quote)
+      let match = await findQuoteOrInvoice(t, 'quote');
+      let quote: any = match?.doc;
+      let invoice: any = null;
 
-      let projectId: string | null = null;
-      const { data: exProj } = await db.from('projects').select('id').eq('user_id', OWNER_ID).ilike('name', projName).limit(1).maybeSingle();
+      // 2. Jika tidak ada quote, cari Faktur (Invoice)
+      if (!quote) {
+        match = await findQuoteOrInvoice(t, 'invoice');
+        if (match?.doc) {
+          invoice = match.doc;
+        }
+      }
+
+      // 3. Cari entri cctv_installations yang sudah ada
+      let inst = await findInstallation(t);
+
+      if (!quote && !invoice && !inst) {
+        return send(
+          chat_id,
+          `Data penawaran atau proyek untuk "${esc(t)}" tidak ditemukan bro. Mau langsung buat proyek baru? Ketik misal:\n• <i>buat proyek ${esc(t)} [alamat]</i>`
+        );
+      }
+
+      const clientName = quote?.to_client || invoice?.to_client || inst?.client_name || t;
+      const clientAddress = quote?.to_address || invoice?.to_address || inst?.address_landmark || 'Samarinda, Kalimantan Timur';
+      const clientPhone = quote?.to_phone || invoice?.to_phone || inst?.client_phone || '';
+      const projName = `Proyek ${clientName}`;
+
+      let tot = 0;
+      if (quote) {
+        await db.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
+        tot = (quote.quote_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
+      } else if (invoice) {
+        tot = (invoice.invoice_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(invoice.discount_amount || 0);
+      }
+
+      // Buat / update entri di tabel Proyek (projects)
+      let projectId: string | null = inst?.project_id || null;
+      const { data: exProj } = await db.from('projects').select('id').eq('user_id', OWNER_ID).ilike('name', `%${cleanSearchName(clientName)}%`).limit(1).maybeSingle();
       if (exProj?.id) {
         projectId = exProj.id;
-        await db.from('projects').update({ status: 'Ongoing', budget: tot }).eq('id', projectId);
+        await db.from('projects').update({ status: 'Ongoing', budget: tot > 0 ? tot : undefined }).eq('id', projectId);
       } else {
         const { data: newProj } = await db.from('projects').insert({
           user_id: OWNER_ID,
           name: projName,
-          client_id: quote.client_id || null,
-          description: `Pemasangan dari Penawaran ${quote.quote_number}`,
+          client_id: quote?.client_id || invoice?.client_id || null,
+          description: quote ? `Pemasangan dari Penawaran ${quote.quote_number}` : `Pemasangan CCTV ${clientName}`,
           status: 'Ongoing',
           budget: tot,
         }).select('id').single();
         projectId = newProj?.id ?? null;
       }
 
-      // 3. Geocode & Masukkan ke Peta Command Center (cctv_installations)
-      const clientAddr = quote.to_address || 'Samarinda, Kalimantan Timur';
-      const geo = await geocode(clientAddr, 'Samarinda');
-      const lat = geo ? geo.lat : -0.502106;
-      const lng = geo ? geo.lng : 117.153709;
+      // Geocode & Masukkan ke Peta Command Center (cctv_installations)
+      if (!inst) {
+        const geo = await geocode(clientAddress, 'Samarinda');
+        const lat = geo ? geo.lat : -0.502106;
+        const lng = geo ? geo.lng : 117.153709;
 
-      const { data: exInst } = await db.from('cctv_installations').select('id').eq('quote_id', quote.id).limit(1).maybeSingle();
-      if (!exInst) {
-        await db.from('cctv_installations').insert({
+        const { data: newInst } = await db.from('cctv_installations').insert({
           user_id: OWNER_ID,
-          quote_id: quote.id,
+          quote_id: quote?.id || null,
           project_id: projectId,
-          client_id: quote.client_id,
+          client_id: quote?.client_id || invoice?.client_id || null,
           project_name: projName,
-          public_display_name: `Instalasi CCTV - Area ${quote.to_address ? quote.to_address.slice(0, 30) : 'Samarinda'}`,
-          client_name: quote.to_client,
-          client_phone: quote.to_phone,
-          address_landmark: clientAddr,
+          public_display_name: `Instalasi CCTV - ${clientName}`,
+          client_name: clientName,
+          client_phone: clientPhone,
+          address_landmark: clientAddress,
           service_type: 'CCTV',
           city: 'Samarinda',
           latitude: lat,
           longitude: lng,
-          progress: 15,
+          progress: 25,
           is_public_portfolio: true,
-          notes: `Dari penawaran ${quote.quote_number}`,
+          notes: quote ? `Dari penawaran ${quote.quote_number}` : 'Proyek disepakati (Deal)',
           photos: [],
-        });
+        }).select('*').single();
+        inst = newInst;
+      } else {
+        await db.from('cctv_installations').update({
+          progress: Math.max(inst.progress || 0, 25),
+          project_id: projectId || inst.project_id,
+        }).eq('id', inst.id);
+        inst.progress = Math.max(inst.progress || 0, 25);
+      }
+
+      await setChatContext(chat_id, {
+        client_name: clientName,
+        doc_id: inst?.id || quote?.id || invoice?.id,
+        doc_type: 'project',
+      });
+
+      const publicWarrantyUrl = inst?.id ? `${APP_URL}/garansi/${inst.id}` : undefined;
+
+      const buttons: any[] = [];
+      const row1: any[] = [];
+      if (publicWarrantyUrl) row1.push({ text: '🌐 Garansi Live', url: publicWarrantyUrl });
+      row1.push({ text: '🗺️ Peta Command', url: `${APP_URL}/peta` });
+      buttons.push(row1);
+
+      const row2: any[] = [];
+      if (inst?.id) row2.push({ text: '📸 Tambah Foto', data: `add_photo:${inst.id}` });
+      if (quote?.id) row2.push({ text: '📦 Surat Jalan', data: `sj:${quote.id}` });
+      else if (invoice?.id) row2.push({ text: '📦 Surat Jalan', data: `sj:${invoice.id}` });
+      buttons.push(row2);
+
+      const row3: any[] = [];
+      if (invoice?.id) {
+        row3.push({ text: '🧾 Faktur Tagihan', data: `pdf:${invoice.id}` });
+        if (invoice.status !== 'Lunas') row3.push({ text: '💰 Tandai Lunas', data: `pay_lunas:${invoice.id}` });
+      } else if (quote?.id) {
+        row3.push({ text: '📄 Cetak Penawaran', data: `pdf:${quote.id}` });
+        row3.push({ text: '📜 Cetak BAST', data: `bast:${quote.id}` });
+      }
+      if (row3.length > 0) buttons.push(row3);
+
+      return send(
+        chat_id,
+        `🎉 <b>ALHAMDULILLAH DEAL BRO! Proyek Resmi Masuk Antrean Lapangan!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `• Klien / Proyek : <b>${esc(clientName)}</b>\n` +
+        `• Lokasi         : <i>${esc(clientAddress)}</i>\n` +
+        (tot > 0 ? `• Nilai Proyek   : <b>${rp(tot)}</b>\n` : '') +
+        `• Status Pengerjaan : <b>📅 Antrean Lapangan (Progres 25%)</b>\n` +
+        `  <code>[██░░░░░░░░] 25%</code>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>Konteks percakapan bot sekarang TERKUNCI ke proyek ${esc(clientName)}. Silakan kirim foto dokumentasi atau update progres kapan saja!</i>`,
+        buttons
+      );
+    }
+
+    // ---------------------------------------------------- BUAT / TAMBAH PROYEK BARU (ADD PROJECT)
+    case 'add_project': {
+      let clientName = (r.client_name || r.target_text || '').trim();
+      if (!clientName) {
+        return send(chat_id, 'Proyek atas nama siapa bro? Contoh:\n• <i>buat proyek Pak Yusuf jl pramuka 4 titik</i>\n• <i>tambah proyek Toko Berkah jln antasari</i>');
+      }
+
+      let clientAddr = r.client_address || '';
+      if (!clientAddr && text) {
+        const addrMatch = text.match(/(?:alamat|lokasi|di|jl|jalan)\s*[:=]?\s*([^\n\r,]+)/i);
+        if (addrMatch) clientAddr = addrMatch[1].trim();
+      }
+      if (!clientAddr) clientAddr = 'Samarinda, Kalimantan Timur';
+
+      const clientPhone = r.client_phone || '';
+      const projName = `Proyek ${clientName}`;
+
+      const geo = await geocode(clientAddr, 'Samarinda');
+      const lat = geo ? geo.lat : -0.502106;
+      const lng = geo ? geo.lng : 117.153709;
+      const initialProgress = r.progress_percent ?? 20;
+
+      // 1. Insert into projects
+      const { data: newProj } = await db.from('projects').insert({
+        user_id: OWNER_ID,
+        name: projName,
+        status: 'Ongoing',
+        description: r.notes || `Instalasi CCTV baru ${clientName}`,
+      }).select('id').single();
+
+      // 2. Insert into cctv_installations
+      const { data: newInst, error: instErr } = await db.from('cctv_installations').insert({
+        user_id: OWNER_ID,
+        project_id: newProj?.id || null,
+        project_name: projName,
+        public_display_name: `Instalasi CCTV - ${clientName}`,
+        client_name: clientName,
+        client_phone: clientPhone,
+        address_landmark: clientAddr,
+        service_type: 'CCTV',
+        city: 'Samarinda',
+        latitude: lat,
+        longitude: lng,
+        progress: initialProgress,
+        is_public_portfolio: true,
+        notes: r.notes || 'Dibuat via Telegram AI Command Center',
+        photos: [],
+      }).select('*').single();
+
+      if (instErr || !newInst) {
+        throw new Error('Gagal menyimpan proyek: ' + (instErr?.message || ''));
+      }
+
+      await displayProjectCard(chat_id, newInst);
+      return;
+    }
+
+    // ---------------------------------------------------- EDIT PROYEK & UPDATE PROGRESS
+    case 'update_progress':
+    case 'edit_project': {
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru|ini|itu|nya)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+
+      const inst: any = await findInstallation(t);
+      if (!inst) {
+        return send(chat_id, `Data proyek untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan nama kliennya sesuai ya.`);
+      }
+
+      const updates: any = { updated_at: new Date().toISOString() };
+      let changedLog: string[] = [];
+
+      if (r.progress_percent != null) {
+        const p = Math.min(100, Math.max(0, Number(r.progress_percent)));
+        updates.progress = p;
+        changedLog.push(`• Progres pengerjaan : <b>${p}%</b>`);
+        if (p === 100 && !inst.installed_at) {
+          updates.installed_at = nowParts().iso;
+          changedLog.push(`• Status : <b>✅ Pemasangan Selesai 100% (Garansi Resmi Mulai Aktif)</b>`);
+        }
+      }
+
+      if (r.client_address && r.client_address !== inst.address_landmark) {
+        updates.address_landmark = r.client_address;
+        const geo = await geocode(r.client_address, 'Samarinda');
+        if (geo) {
+          updates.latitude = geo.lat;
+          updates.longitude = geo.lng;
+        }
+        changedLog.push(`• Alamat lokasi : <i>${esc(r.client_address)}</i>`);
+      }
+
+      if (r.client_phone && r.client_phone !== inst.client_phone) {
+        updates.client_phone = r.client_phone;
+        changedLog.push(`• No. Kontak : <code>${esc(r.client_phone)}</code>`);
+      }
+
+      if (r.dvr_sn) {
+        updates.sn_nvr = r.dvr_sn;
+        changedLog.push(`• Serial Number NVR/DVR : <code>${esc(r.dvr_sn)}</code>`);
+      }
+
+      if (r.notes) {
+        updates.notes = r.notes;
+        changedLog.push(`• Catatan lapangan : <i>${esc(r.notes)}</i>`);
+      }
+
+      if (Object.keys(updates).length <= 1) {
+        return displayProjectCard(chat_id, inst);
+      }
+
+      await db.from('cctv_installations').update(updates).eq('id', inst.id);
+      const updatedInst = { ...inst, ...updates };
+
+      await setChatContext(chat_id, {
+        client_name: updatedInst.client_name,
+        doc_id: updatedInst.id,
+        doc_type: 'project',
+      });
+
+      await send(
+        chat_id,
+        `✅ <b>Data Proyek Berhasil Diperbarui!</b>\n` +
+        `Klien: <b>${esc(updatedInst.project_name || updatedInst.client_name)}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        changedLog.join('\n') + '\n' +
+        `━━━━━━━━━━━━━━━━━━━━━`
+      );
+
+      return displayProjectCard(chat_id, updatedInst);
+    }
+
+    // ---------------------------------------------------- HAPUS PROYEK (DELETE PROJECT)
+    case 'delete_project': {
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru|ini|itu|nya)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+
+      if (!t || isGeneric) {
+        return send(chat_id, 'Proyek atas nama siapa yang mau dihapus bro? Contoh: <i>hapus proyek Pak Budi</i>');
+      }
+
+      const inst: any = await findInstallation(t);
+      if (!inst) {
+        return send(chat_id, `Proyek untuk "${esc(t)}" tidak ditemukan bro. Pastikan nama proyek atau klien sesuai.`);
+      }
+
+      // Hapus dari cctv_installations
+      await db.from('cctv_installations').delete().eq('id', inst.id);
+
+      // Hapus proyek terkait di tabel projects jika ada
+      if (inst.project_id) {
+        await db.from('projects').delete().eq('id', inst.project_id);
+      }
+
+      // Hapus context jika menunjuk ke proyek ini
+      if (chatContext?.doc_id === inst.id) {
+        await db.from('telegram_pending_actions').update({ status: 'cancelled' }).eq('chat_id', chat_id).eq('status', 'done');
       }
 
       return send(
         chat_id,
-        `🎉 <b>Penawaran DEAL! Proyek &amp; Peta Berhasil Dibuat!</b>\n` +
-        `Klien: <b>${esc(quote.to_client)}</b>\n` +
-        `No Penawaran: <code>${esc(quote.quote_number)}</code>\n` +
-        `Total Nilai Proyek: <b>${rp(tot)}</b>\n` +
-        `Status: <b>Ongoing (Antrean Pasang 15%)</b>\n` +
-        `Lokasi Peta: <code>${lat.toFixed(5)}, ${lng.toFixed(5)}</code> (${geo ? 'Akurat' : 'Perkiraan Samarinda'})\n\n` +
-        `📋 <b>Checklist Teknisi Sebelum Berangkat:</b>\n` +
-        `• [ ] Kabel Coaxial/LAN tester & konektor BNC/DC/RJ45 (+5 cadangan)\n` +
-        `• [ ] Pipa conduit, klem & isolasi listrik\n` +
-        `• [ ] Tangga & peralatan bor kelistrikan\n` +
-        `• [ ] Kabel HDMI/VGA untuk tes monitor TV klien\n` +
-        `• [ ] Mouse & Adaptor unit DVR/NVR\n\n` +
-        `<i>Klik tombol di bawah jika butuh cetak Surat Jalan untuk teknisi:</i>`,
-        [
-          [{ text: '📦 Cetak Surat Jalan', data: `sj:${quote.id}` }, { text: '📄 Cetak Penawaran', data: `pdf:${quote.id}` }],
-        ]
+        `🗑️ <b>Proyek Berhasil Dihapus!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `• Klien / Proyek : <b>${esc(inst.project_name || inst.client_name)}</b>\n` +
+        `• Lokasi         : <i>${esc(inst.address_landmark || 'Samarinda')}</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>Data proyek dan pin di peta interaktif Command Center telah resmi dihapus dari sistem aplikasi.</i>`
+      );
+    }
+
+    // ---------------------------------------------------- HAPUS / BATALKAN DOKUMEN (DELETE DOCUMENT)
+    case 'delete_document': {
+      let t = (r.target_text || r.client_name || '').trim();
+      const isGeneric = !t || /^(terakhir|last|terbaru|ini|itu|nya)$/i.test(t);
+      if (isGeneric && chatContext?.client_name) {
+        t = chatContext.client_name;
+      }
+
+      if (!t || isGeneric) {
+        return send(chat_id, 'Dokumen (faktur/penawaran) atas nama siapa yang mau dihapus bro? Contoh: <i>hapus faktur Pak Yusril</i>');
+      }
+
+      const docTypePref = r.target_doc_type || 'auto';
+      const match = await findQuoteOrInvoice(t, docTypePref);
+      if (!match) {
+        return send(chat_id, `Dokumen untuk "${esc(t)}" tidak ditemukan bro. Pastikan nama klien atau nomor dokumen sesuai.`);
+      }
+
+      const doc = match.doc;
+      const isInv = match.docType === 'invoice';
+
+      if (isInv) {
+        await db.from('invoice_items').delete().eq('invoice_id', doc.id);
+        await db.from('invoices').delete().eq('id', doc.id);
+      } else {
+        await db.from('quote_items').delete().eq('quote_id', doc.id);
+        await db.from('quotes').delete().eq('id', doc.id);
+      }
+
+      return send(
+        chat_id,
+        `🗑️ <b>Dokumen Berhasil Dibatalkan &amp; Dihapus!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `• Jenis Dokumen  : <b>${isInv ? 'Faktur Tagihan Resmi' : 'Surat Penawaran Resmi'}</b>\n` +
+        `• Nomor Dokumen  : <code>${esc(doc.invoice_number || doc.quote_number)}</code>\n` +
+        `• Klien          : <b>${esc(doc.to_client)}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>Dokumen beserta rincian itemnya telah resmi dihapus permanen dari database.</i>`
       );
     }
 

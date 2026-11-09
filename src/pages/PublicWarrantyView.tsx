@@ -23,6 +23,7 @@ import {
 import { safeFormat } from '@/lib/utils';
 import { calculateWarrantyStatus, WarrantyStatusInfo } from '@/services/cctvCommandService';
 import { jsPDF } from 'jspdf';
+import { DEFAULT_OWNER_SIGNATURE } from '@/utils/signature';
 
 interface CCTVInstallation {
   id: string;
@@ -424,22 +425,12 @@ export default function PublicWarrantyView() {
       doc.setTextColor(185, 28, 28);
       doc.text('Borneo Etam CCTV & Komputer Kasir', signColX, y + 15, { align: 'center' });
 
-      // Digital Stamp
-      doc.saveGraphicsState();
-      doc.setDrawColor(190, 24, 24);
-      doc.setTextColor(190, 24, 24);
-      doc.setLineWidth(0.8);
-      doc.roundedRect(signColX - 38, y + 15, 44, 22, 5, 5, 'D');
-      doc.setLineWidth(0.3);
-      doc.roundedRect(signColX - 36.5, y + 16.5, 41, 19, 4, 4, 'D');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      doc.text('BORNEO ETAM CCTV', signColX - 16, y + 22.2, { align: 'center' });
-      doc.setFontSize(6.2);
-      doc.text('★ SAMARINDA ★', signColX - 16, y + 26.2, { align: 'center' });
-      doc.setFontSize(6.8);
-      doc.text('DOKUMEN RESMI SAH', signColX - 16, y + 31.2, { align: 'center' });
-      doc.restoreGraphicsState();
+      // Tanda Tangan Digital Resmi Mas Wahyu dari Aplikasi (TANPA STEMPEL)
+      try {
+        doc.addImage(DEFAULT_OWNER_SIGNATURE, 'PNG', signColX - 14, y + 17, 28, 17.5);
+      } catch (e) {
+        console.warn('Failed to add official signature:', e);
+      }
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.8);
