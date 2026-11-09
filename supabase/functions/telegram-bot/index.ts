@@ -4814,8 +4814,22 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
   return saveInstallationPhoto(chat_id, bytes, cap, chatContext, analysis?.caption_summary);
 }
 
-// ------------------------------------------------------------------ webhook
+// ------------------------------------------------------------------ webhook & hybrid failover gateway
 Deno.serve(async (req) => {
+  if (req.method === 'GET') {
+    const homeLabUrl = (env('BORNEO_HOMELAB_URL') || '').trim().replace(/\/$/, '');
+    return new Response(JSON.stringify({
+      status: 'ok',
+      service: 'Borneo Etam AI Command Center Gateway',
+      region: 'Singapore Cloud (SIN)',
+      mode: homeLabUrl ? 'Hybrid Gateway (Failover Ready)' : 'Cloud Native',
+      homelab_configured: Boolean(homeLabUrl),
+      timestamp: new Date().toISOString(),
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   if (req.method !== 'POST') return new Response('ok');
   if (!WEBHOOK_SECRET || req.headers.get('x-telegram-bot-api-secret-token') !== WEBHOOK_SECRET) {
     return new Response('forbidden', { status: 401 });
@@ -4825,6 +4839,40 @@ Deno.serve(async (req) => {
 
   const from = update.message?.from?.id ?? update.callback_query?.from?.id;
   if (!ALLOWED_ID || from !== ALLOWED_ID) return new Response('ok');
+
+  // ------------------------------------------------------------------ HYBRID FAILOVER GATEWAY
+  // Jika Borneo Home Lab Server diset di secret BORNEO_HOMELAB_URL:
+  // Coba teruskan update ke server Home Lab kantor. Jika server mati lampu / timeout 1.8s,
+  // seketika otomatis failover dieksekusi secara mandiri oleh Supabase Cloud!
+  const homeLabUrl = (env('BORNEO_HOMELAB_URL') || '').trim().replace(/\/$/, '');
+  const isFromHomeLab = req.headers.get('x-borneo-source') === 'homelab';
+
+  if (homeLabUrl && !isFromHomeLab) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1800); // 1.8 detik maks
+      const res = await fetch(`${homeLabUrl}/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-bot-api-secret-token': WEBHOOK_SECRET,
+          'x-borneo-gateway': 'supabase-cloud',
+        },
+        body: JSON.stringify(update),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (res.ok) {
+        console.log('[GATEWAY] Successfully processed by Borneo Home Lab Server!');
+        return new Response('ok');
+      } else {
+        console.warn(`[GATEWAY-FAILOVER] Home Lab returned status ${res.status}. Falling back to Supabase Cloud!`);
+      }
+    } catch (err: any) {
+      console.warn(`[GATEWAY-FAILOVER] Home Lab unreachable (${err.name || err.message}). Instant fallback to Supabase Cloud!`);
+    }
+  }
 
   const processUpdate = async () => {
     const chat_id = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
