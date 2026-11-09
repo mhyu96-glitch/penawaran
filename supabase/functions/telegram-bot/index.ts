@@ -29,11 +29,11 @@ const initialModel = (rawModel && !/1\.5|2\.5-pro|1\.0|2\.0/.test(rawModel)) ? r
 const CANDIDATE_MODELS = [
   initialModel,
   'gemini-2.5-flash',
+  'gemini-2.0-flash',
   'gemini-flash-latest',
   'gemini-flash-lite-latest',
-  'gemini-3.1-pro-preview',
   'gemini-2.5-flash-lite',
-  'gemini-3.5-flash',
+  'gemini-3.1-pro-preview',
 ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
@@ -206,9 +206,9 @@ function parseProjectIntentText(raw: string) {
     text = text.replace(mapsMatch[0], '').trim();
   }
 
-  // 2. Pisahkan nama klien dan alamat berdasarkan keyword pemisah
-  // Contoh: "yusril alamat nya https://...", "pak yusuf jl pramuka", "pt jaya di pergudangan"
-  const splitMatch = text.match(/^(.*?)\s*(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s+alamat|di|jl\.?|jalan)\s*[:=]?\s*(.*)$/i);
+  // 2. Pisahkan nama klien dan alamat berdasarkan keyword pemisah dengan WORD BOUNDARY
+  // Hindari 'di' cocok di tengah nama seperti 'Sahabuddin' atau 'Budi'!
+  const splitMatch = text.match(/^(.*?)\s*(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s+alamat|\bdi\b|\bjl\.?|\bjalan\b)\s*[:=]?\s*(.*)$/i);
   if (splitMatch) {
     clientName = splitMatch[1].trim();
     clientAddr = splitMatch[2].trim();
@@ -216,14 +216,18 @@ function parseProjectIntentText(raw: string) {
     clientName = text.trim();
   }
 
+  // Bersihkan nominal harga dari clientName dan clientAddr (misal: "yang nominal 8 jt")
+  clientName = stripNominalFromText(clientName);
+  clientAddr = stripNominalFromText(clientAddr);
+
   // Bersihkan kata sambung di depan nama klien
   clientName = clientName
     .replace(/^(?:untuk|atas\s*nama|nama|punya|milik|ke)\s+/i, '')
     .trim();
 
   // Jika nama klien kosong tapi ada teks asal
-  if (!clientName && text) clientName = text.trim();
-  if (!clientName && raw) clientName = raw.split(/\s+/)[0];
+  if (!clientName && text) clientName = stripNominalFromText(text).trim();
+  if (!clientName && raw) clientName = stripNominalFromText(raw).split(/\s+/)[0];
 
   // Gabungkan alamat jika ada Google Maps link
   if (mapsUrl) {
@@ -847,7 +851,8 @@ async function ensureProjectAndLinks(
   clientAddr?: string,
   explicitQuoteId?: string,
   explicitInvoiceId?: string,
-  progressPercent: number = 20
+  progressPercent: number = 20,
+  targetAmount?: number | null
 ) {
   const cleanName = cleanSearchName(clientName);
   if (!cleanName) return null;
@@ -888,8 +893,13 @@ async function ensureProjectAndLinks(
   if (exProj?.id) {
     projectId = exProj.id;
     currentBudget = Number(exProj.budget) || 0;
-    if (!exProj.client_id && clientId) {
-      await db.from('projects').update({ client_id: clientId }).eq('id', projectId);
+    const updates: any = {};
+    if (!exProj.client_id && clientId) updates.client_id = clientId;
+    if (cleanSearchName(exProj.name) === cleanName && exProj.name !== projName) {
+      updates.name = projName;
+    }
+    if (Object.keys(updates).length > 0) {
+      await db.from('projects').update(updates).eq('id', projectId);
     }
   } else {
     const { data: newProj } = await db.from('projects').insert({
@@ -907,7 +917,7 @@ async function ensureProjectAndLinks(
 
   // 3. Cari & Hubungkan Penawaran (Quotes)
   let quoteQuery = db.from('quotes')
-    .select('id, quote_number, discount_amount, quote_items(quantity, unit_price, cost_price)')
+    .select('id, quote_number, discount_amount, tax_amount, quote_items(quantity, unit_price, cost_price)')
     .eq('user_id', OWNER_ID);
 
   if (explicitQuoteId) {
@@ -918,7 +928,20 @@ async function ensureProjectAndLinks(
     quoteQuery = quoteQuery.ilike('to_client', `%${cleanName}%`);
   }
 
-  const { data: matchingQuotes } = await quoteQuery;
+  const { data: rawMatchingQuotes } = await quoteQuery;
+  let matchingQuotes = rawMatchingQuotes || [];
+  if (targetAmount && targetAmount > 0 && matchingQuotes.length > 1) {
+    const filtered = matchingQuotes.filter((q: any) => {
+      const items = q.quote_items || [];
+      const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+      const total = Math.max(0, subtotal - (Number(q.discount_amount) || 0) + (Number(q.tax_amount) || 0));
+      return Math.abs(total - targetAmount) / targetAmount <= 0.20;
+    });
+    if (filtered.length > 0) {
+      matchingQuotes = filtered;
+    }
+  }
+
   let totalQuote = 0;
   let totalHpp = 0;
   if (matchingQuotes && matchingQuotes.length > 0) {
@@ -937,7 +960,7 @@ async function ensureProjectAndLinks(
 
   // 4. Cari & Hubungkan Faktur (Invoices)
   let invoiceQuery = db.from('invoices')
-    .select('id, invoice_number, discount_amount, invoice_items(quantity, unit_price)')
+    .select('id, invoice_number, discount_amount, tax_amount, invoice_items(quantity, unit_price)')
     .eq('user_id', OWNER_ID);
 
   if (explicitInvoiceId) {
@@ -948,7 +971,25 @@ async function ensureProjectAndLinks(
     invoiceQuery = invoiceQuery.ilike('to_client', `%${cleanName}%`);
   }
 
-  const { data: matchingInvoices } = await invoiceQuery;
+  const { data: rawMatchingInvoices } = await invoiceQuery;
+  let matchingInvoices = rawMatchingInvoices || [];
+  if (targetAmount && targetAmount > 0 && matchingInvoices.length > 1) {
+    const filtered = matchingInvoices.filter((inv: any) => {
+      const items = inv.invoice_items || [];
+      const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+      const total = Math.max(0, subtotal - (Number(inv.discount_amount) || 0) + (Number(inv.tax_amount) || 0));
+      return Math.abs(total - targetAmount) / targetAmount <= 0.20;
+    });
+    if (filtered.length > 0) {
+      // Putuskan tautan faktur klien lain yang nominalnya tidak sesuai targetAmount
+      const excludedIds = matchingInvoices.filter((inv: any) => !filtered.some((f: any) => f.id === inv.id)).map((inv: any) => inv.id);
+      for (const exId of excludedIds) {
+        await db.from('invoices').update({ project_id: null }).eq('id', exId).eq('project_id', projectId);
+      }
+      matchingInvoices = filtered;
+    }
+  }
+
   let totalRevenue = 0;
   if (matchingInvoices && matchingInvoices.length > 0) {
     for (const inv of matchingInvoices) {
@@ -963,10 +1004,10 @@ async function ensureProjectAndLinks(
     }
   }
 
-  // Update budget pada proyek jika belum ada
-  const finalBudget = totalRevenue || totalQuote || currentBudget;
-  if (finalBudget > 0 && currentBudget === 0) {
-    await db.from('projects').update({ budget: finalBudget }).eq('id', projectId);
+  // Update budget pada proyek
+  const finalBudget = targetAmount || totalRevenue || totalQuote || currentBudget;
+  if (finalBudget > 0) {
+    await db.from('projects').update({ budget: finalBudget, name: projName }).eq('id', projectId);
   }
 
   // 5. Hubungkan / Sinkronisasi cctv_installations
@@ -1869,11 +1910,13 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
     const rawTarget = trimmed
       .replace(/(?:^|\s)(?:bro|deal|sepakat|disepakati|setuju|diterima|deal\s*ya|jadi\s*pasang|acc|sudah|udah|proje(?:ct|ck|k|c)|proyek|pekerjaan|penawaran|quote|faktur|invoice|pak|bu|haji|om|mas|ya|dong|oke|ok|tolong)(?:\s|$)/gi, ' ')
       .trim();
-    const target = rawTarget || chatContext?.client_name || '';
+    const targetAmount = extractTargetAmount(trimmed);
+    const target = stripNominalFromText(rawTarget) || chatContext?.client_name || '';
     r = {
       intent: 'deal_project',
       target_text: target,
       client_name: target,
+      target_amount: targetAmount,
       reply: 'Memproses kesepakatan deal proyek...',
     };
   } else if (isDeleteProject) {
@@ -1920,11 +1963,13 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   } else if (isAddProject) {
     const rawTarget = isAddProject[1] || '';
     const parsed = parseProjectIntentText(rawTarget);
+    const targetAmount = extractTargetAmount(rawTarget) || extractTargetAmount(trimmed);
     r = {
       intent: 'add_project',
       target_text: parsed.clientName || '',
       client_name: parsed.clientName || '',
       client_address: parsed.clientAddr,
+      target_amount: targetAmount,
       reply: `Membuat proyek baru untuk ${parsed.clientName || 'klien'}...`,
     };
   } else if (isLunasQuery) {
@@ -2654,14 +2699,16 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         return send(chat_id, 'Proyek / penawaran atas nama siapa yang sudah deal bro? Contoh: <i>proyek Pak Yusuf deal</i>');
       }
 
+      const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+
       // 1. Cari Penawaran (Quote)
-      let match = await findQuoteOrInvoice(t, 'quote');
+      let match = await findQuoteOrInvoice(t, 'quote', targetAmount);
       let quote: any = match?.doc;
       let invoice: any = null;
 
       // 2. Jika tidak ada quote, cari Faktur (Invoice)
       if (!quote) {
-        match = await findQuoteOrInvoice(t, 'invoice');
+        match = await findQuoteOrInvoice(t, 'invoice', targetAmount);
         if (match?.doc) {
           invoice = match.doc;
         }
@@ -2693,7 +2740,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         clientAddress,
         quote?.id,
         invoice?.id,
-        25
+        25,
+        targetAmount
       );
 
       const projectId = syncResult?.projectId || inst?.project_id || null;
@@ -2800,6 +2848,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const clientPhone = r.client_phone || '';
       const initialProgress = r.progress_percent ?? 20;
 
+      const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(clientName);
+
       // 1. Tautkan atau buat Klien, Proyek, dan cari Penawaran/Faktur terkait
       const syncResult = await ensureProjectAndLinks(
         clientName,
@@ -2807,7 +2857,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         clientAddr,
         undefined,
         undefined,
-        initialProgress
+        initialProgress,
+        targetAmount
       );
 
       const projectId = syncResult?.projectId || null;

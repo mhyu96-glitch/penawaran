@@ -96,7 +96,7 @@ const ProjectList = () => {
         .not('project_id', 'is', null),
       supabase
         .from('invoices')
-        .select('id, project_id, status, discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price)')
+        .select('id, project_id, quote_id, status, discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price)')
         .eq('user_id', user.id)
         .not('project_id', 'is', null),
       supabase
@@ -125,48 +125,54 @@ const ProjectList = () => {
         return stats[projectId];
       };
 
-      if (quotesRes.data) {
-        quotesRes.data.forEach((quote: any) => {
-          const current = ensureStats(quote.project_id);
-          if (!current) return;
-          current.quoteCount += 1;
-          current.cost += (quote.quote_items || []).reduce(
-            (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
-            0
-          );
-          if (quote.status === 'Diterima' || quote.status === 'accepted') {
-            const subtotal = (quote.quote_items || []).reduce(
-              (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.unit_price || 0),
-              0
-            );
-            const quoteTotal = calculateTotal(subtotal, quote.discount_amount || 0, quote.tax_amount || 0);
-            if (current.revenue === 0) {
-              current.revenue += quoteTotal;
-            }
-          }
-        });
-      }
+      projectRows.forEach((project) => {
+        const current = ensureStats(project.id);
+        if (!current) return;
 
-      if (invoicesRes.data) {
-        invoicesRes.data.forEach((invoice: any) => {
-          const current = ensureStats(invoice.project_id);
-          if (!current) return;
-          current.invoiceCount += 1;
-          const subtotal = calculateSubtotal(invoice.invoice_items || []);
-          const invTotal = calculateTotal(subtotal, invoice.discount_amount || 0, invoice.tax_amount || 0);
-          if (invoice.status === 'Lunas' || current.revenue === 0) {
-            current.revenue = invTotal;
-          }
-          // Jika proyek belum memiliki penawaran terdaftar (seperti faktur langsung Pak Yusril),
-          // gunakan cost_price dari invoice_items sebagai HPP proyek
-          if (current.quoteCount === 0) {
-            current.cost += (invoice.invoice_items || []).reduce(
-              (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
-              0
-            );
-          }
-        });
-      }
+        const pQuotes = (quotesRes.data || []).filter((q: any) => q.project_id === project.id);
+        const pInvoices = (invoicesRes.data || []).filter((inv: any) => inv.project_id === project.id);
+
+        current.quoteCount = pQuotes.length;
+        current.invoiceCount = pInvoices.length;
+
+        // 1. Total dari semua faktur yang diterbitkan untuk proyek ini
+        const invoicedQuoteIds = new Set(pInvoices.map((inv: any) => inv.quote_id).filter(Boolean));
+        const allInvoicesTotal = pInvoices.reduce((sum: number, inv: any) => {
+          const subtotal = calculateSubtotal(inv.invoice_items || []);
+          return sum + calculateTotal(subtotal, inv.discount_amount || 0, inv.tax_amount || 0);
+        }, 0);
+
+        // 2. Total dari penawaran yang sudah deal/diterima tapi belum ada fakturnya
+        const unInvoicedAcceptedQuotesTotal = pQuotes
+          .filter((q: any) => (q.status === 'Diterima' || q.status === 'accepted') && !invoicedQuoteIds.has(q.id))
+          .reduce((sum: number, q: any) => {
+            const subtotal = (q.quote_items || []).reduce((s: number, it: any) => s + calculateItemTotal(it.quantity, it.unit_price || 0), 0);
+            return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
+          }, 0);
+
+        const acceptedQuotesTotal = pQuotes
+          .filter((q: any) => q.status === 'Diterima' || q.status === 'accepted')
+          .reduce((sum: number, q: any) => {
+            const subtotal = (q.quote_items || []).reduce((s: number, it: any) => s + calculateItemTotal(it.quantity, it.unit_price || 0), 0);
+            return sum + calculateTotal(subtotal, q.discount_amount || 0, q.tax_amount || 0);
+          }, 0);
+
+        const combinedRevenue = allInvoicesTotal + unInvoicedAcceptedQuotesTotal;
+        current.revenue = combinedRevenue > 0
+          ? combinedRevenue
+          : (acceptedQuotesTotal > 0 ? acceptedQuotesTotal : (Number(project.budget) || 0));
+
+        // 3. Biaya HPP: prioritas dari quotes jika ada, jika tidak ada ambil dari invoice items
+        if (pQuotes.length > 0) {
+          current.cost = pQuotes.reduce((sum: number, q: any) => {
+            return sum + (q.quote_items || []).reduce((s: number, it: any) => s + calculateItemTotal(it.quantity, it.cost_price || 0), 0);
+          }, 0);
+        } else if (pInvoices.length > 0) {
+          current.cost = pInvoices.reduce((sum: number, inv: any) => {
+            return sum + (inv.invoice_items || []).reduce((s: number, it: any) => s + calculateItemTotal(it.quantity, it.cost_price || 0), 0);
+          }, 0);
+        }
+      });
 
       if (expensesRes.data) {
         expensesRes.data.forEach((expense) => {
