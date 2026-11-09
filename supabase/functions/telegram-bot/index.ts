@@ -126,8 +126,38 @@ const subtotal = (items: any[]) => items.reduce((s, i) => s + (Number(i.quantity
 function cleanSearchName(s: string): string {
   return (s || '')
     .toLowerCase()
-    .replace(/\b(pak|bpk|bapak|ibu|bu|toko|cv|pt|penawaran|faktur|minta|cetak|buatkan|buat)\b/gi, '')
+    .replace(/\b(pak|bpk|bapak|ibu|bu|toko|cv|pt|penawaran|faktur|minta|cetak|buatkan|buat|cek|lihat|tampilkan|unduh|buka)\b/gi, '')
+    .replace(/\b(yg|yang|nominal|sebesar|senilai|harga|total|nilai|nya)\b/gi, '')
     .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+function extractTargetAmount(str: string): number | null {
+  if (!str) return null;
+  // 1. Nominal dengan satuan: 8 jt, 8jt, 8 juta, 1.3 jt, 300rb, 50k
+  const withUnit = str.match(/(?:nominal|sebesar|senilai|harga|total|nilai)?\s*(?:nya)?\s*(\d+(?:[.,]\d+)?)\s*(jt|juta|rb|ribu|k)\b/i);
+  if (withUnit) {
+    let val = parseFloat(withUnit[1].replace(',', '.'));
+    const unit = withUnit[2].toLowerCase();
+    if (unit === 'jt' || unit === 'juta') val *= 1_000_000;
+    else if (unit === 'rb' || unit === 'ribu' || unit === 'k') val *= 1_000;
+    return val;
+  }
+  // 2. Angka lengkap dengan titik ribuan: 10.410.000 atau 8000000
+  const fullNum = str.match(/(?:nominal|sebesar|senilai|harga|total|nilai)?\s*(?:nya)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{5,})/i);
+  if (fullNum) {
+    let cleanNum = fullNum[1].replace(/\./g, '').replace(',', '.');
+    let val = parseFloat(cleanNum);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  return null;
+}
+
+function stripNominalFromText(str: string): string {
+  return (str || '')
+    .replace(/(?:yg|yang)?\s*(?:nominal|sebesar|senilai|harga|total|nilai)?\s*(?:nya)?\s*\d+(?:[.,]\d+)?\s*(?:jt|juta|rb|ribu|k)\b/gi, '')
+    .replace(/(?:yg|yang)?\s*(?:nominal|sebesar|senilai|harga|total|nilai)\s*(?:nya)?\s*[\d.,]+/gi, '')
+    .replace(/\b(?:yg|yang)\s*(?:nominal|sebesar|senilai|harga|total|nilai)(?:\s+nya)?\b/gi, '')
     .trim();
 }
 
@@ -205,9 +235,14 @@ function parseProjectIntentText(raw: string) {
 
 async function findQuoteOrInvoice(
   targetText: string,
-  preferredType: 'invoice' | 'quote' | 'auto' = 'auto'
+  preferredType: 'invoice' | 'quote' | 'auto' = 'auto',
+  targetAmount?: number | null
 ): Promise<{ doc: any; docType: 'invoice' | 'quote'; score?: number } | null> {
-  const raw = (targetText || '').trim();
+  const rawTarget = (targetText || '').trim();
+  const parsedAmount = (targetAmount !== undefined && targetAmount !== null && targetAmount > 0)
+    ? targetAmount
+    : extractTargetAmount(rawTarget);
+  const raw = stripNominalFromText(rawTarget);
   const clean = cleanSearchName(raw);
 
   const fetchInvoices = async () => {
@@ -270,7 +305,7 @@ async function findQuoteOrInvoice(
     }
     const { data: inst } = await db.from('cctv_installations').select('client_name, quote_id').eq('id', raw).maybeSingle();
     if (inst?.client_name) {
-      const cMatch = await findQuoteOrInvoice(inst.client_name, preferredType);
+      const cMatch = await findQuoteOrInvoice(inst.client_name, preferredType, parsedAmount);
       if (cMatch) return cMatch;
     }
   }
@@ -291,23 +326,57 @@ async function findQuoteOrInvoice(
     const client = (cand.to_client || '').toLowerCase();
     const rawLower = raw.toLowerCase();
 
-    if (cand.id && (cand.id === raw || cand.id.toLowerCase() === rawLower)) return 100;
-    if (rawLower && num.includes(rawLower)) return 100;
-    if (rawLower && client.includes(rawLower)) return 95;
-
-    const candClean = cleanSearchName(client);
-    if (clean && candClean && candClean.length >= 3 && (candClean.includes(clean) || clean.includes(candClean))) return 90;
-
-    // Special alias: saha / suha <-> sahabuddin / suhabuddin
-    if ((clean === 'saha' || clean === 'suha') && candClean && (candClean.includes('sahabuddin') || candClean.includes('suhabuddin'))) {
-      return 95;
+    let score = 0;
+    if (cand.id && (cand.id === raw || cand.id.toLowerCase() === rawLower)) score = 100;
+    else if (rawLower && num.includes(rawLower)) score = 100;
+    else if (rawLower && client.includes(rawLower)) score = 95;
+    else {
+      const candClean = cleanSearchName(client);
+      if (clean && candClean && candClean.length >= 3 && (candClean.includes(clean) || clean.includes(candClean))) {
+        score = 90;
+      } else if ((clean === 'saha' || clean === 'suha') && candClean && (candClean.includes('sahabuddin') || candClean.includes('suhabuddin'))) {
+        score = 95;
+      } else {
+        const rawSkel = getConsonantSkeleton(raw);
+        const candSkel = getConsonantSkeleton(client);
+        if (rawSkel && candSkel && candSkel.length >= 2 && rawSkel.length >= 2 && (candSkel.includes(rawSkel) || rawSkel.includes(candSkel))) {
+          score = 80;
+        }
+      }
     }
 
-    const rawSkel = getConsonantSkeleton(raw);
-    const candSkel = getConsonantSkeleton(client);
-    if (rawSkel && candSkel && candSkel.length >= 2 && rawSkel.length >= 2 && (candSkel.includes(rawSkel) || rawSkel.includes(candSkel))) return 80;
+    if (score === 0) return 0;
 
-    return 0;
+    // Hitung total nilai dokumen
+    const items = (cand.invoice_items || cand.quote_items || []);
+    const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+    const docTotal = Math.max(0, subtotal - (Number(cand.discount_amount) || 0) + (Number(cand.tax_amount) || 0));
+
+    // A. Evaluasi Nominal jika user menyebutkan target nominal
+    if (parsedAmount && parsedAmount > 0) {
+      const diffRatio = Math.abs(docTotal - parsedAmount) / parsedAmount;
+      if (diffRatio <= 0.05) {
+        score += 60; // Sangat cocok (< 5% selisih, misal 8.015.000 vs 8.000.000)
+      } else if (diffRatio <= 0.15) {
+        score += 35; // Cukup cocok (< 15% selisih)
+      } else {
+        score -= 50; // Beda jauh nominalnya (misal 1.300.000 vs 8.000.000)
+      }
+    }
+
+    // B. Preferensi Status & Kelengkapan Dokumen
+    const isDraftQuery = /draf|draft/i.test(rawTarget);
+    if (!isDraftQuery) {
+      if (cand.status === 'Lunas') score += 8;
+      else if (cand.status === 'Terkirim' || cand.status === 'Diterima') score += 5;
+      else if (cand.status === 'Draf') score -= 5;
+    } else {
+      if (cand.status === 'Draf') score += 15;
+    }
+
+    if (items.length >= 3) score += 2;
+
+    return score;
   };
 
   const evaluatePool = (pool: any[], numField: string, type: 'invoice' | 'quote') => {
@@ -491,6 +560,7 @@ const SCHEMA = {
     payment_amount: { type: 'NUMBER', nullable: true },
     is_paid_off: { type: 'BOOLEAN', nullable: true },
     target_text: { type: 'STRING', nullable: true },
+    target_amount: { type: 'NUMBER', nullable: true },
     project_name: { type: 'STRING', nullable: true },
     service_type: { type: 'STRING', enum: ['CCTV', 'POS', 'BUNDLING'], nullable: true },
     progress: { type: 'INTEGER', nullable: true },
@@ -606,8 +676,8 @@ PANDUAN INTENT & ALUR KERJA:
    - Ekstrak: target_text (nama klien / nomor faktur), payment_amount (jika ada nominal yang dibayar), is_paid_off (true jika dikatakan 'lunas' atau 'full').
 13. unpaid_invoices: Mas Wahyu ingin mengecek daftar tagihan yang belum lunas / rekap piutang konsumen (misal: "rekap piutang", "siapa yang belum lunas", "cek tagihan belum lunas", "daftar piutang bulan ini", "tagihan berjalan").
 14. monthly_summary: Tanya rekap performa keuangan bulanan (misal: "rekap performa bulan ini bro", "laporan bulan ini").
-15. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
-   - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran).
+15. get_pdf: Mas Wahyu minta cetak/kirim file PDF penawaran atau faktur yang sudah ada (misal: "minta faktur pak suhabuddin", "cek faktur pak Sahabuddin yg nominal nya 8 jt", "cetak faktur pak suhabuddin", "minta penawaran pak hendra", "kirim pdf faktur BST", "minta faktur terakhir").
+   - Ekstrak: target_text (nama klien / nomor dokumen), target_doc_type ('invoice' jika faktur, 'quote' jika penawaran), target_amount (jika ada nominal yang dicari, misal "8 jt" -> 8000000, "1.3 jt" -> 1300000).
 16. get_receipt: Mas Wahyu minta Kwitansi Pembayaran resmi / bukti bayar PDF (misal: "minta kwitansi pak yusuf", "cetak kwitansi pak suhabuddin", "kwitansi pelunasan pak yusuf", "buatkan kwitansi dp pak sahabuddin 2jt").
    - Ekstrak: target_text (nama klien / nomor faktur), payment_amount (jika ada nominal yang dibayar).
 17. share_location: Teknisi atau Mas Wahyu minta lokasi proyek atau rute GPS Google Maps lapangan (misal: "lokasi proyek pak suhabuddin", "share lokasi pak yusuf", "kirim koordinat teknisi pak suhabuddin", "rute pasang pak yusuf", "lokasi pasang pak sahabuddin").
@@ -1896,19 +1966,25 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       reply: 'Menyiapkan kartu garansi...',
     };
   } else if (isInvoiceQuery && !/(?:modal|jual)\s*[:=]?\s*\d+/i.test(trimmed)) {
-    const target = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const rawTarget = isInvoiceQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const targetAmount = extractTargetAmount(trimmed);
+    const target = stripNominalFromText(rawTarget);
     r = {
       intent: 'get_pdf',
       target_doc_type: 'invoice',
       target_text: target || chatContext?.client_name || 'terakhir',
+      target_amount: targetAmount,
       reply: 'Mencari dokumen faktur...',
     };
   } else if (isQuoteQuery && !/(?:modal|jual)\s*[:=]?\s*\d+/i.test(trimmed)) {
-    const target = isQuoteQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const rawTarget = isQuoteQuery[1]?.replace(/^(?:untuk|atas nama|nama|punya|milik|ke|pak)\s+/i, '').trim();
+    const targetAmount = extractTargetAmount(trimmed);
+    const target = stripNominalFromText(rawTarget);
     r = {
       intent: 'get_pdf',
       target_doc_type: 'quote',
       target_text: target || chatContext?.client_name || 'terakhir',
+      target_amount: targetAmount,
       reply: 'Mencari dokumen penawaran...',
     };
   } else if (!isCreateIntent && isUnpaidQuery) {
@@ -3213,7 +3289,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (isGeneric && chatContext?.client_name) {
         t = chatContext.client_name;
       }
-      const match = await findQuoteOrInvoice(t, 'auto');
+      const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+      const match = await findQuoteOrInvoice(t, 'auto', targetAmount);
       const doc = match?.doc;
       if (!doc) return send(chat_id, `Data penawaran/faktur untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan nama kliennya sesuai ya (contoh: <i>surat jalan Pak Sahabuddin</i>).`);
 
@@ -3251,7 +3328,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (isGeneric && chatContext?.client_name) {
         t = chatContext.client_name;
       }
-      const match = await findQuoteOrInvoice(t, 'auto');
+      const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+      const match = await findQuoteOrInvoice(t, 'auto', targetAmount);
       const doc = match?.doc;
       if (!doc) return send(chat_id, `Data proyek/dokumen untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan penawaran/faktur klien sudah dibuat ya (contoh: <i>cetak BAST Pak Sahabuddin</i>).`);
 
@@ -3305,7 +3383,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       let docType: 'invoice' | 'quote' = 'quote';
 
       if (!inst && t) {
-        const match = await findQuoteOrInvoice(t, 'auto');
+        const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+      const match = await findQuoteOrInvoice(t, 'auto', targetAmount);
         if (match) {
           docObj = match.doc;
           docType = match.docType;
@@ -3523,7 +3602,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         }
       }
 
-      const match = await findQuoteOrInvoice(t, 'invoice');
+      const targetAmount = r.payment_amount || r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+      const match = await findQuoteOrInvoice(t, 'invoice', targetAmount);
       if (!match) {
         return send(
           chat_id,
@@ -3911,8 +3991,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const wantInvoice = r.target_doc_type === 'invoice' || /faktur|inv|tagihan/i.test(text);
       const wantQuote = r.target_doc_type === 'quote' || /penawaran|quote|quo/i.test(text);
       const prefType = wantInvoice && !wantQuote ? 'invoice' : wantQuote && !wantInvoice ? 'quote' : 'auto';
+      const targetAmount = r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
 
-      const match = await findQuoteOrInvoice(t, prefType);
+      const match = await findQuoteOrInvoice(t, prefType, targetAmount);
       if (!match) {
         return send(
           chat_id,
@@ -3970,7 +4051,8 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (isGeneric && chatContext?.client_name) {
         t = chatContext.client_name;
       }
-      const match = await findQuoteOrInvoice(t, 'invoice');
+      const targetAmount = r.payment_amount || r.target_amount || extractTargetAmount(text) || extractTargetAmount(t);
+      const match = await findQuoteOrInvoice(t, 'invoice', targetAmount);
       const inv: any = match?.doc;
 
       if (!inv) {
