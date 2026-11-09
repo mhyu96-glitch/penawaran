@@ -207,8 +207,8 @@ function parseProjectIntentText(raw: string) {
   }
 
   // 2. Pisahkan nama klien dan alamat berdasarkan keyword pemisah dengan WORD BOUNDARY
-  // Hindari 'di' cocok di tengah nama seperti 'Sahabuddin' atau 'Budi'!
-  const splitMatch = text.match(/^(.*?)\s*(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s+alamat|\bdi\b|\bjl\.?|\bjalan\b)\s*[:=]?\s*(.*)$/i);
+  // Hindari 'di' cocok di tengah nama seperti 'Sahabuddin' atau 'Budi', dan abaikan frasa seperti 'di faktur' / 'di invoice'
+  const splitMatch = text.match(/^(.*?)\s*(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s+alamat|\bdi\b(?!\s+(?:faktur|invoice|penawaran|quote|kwitansi|kuitansi|bast|surat\s*jalan|wa|chat))|\bjl\.?|\bjalan\b)\s*[:=]?\s*(.*)$/i);
   if (splitMatch) {
     clientName = splitMatch[1].trim();
     clientAddr = splitMatch[2].trim();
@@ -216,7 +216,8 @@ function parseProjectIntentText(raw: string) {
     clientName = text.trim();
   }
 
-  // Bersihkan nominal harga dari clientName dan clientAddr (misal: "yang nominal 8 jt")
+  // Bersihkan akhiran frasa dokumen dari nama klien (misal: "di faktur", "nominal 8 jt")
+  clientName = clientName.replace(/\s*(?:di\s+)?(?:faktur|invoice|penawaran|quote)\s*$/i, '');
   clientName = stripNominalFromText(clientName);
   clientAddr = stripNominalFromText(clientAddr);
 
@@ -471,7 +472,47 @@ async function findInstallation(targetText: string): Promise<any | null> {
     }
   }
 
-  return bestScore >= 70 ? bestInst : null; // NEVER return list[0]
+  if (bestScore >= 70 && bestInst) return bestInst;
+
+  // Fallback cerdas: Jika instalasi belum ada di cctv_installations, cari di tabel projects
+  if (clean || raw) {
+    const { data: proj } = await db
+      .from('projects')
+      .select('id, name, client_id, budget, clients(*)')
+      .eq('user_id', OWNER_ID)
+      .or(`name.ilike.%${clean}%,name.ilike.%${raw}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (proj) {
+      const cName = proj.clients?.name || proj.name.replace(/^proyek\s+/i, '');
+      const cAddr = proj.clients?.address || 'Samarinda, Kalimantan Timur';
+      const cPhone = proj.clients?.phone || '';
+      const geo = await geocode(cAddr, 'Samarinda');
+      const { data: recoveredInst } = await db.from('cctv_installations').insert({
+        user_id: OWNER_ID,
+        project_id: proj.id,
+        client_id: proj.client_id,
+        project_name: proj.name,
+        public_display_name: `Instalasi CCTV - ${cName}`,
+        client_name: cName,
+        client_phone: cPhone,
+        address_landmark: cAddr,
+        service_type: 'CCTV',
+        city: 'Samarinda',
+        latitude: geo ? geo.lat : -0.502106,
+        longitude: geo ? geo.lng : 117.153709,
+        progress: 100,
+        is_public_portfolio: true,
+        notes: 'Dipulihkan otomatis dari tabel projects',
+        photos: [],
+      }).select('*').single();
+
+      if (recoveredInst) return recoveredInst;
+    }
+  }
+
+  return null;
 }
 
 // ------------------------------------------------------------------ Gemini Schema & AI Core
@@ -1905,8 +1946,24 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const isProjectQuery = /^(?:bro\s+)?(?:cek|lihat|buka|info|detail|status|daftar)\s+(?:semua\s+)?(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua|untuk|ke|milik|pak))?(?:\s+(.*))?$/i.exec(trimmed) ||
                          /^(?:bro\s+)?(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)(?:\s+(?:ini|itu|kita|berjalan|aktif|semua))$/i.exec(trimmed);
   const isLocationQuery = /^(?:bro\s+)?(?:share\s+lokasi|lokasi|posisi|maps?|gps|rute)(?:\s+(?:proyek|project|projeck|pak|ke|untuk))?(?:\s+(.*))?$/i.exec(trimmed);
+  const mapsMatch = trimmed.match(/(https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|maps\.google\.com)\/[^\s]+)/i);
+  const isAddressQuery = Boolean(mapsMatch) || /^(?:bro\s+)?(?:alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?)\s*(?:di\s*sini|ini|berikut)?/i.test(trimmed) || /(?:alamat|lokasi)\s*(?:di\s*sini|ini)/i.test(trimmed);
 
-  if (isDeal) {
+  if (isAddressQuery && (chatContext?.client_name || chatContext?.doc_id)) {
+    const rawTarget = trimmed
+      .replace(/(https?:\/\/[^\s]+)/gi, '')
+      .replace(/(?:^|\s)(?:bro|alamat(?:[ -]?nya)?|lokasi(?:[ -]?nya)?|di\s*sini|ini|berikut|proje(?:ct|ck|k|c)|proyek|pekerjaan|pak|bu|mas|ya|tolong)(?:\s|$)/gi, ' ')
+      .trim();
+    const target = rawTarget || chatContext?.client_name || '';
+    const mapsUrl = mapsMatch ? mapsMatch[1] : '';
+    r = {
+      intent: 'edit_project',
+      target_text: target,
+      client_name: target,
+      client_address: mapsUrl || trimmed,
+      reply: 'Memperbarui lokasi GPS proyek...',
+    };
+  } else if (isDeal) {
     const rawTarget = trimmed
       .replace(/(?:^|\s)(?:bro|deal|sepakat|disepakati|setuju|diterima|deal\s*ya|jadi\s*pasang|acc|sudah|udah|proje(?:ct|ck|k|c)|proyek|pekerjaan|penawaran|quote|faktur|invoice|pak|bu|haji|om|mas|ya|dong|oke|ok|tolong)(?:\s|$)/gi, ' ')
       .trim();
@@ -2940,6 +2997,9 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         if (geo) {
           updates.latitude = geo.lat;
           updates.longitude = geo.lng;
+        }
+        if (inst.client_id) {
+          await db.from('clients').update({ address: r.client_address }).eq('id', inst.client_id);
         }
         changedLog.push(`• Alamat lokasi : <i>${esc(r.client_address)}</i>`);
       }
