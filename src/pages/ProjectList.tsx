@@ -91,12 +91,14 @@ const ProjectList = () => {
         .order('created_at', { ascending: false }),
       supabase
         .from('quotes')
-        .select('id, project_id, client_id, to_client, status, discount_amount, tax_amount, quote_items(quantity, unit_price, cost_price)')
-        .eq('user_id', user.id),
+        .select('id, project_id, status, discount_amount, tax_amount, quote_items(quantity, unit_price, cost_price)')
+        .eq('user_id', user.id)
+        .not('project_id', 'is', null),
       supabase
         .from('invoices')
-        .select('id, project_id, quote_id, client_id, to_client, status, discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price)')
-        .eq('user_id', user.id),
+        .select('id, project_id, status, discount_amount, tax_amount, invoice_items(quantity, unit_price, cost_price)')
+        .eq('user_id', user.id)
+        .not('project_id', 'is', null),
       supabase
         .from('expenses')
         .select('id, project_id, amount')
@@ -123,48 +125,9 @@ const ProjectList = () => {
         return stats[projectId];
       };
 
-      // Helper pencocokan cerdas jika quote / invoice belum memiliki project_id
-      const findMatchingProjectId = (
-        explicitProjectId: string | null,
-        clientId: string | null,
-        clientNameText: string | null
-      ): string | null => {
-        if (explicitProjectId) return explicitProjectId;
-        if (!projectRows || projectRows.length === 0) return null;
-
-        // 1. Cocokkan berdasarkan client_id
-        if (clientId) {
-          const matchByClient = projectRows.find(p => p.client_id === clientId);
-          if (matchByClient) return matchByClient.id;
-        }
-
-        // 2. Cocokkan berdasarkan nama klien di judul proyek
-        if (clientNameText) {
-          const cleanClient = clientNameText.toLowerCase().replace(/^(pak|bu|bapak|ibu|pt|cv|toko)\s+/i, '').trim();
-          if (cleanClient.length >= 3) {
-            const matchByName = projectRows.find(p => {
-              const pName = (p.name || '').toLowerCase();
-              return pName.includes(cleanClient) || cleanClient.includes(pName.replace(/^proyek\s+/i, '').trim());
-            });
-            if (matchByName) return matchByName.id;
-          }
-        }
-
-        return null;
-      };
-
       if (quotesRes.data) {
         quotesRes.data.forEach((quote: any) => {
-          const targetProjId = findMatchingProjectId(quote.project_id, quote.client_id, quote.to_client);
-          if (!targetProjId) return;
-
-          // Hubungkan nama klien jika proyek masih "Tanpa klien"
-          const targetProj = projectRows.find(p => p.id === targetProjId);
-          if (targetProj && !targetProj.clients && (quote.to_client || quote.client_id)) {
-            targetProj.clients = { name: quote.to_client || 'Klien' };
-          }
-
-          const current = ensureStats(targetProjId);
+          const current = ensureStats(quote.project_id);
           if (!current) return;
           current.quoteCount += 1;
           current.cost += (quote.quote_items || []).reduce(
@@ -186,16 +149,7 @@ const ProjectList = () => {
 
       if (invoicesRes.data) {
         invoicesRes.data.forEach((invoice: any) => {
-          const targetProjId = findMatchingProjectId(invoice.project_id, invoice.client_id, invoice.to_client);
-          if (!targetProjId) return;
-
-          // Hubungkan nama klien jika proyek masih "Tanpa klien"
-          const targetProj = projectRows.find(p => p.id === targetProjId);
-          if (targetProj && !targetProj.clients && (invoice.to_client || invoice.client_id)) {
-            targetProj.clients = { name: invoice.to_client || 'Klien' };
-          }
-
-          const current = ensureStats(targetProjId);
+          const current = ensureStats(invoice.project_id);
           if (!current) return;
           current.invoiceCount += 1;
           const subtotal = calculateSubtotal(invoice.invoice_items || []);
@@ -203,8 +157,8 @@ const ProjectList = () => {
           if (invoice.status === 'Lunas' || current.revenue === 0) {
             current.revenue = invTotal;
           }
-          // Jika proyek belum memiliki penawaran (seperti faktur langsung Pak Yusril),
-          // gunakan cost_price invoice_items sebagai HPP
+          // Jika proyek belum memiliki penawaran terdaftar (seperti faktur langsung Pak Yusril),
+          // gunakan cost_price dari invoice_items sebagai HPP proyek
           if (current.quoteCount === 0) {
             current.cost += (invoice.invoice_items || []).reduce(
               (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
