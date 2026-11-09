@@ -86,14 +86,12 @@ const ProjectList = () => {
         .order('created_at', { ascending: false }),
       supabase
         .from('quotes')
-        .select('id, project_id, status, discount_amount, tax_amount, quote_items(quantity, unit_price, cost_price)')
-        .eq('user_id', user.id)
-        .not('project_id', 'is', null),
+        .select('id, project_id, client_id, to_client, status, discount_amount, tax_amount, quote_items(quantity, unit_price, cost_price)')
+        .eq('user_id', user.id),
       supabase
         .from('invoices')
-        .select('id, project_id, status, discount_amount, tax_amount, invoice_items(quantity, unit_price)')
-        .eq('user_id', user.id)
-        .not('project_id', 'is', null),
+        .select('id, project_id, quote_id, client_id, to_client, status, discount_amount, tax_amount, invoice_items(quantity, unit_price)')
+        .eq('user_id', user.id),
       supabase
         .from('expenses')
         .select('id, project_id, amount')
@@ -120,18 +118,65 @@ const ProjectList = () => {
         return stats[projectId];
       };
 
+      // Helper pencocokan cerdas jika quote / invoice belum memiliki project_id
+      const findMatchingProjectId = (
+        explicitProjectId: string | null,
+        clientId: string | null,
+        clientNameText: string | null
+      ): string | null => {
+        if (explicitProjectId && stats[explicitProjectId]) return explicitProjectId;
+        if (!projectRows || projectRows.length === 0) return null;
+
+        // 1. Cocokkan berdasarkan client_id
+        if (clientId) {
+          const matchByClient = projectRows.find(p => p.client_id === clientId);
+          if (matchByClient) return matchByClient.id;
+        }
+
+        // 2. Cocokkan berdasarkan nama klien di judul proyek
+        if (clientNameText) {
+          const cleanClient = clientNameText.toLowerCase().replace(/^(pak|bu|bapak|ibu|pt|cv|toko)\s+/i, '').trim();
+          if (cleanClient.length >= 3) {
+            const matchByName = projectRows.find(p => {
+              const pName = (p.name || '').toLowerCase();
+              return pName.includes(cleanClient) || cleanClient.includes(pName.replace(/^proyek\s+/i, '').trim());
+            });
+            if (matchByName) return matchByName.id;
+          }
+        }
+
+        return null;
+      };
+
       if (quotesRes.data) {
-        quotesRes.data.forEach((quote) => {
-          const current = ensureStats(quote.project_id);
+        quotesRes.data.forEach((quote: any) => {
+          const targetProjId = findMatchingProjectId(quote.project_id, quote.client_id, quote.to_client);
+          if (!targetProjId) return;
+
+          // Auto-link di database jika belum tertaut
+          if (!quote.project_id) {
+            supabase.from('quotes').update({ project_id: targetProjId }).eq('id', quote.id).then(() => {});
+          }
+
+          // Hubungkan nama klien jika proyek masih "Tanpa klien"
+          const targetProj = projectRows.find(p => p.id === targetProjId);
+          if (targetProj && !targetProj.clients && (quote.to_client || quote.client_id)) {
+            targetProj.clients = { name: quote.to_client || 'Klien' };
+            if (quote.client_id && !targetProj.client_id) {
+              supabase.from('projects').update({ client_id: quote.client_id }).eq('id', targetProjId).then(() => {});
+            }
+          }
+
+          const current = ensureStats(targetProjId);
           if (!current) return;
           current.quoteCount += 1;
           current.cost += (quote.quote_items || []).reduce(
-            (sum, item) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
+            (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.cost_price || 0),
             0
           );
           if (quote.status === 'Diterima' || quote.status === 'accepted') {
             const subtotal = (quote.quote_items || []).reduce(
-              (sum, item) => sum + calculateItemTotal(item.quantity, item.unit_price || 0),
+              (sum: number, item: any) => sum + calculateItemTotal(item.quantity, item.unit_price || 0),
               0
             );
             const quoteTotal = calculateTotal(subtotal, quote.discount_amount || 0, quote.tax_amount || 0);
@@ -143,8 +188,25 @@ const ProjectList = () => {
       }
 
       if (invoicesRes.data) {
-        invoicesRes.data.forEach((invoice) => {
-          const current = ensureStats(invoice.project_id);
+        invoicesRes.data.forEach((invoice: any) => {
+          const targetProjId = findMatchingProjectId(invoice.project_id, invoice.client_id, invoice.to_client);
+          if (!targetProjId) return;
+
+          // Auto-link di database jika belum tertaut
+          if (!invoice.project_id) {
+            supabase.from('invoices').update({ project_id: targetProjId }).eq('id', invoice.id).then(() => {});
+          }
+
+          // Hubungkan nama klien jika proyek masih "Tanpa klien"
+          const targetProj = projectRows.find(p => p.id === targetProjId);
+          if (targetProj && !targetProj.clients && (invoice.to_client || invoice.client_id)) {
+            targetProj.clients = { name: invoice.to_client || 'Klien' };
+            if (invoice.client_id && !targetProj.client_id) {
+              supabase.from('projects').update({ client_id: invoice.client_id }).eq('id', targetProjId).then(() => {});
+            }
+          }
+
+          const current = ensureStats(targetProjId);
           if (!current) return;
           current.invoiceCount += 1;
           const subtotal = calculateSubtotal(invoice.invoice_items || []);

@@ -692,6 +692,211 @@ async function setChatContext(chat_id: number, payload: { client_name?: string; 
   }
 }
 
+// ------------------------------------------------------------------ OTOMATIS TAUTKAN KLIEN, PROYEK, FAKTUR, PENAWARAN & LABA
+async function ensureProjectAndLinks(
+  clientName: string,
+  clientPhone?: string,
+  clientAddr?: string,
+  explicitQuoteId?: string,
+  explicitInvoiceId?: string,
+  progressPercent: number = 20
+) {
+  const cleanName = cleanSearchName(clientName);
+  if (!cleanName) return null;
+
+  // 1. Cari atau buat Klien di tabel clients
+  let clientId: string | null = null;
+  const { data: exClient } = await db.from('clients')
+    .select('id, name')
+    .eq('user_id', OWNER_ID)
+    .ilike('name', `%${cleanName}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (exClient?.id) {
+    clientId = exClient.id;
+  } else {
+    const { data: newClient } = await db.from('clients').insert({
+      user_id: OWNER_ID,
+      name: clientName,
+      phone: clientPhone || '',
+      address: clientAddr || 'Samarinda, Kalimantan Timur',
+    }).select('id').maybeSingle();
+    clientId = newClient?.id || null;
+  }
+
+  // 2. Cari atau buat Proyek di tabel projects
+  const projName = `Proyek ${clientName}`;
+  let projectId: string | null = null;
+  let currentBudget = 0;
+
+  const { data: exProj } = await db.from('projects')
+    .select('id, name, client_id, budget')
+    .eq('user_id', OWNER_ID)
+    .or(`name.ilike.%${cleanName}%,client_id.eq.${clientId || '00000000-0000-0000-0000-000000000000'}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (exProj?.id) {
+    projectId = exProj.id;
+    currentBudget = Number(exProj.budget) || 0;
+    if (!exProj.client_id && clientId) {
+      await db.from('projects').update({ client_id: clientId }).eq('id', projectId);
+    }
+  } else {
+    const { data: newProj } = await db.from('projects').insert({
+      user_id: OWNER_ID,
+      name: projName,
+      client_id: clientId,
+      status: 'Ongoing',
+      description: `Instalasi CCTV ${clientName}`,
+      budget: 0,
+    }).select('id').maybeSingle();
+    projectId = newProj?.id || null;
+  }
+
+  if (!projectId) return null;
+
+  // 3. Cari & Hubungkan Penawaran (Quotes)
+  let quoteQuery = db.from('quotes')
+    .select('id, quote_number, discount_amount, quote_items(quantity, unit_price, cost_price)')
+    .eq('user_id', OWNER_ID);
+
+  if (explicitQuoteId) {
+    quoteQuery = quoteQuery.or(`id.eq.${explicitQuoteId},to_client.ilike.%${cleanName}%`);
+  } else if (clientId) {
+    quoteQuery = quoteQuery.or(`client_id.eq.${clientId},to_client.ilike.%${cleanName}%`);
+  } else {
+    quoteQuery = quoteQuery.ilike('to_client', `%${cleanName}%`);
+  }
+
+  const { data: matchingQuotes } = await quoteQuery;
+  let totalQuote = 0;
+  let totalHpp = 0;
+  if (matchingQuotes && matchingQuotes.length > 0) {
+    for (const q of matchingQuotes) {
+      await db.from('quotes').update({
+        project_id: projectId,
+        client_id: clientId || undefined,
+      }).eq('id', q.id);
+
+      const items = q.quote_items || [];
+      const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+      totalQuote += Math.max(0, subtotal - (Number(q.discount_amount) || 0));
+      totalHpp += items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.cost_price) || 0), 0);
+    }
+  }
+
+  // 4. Cari & Hubungkan Faktur (Invoices)
+  let invoiceQuery = db.from('invoices')
+    .select('id, invoice_number, discount_amount, invoice_items(quantity, unit_price)')
+    .eq('user_id', OWNER_ID);
+
+  if (explicitInvoiceId) {
+    invoiceQuery = invoiceQuery.or(`id.eq.${explicitInvoiceId},to_client.ilike.%${cleanName}%`);
+  } else if (clientId) {
+    invoiceQuery = invoiceQuery.or(`client_id.eq.${clientId},to_client.ilike.%${cleanName}%`);
+  } else {
+    invoiceQuery = invoiceQuery.ilike('to_client', `%${cleanName}%`);
+  }
+
+  const { data: matchingInvoices } = await invoiceQuery;
+  let totalRevenue = 0;
+  if (matchingInvoices && matchingInvoices.length > 0) {
+    for (const inv of matchingInvoices) {
+      await db.from('invoices').update({
+        project_id: projectId,
+        client_id: clientId || undefined,
+      }).eq('id', inv.id);
+
+      const items = inv.invoice_items || [];
+      const subtotal = items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0);
+      totalRevenue += Math.max(0, subtotal - (Number(inv.discount_amount) || 0));
+    }
+  }
+
+  // Update budget pada proyek jika belum ada
+  const finalBudget = totalRevenue || totalQuote || currentBudget;
+  if (finalBudget > 0 && currentBudget === 0) {
+    await db.from('projects').update({ budget: finalBudget }).eq('id', projectId);
+  }
+
+  // 5. Hubungkan / Sinkronisasi cctv_installations
+  const primaryQuoteId = matchingQuotes?.[0]?.id || null;
+  const { data: existingInst } = await db.from('cctv_installations')
+    .select('id, progress')
+    .eq('user_id', OWNER_ID)
+    .or(`project_id.eq.${projectId},client_name.ilike.%${cleanName}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingInst?.id) {
+    await db.from('cctv_installations').update({
+      project_id: projectId,
+      client_id: clientId || undefined,
+      quote_id: primaryQuoteId || undefined,
+    }).eq('id', existingInst.id);
+  }
+
+  // 6. Milestone Tasks Otomatis (project_tasks)
+  const { data: existingTasks } = await db.from('project_tasks')
+    .select('id')
+    .eq('project_id', projectId);
+
+  if (!existingTasks || existingTasks.length === 0) {
+    const pVal = existingInst?.progress ?? progressPercent;
+    const defaultTasks = [
+      { name: 'Survei Lokasi & Penentuan Titik Kamera', completed: pVal >= 20 },
+      { name: 'Penarikan Kabel & Instalasi Jalur Pipa', completed: pVal >= 40 },
+      { name: 'Pemasangan Kamera, NVR, & Setting HDD', completed: pVal >= 60 },
+      { name: 'Uji Coba Online / Monitoring HP Konsumen', completed: pVal >= 80 },
+      { name: 'Serah Terima Pekerjaan (BAST) & Garansi', completed: pVal >= 100 },
+    ];
+
+    for (const t of defaultTasks) {
+      await db.from('project_tasks').insert({
+        user_id: OWNER_ID,
+        project_id: projectId,
+        name: t.name,
+        is_completed: t.completed,
+      });
+    }
+  }
+
+  return {
+    projectId,
+    clientId,
+    quoteCount: matchingQuotes?.length || 0,
+    invoiceCount: matchingInvoices?.length || 0,
+    revenue: totalRevenue || totalQuote,
+    cost: totalHpp,
+    profit: (totalRevenue || totalQuote) - totalHpp,
+  };
+}
+
+async function healAllProjects() {
+  try {
+    const { data: allProjs } = await db.from('projects')
+      .select('id, name, client_id')
+      .eq('user_id', OWNER_ID)
+      .order('created_at', { ascending: false });
+
+    if (!allProjs) return [];
+
+    const results = [];
+    for (const p of allProjs) {
+      const rawClient = (p.name || '').replace(/^proyek\s+/i, '').trim();
+      if (!rawClient) continue;
+      const res = await ensureProjectAndLinks(rawClient);
+      if (res) results.push({ name: p.name, ...res });
+    }
+    return results;
+  } catch (err: any) {
+    console.error('healAllProjects error:', err.message);
+    return [];
+  }
+}
+
 async function displayProjectCard(chat_id: number, targetInst: any) {
   // Kunci konteks chat ke proyek ini agar bot mengarah ke proyek kita
   await setChatContext(chat_id, {
@@ -2196,31 +2401,23 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const clientPhone = quote?.to_phone || invoice?.to_phone || inst?.client_phone || '';
       const projName = `Proyek ${clientName}`;
 
-      let tot = 0;
       if (quote) {
         await db.from('quotes').update({ status: 'Diterima' }).eq('id', quote.id);
-        tot = (quote.quote_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0);
-      } else if (invoice) {
-        tot = (invoice.invoice_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(invoice.discount_amount || 0);
       }
 
-      // Buat / update entri di tabel Proyek (projects)
-      let projectId: string | null = inst?.project_id || null;
-      const { data: exProj } = await db.from('projects').select('id').eq('user_id', OWNER_ID).ilike('name', `%${cleanSearchName(clientName)}%`).limit(1).maybeSingle();
-      if (exProj?.id) {
-        projectId = exProj.id;
-        await db.from('projects').update({ status: 'Ongoing', budget: tot > 0 ? tot : undefined }).eq('id', projectId);
-      } else {
-        const { data: newProj } = await db.from('projects').insert({
-          user_id: OWNER_ID,
-          name: projName,
-          client_id: quote?.client_id || invoice?.client_id || null,
-          description: quote ? `Pemasangan dari Penawaran ${quote.quote_number}` : `Pemasangan CCTV ${clientName}`,
-          status: 'Ongoing',
-          budget: tot,
-        }).select('id').single();
-        projectId = newProj?.id ?? null;
-      }
+      // Tautkan secara atomik Klien, Proyek, Penawaran, Faktur, HPP & Milestone Tugas
+      const syncResult = await ensureProjectAndLinks(
+        clientName,
+        clientPhone,
+        clientAddress,
+        quote?.id,
+        invoice?.id,
+        25
+      );
+
+      const projectId = syncResult?.projectId || inst?.project_id || null;
+      const tot = syncResult?.revenue || (quote ? (quote.quote_items ?? []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0) - Number(quote.discount_amount || 0) : 0);
+      const profitVal = syncResult?.profit || 0;
 
       // Geocode & Masukkan ke Peta Command Center (cctv_installations)
       if (!inst) {
@@ -2232,7 +2429,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
           user_id: OWNER_ID,
           quote_id: quote?.id || null,
           project_id: projectId,
-          client_id: quote?.client_id || invoice?.client_id || null,
+          client_id: syncResult?.clientId || quote?.client_id || invoice?.client_id || null,
           project_name: projName,
           public_display_name: `Instalasi CCTV - ${clientName}`,
           client_name: clientName,
@@ -2252,8 +2449,10 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         await db.from('cctv_installations').update({
           progress: Math.max(inst.progress || 0, 25),
           project_id: projectId || inst.project_id,
+          client_id: syncResult?.clientId || inst.client_id,
         }).eq('id', inst.id);
         inst.progress = Math.max(inst.progress || 0, 25);
+        inst.project_id = projectId || inst.project_id;
       }
 
       await setChatContext(chat_id, {
@@ -2268,6 +2467,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const row1: any[] = [];
       if (publicWarrantyUrl) row1.push({ text: '🌐 Garansi Live', url: publicWarrantyUrl });
       row1.push({ text: '🗺️ Peta Command', url: `${APP_URL}/peta` });
+      if (projectId) row1.push({ text: '📈 Detail & Laba', url: `${APP_URL}/project/${projectId}` });
       buttons.push(row1);
 
       const row2: any[] = [];
@@ -2293,6 +2493,7 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         `• Klien / Proyek : <b>${esc(clientName)}</b>\n` +
         `• Lokasi         : <i>${esc(clientAddress)}</i>\n` +
         (tot > 0 ? `• Nilai Proyek   : <b>${rp(tot)}</b>\n` : '') +
+        (profitVal > 0 ? `• Estimasi Laba  : <b>${rp(profitVal)}</b>\n` : '') +
         `• Status Pengerjaan : <b>📅 Antrean Lapangan (Progres 25%)</b>\n` +
         `  <code>[██░░░░░░░░] 25%</code>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -2316,45 +2517,61 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       if (!clientAddr) clientAddr = 'Samarinda, Kalimantan Timur';
 
       const clientPhone = r.client_phone || '';
+      const initialProgress = r.progress_percent ?? 20;
+
+      // 1. Tautkan atau buat Klien, Proyek, dan cari Penawaran/Faktur terkait
+      const syncResult = await ensureProjectAndLinks(
+        clientName,
+        clientPhone,
+        clientAddr,
+        undefined,
+        undefined,
+        initialProgress
+      );
+
+      const projectId = syncResult?.projectId || null;
       const projName = `Proyek ${clientName}`;
 
       const geo = await geocode(clientAddr, 'Samarinda');
       const lat = geo ? geo.lat : -0.502106;
       const lng = geo ? geo.lng : 117.153709;
-      const initialProgress = r.progress_percent ?? 20;
 
-      // 1. Insert into projects
-      const { data: newProj } = await db.from('projects').insert({
-        user_id: OWNER_ID,
-        name: projName,
-        status: 'Ongoing',
-        description: r.notes || `Instalasi CCTV baru ${clientName}`,
-      }).select('id').single();
+      // 2. Insert atau Update cctv_installations
+      let inst = await findInstallation(clientName);
+      if (!inst) {
+        const { data: newInst, error: instErr } = await db.from('cctv_installations').insert({
+          user_id: OWNER_ID,
+          project_id: projectId,
+          client_id: syncResult?.clientId || null,
+          project_name: projName,
+          public_display_name: `Instalasi CCTV - ${clientName}`,
+          client_name: clientName,
+          client_phone: clientPhone,
+          address_landmark: clientAddr,
+          service_type: 'CCTV',
+          city: 'Samarinda',
+          latitude: lat,
+          longitude: lng,
+          progress: initialProgress,
+          is_public_portfolio: true,
+          notes: r.notes || 'Dibuat via Telegram AI Command Center',
+          photos: [],
+        }).select('*').single();
 
-      // 2. Insert into cctv_installations
-      const { data: newInst, error: instErr } = await db.from('cctv_installations').insert({
-        user_id: OWNER_ID,
-        project_id: newProj?.id || null,
-        project_name: projName,
-        public_display_name: `Instalasi CCTV - ${clientName}`,
-        client_name: clientName,
-        client_phone: clientPhone,
-        address_landmark: clientAddr,
-        service_type: 'CCTV',
-        city: 'Samarinda',
-        latitude: lat,
-        longitude: lng,
-        progress: initialProgress,
-        is_public_portfolio: true,
-        notes: r.notes || 'Dibuat via Telegram AI Command Center',
-        photos: [],
-      }).select('*').single();
-
-      if (instErr || !newInst) {
-        throw new Error('Gagal menyimpan proyek: ' + (instErr?.message || ''));
+        if (instErr || !newInst) {
+          throw new Error('Gagal menyimpan proyek: ' + (instErr?.message || ''));
+        }
+        inst = newInst;
+      } else {
+        await db.from('cctv_installations').update({
+          project_id: projectId || inst.project_id,
+          client_id: syncResult?.clientId || inst.client_id,
+          progress: Math.max(inst.progress || 0, initialProgress),
+        }).eq('id', inst.id);
+        inst.project_id = projectId || inst.project_id;
       }
 
-      await displayProjectCard(chat_id, newInst);
+      await displayProjectCard(chat_id, inst);
       return;
     }
 
@@ -4817,7 +5034,23 @@ async function handlePhotoUpload(chat_id: number, photo: any, cap: string, chatC
 // ------------------------------------------------------------------ webhook & hybrid failover gateway
 Deno.serve(async (req) => {
   if (req.method === 'GET') {
+    const url = new URL(req.url);
     const homeLabUrl = (env('BORNEO_HOMELAB_URL') || '').trim().replace(/\/$/, '');
+
+    // Endpoint auto-heal & relink seluruh proyek, klien, faktur, dan penawaran
+    if (url.searchParams.get('heal') === '1' || url.searchParams.get('sync') === '1') {
+      const healed = await healAllProjects();
+      return new Response(JSON.stringify({
+        status: 'ok',
+        service: 'Borneo Etam Project & Profit Auto-Healer',
+        healed_count: healed.length,
+        projects: healed,
+        timestamp: new Date().toISOString(),
+      }, null, 2), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({
       status: 'ok',
       service: 'Borneo Etam AI Command Center Gateway',
