@@ -191,10 +191,14 @@ const ProjectList = () => {
         });
       }
 
-      Object.values(stats).forEach((stat) => {
+      projectRows.forEach((p) => {
+        const stat = stats[p.id];
+        if (!stat) return;
         stat.profit = stat.revenue - stat.cost - stat.expenses;
         stat.margin = stat.revenue > 0 ? (stat.profit / stat.revenue) * 100 : 0;
-        stat.progress = stat.taskTotal > 0 ? (stat.taskDone / stat.taskTotal) * 100 : 0;
+        stat.progress = stat.taskTotal > 0
+          ? (stat.taskDone / stat.taskTotal) * 100
+          : (p.status === 'Completed' ? 100 : 0);
       });
 
       setProjects(projectRows);
@@ -554,7 +558,10 @@ const ProjectList = () => {
                         <TableCell className="px-5 py-4 text-center"><div className="flex justify-center">{getProjectStatusBadge(project.status)}</div></TableCell>
                         <TableCell className="px-5 py-4">
                           <div className="space-y-1.5 max-w-[180px]">
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium"><span>{stats.taskDone}/{stats.taskTotal} tugas</span><span>{stats.progress.toFixed(0)}%</span></div>
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                              <span>{stats.taskTotal > 0 ? `${stats.taskDone}/${stats.taskTotal} tugas` : (project.status === 'Completed' ? 'Selesai' : '0 tugas')}</span>
+                              <span>{stats.progress.toFixed(0)}%</span>
+                            </div>
                             <Progress value={stats.progress} className="h-1.5" />
                           </div>
                         </TableCell>
@@ -615,7 +622,11 @@ const ProjectList = () => {
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                           <span className="flex items-center gap-1.5 text-foreground"><CheckSquare className="h-3.5 w-3.5 text-primary" />Progres Tugas Proyek</span>
-                          <span>{stats.taskDone}/{stats.taskTotal} Selesai ({stats.progress.toFixed(0)}%)</span>
+                          <span>
+                            {stats.taskTotal > 0
+                              ? `${stats.taskDone}/${stats.taskTotal} Selesai (${stats.progress.toFixed(0)}%)`
+                              : (project.status === 'Completed' ? 'Selesai (100%)' : '0/0 Selesai (0%)')}
+                          </span>
                         </div>
                         <Progress value={stats.progress} className="h-2 rounded-full" />
                       </div>

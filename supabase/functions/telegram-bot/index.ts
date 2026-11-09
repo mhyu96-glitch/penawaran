@@ -126,8 +126,10 @@ const subtotal = (items: any[]) => items.reduce((s, i) => s + (Number(i.quantity
 function cleanSearchName(s: string): string {
   return (s || '')
     .toLowerCase()
-    .replace(/\b(pak|bpk|bapak|ibu|bu|toko|cv|pt|penawaran|faktur|minta|cetak|buatkan|buat|cek|lihat|tampilkan|unduh|buka)\b/gi, '')
-    .replace(/\b(yg|yang|nominal|sebesar|senilai|harga|total|nilai|nya)\b/gi, '')
+    .replace(/\b(proje(?:ct|ck|k|c)|proyek|pekerjaan|instalasi|klien)\b/gi, '')
+    .replace(/\b(pak|bpk|bapak|ibu|bu|toko|cv|pt|penawaran|faktur|invoice|quote|minta|cetak|buatkan|buat|bikin|tambah(?:kan)?|masukkan|cek|lihat|tampilkan|unduh|buka)\b/gi, '')
+    .replace(/\b(selesai|selesai\s*pasang|tuntas|beres|kelar|sukses|lunas|deal|acc|ongoing|pending|aktif|baru)\b/gi, '')
+    .replace(/\b(yg|yang|nominal|sebesar|senilai|harga|total|nilai|nya|atas\s*nama|untuk|ke|di)\b/gi, '')
     .replace(/[^a-z0-9]/g, '')
     .trim();
 }
@@ -198,6 +200,7 @@ function parseProjectIntentText(raw: string) {
   let clientName = text;
   let clientAddr = '';
   let mapsUrl = '';
+  let isComplete = false;
 
   // 1. Cek apakah ada Google Maps link (short atau long)
   const mapsMatch = text.match(/(https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|maps\.google\.com)\/[^\s]+)/i);
@@ -216,14 +219,21 @@ function parseProjectIntentText(raw: string) {
     clientName = text.trim();
   }
 
-  // Bersihkan akhiran frasa dokumen dari nama klien (misal: "di faktur", "nominal 8 jt")
-  clientName = clientName.replace(/\s*(?:di\s+)?(?:faktur|invoice|penawaran|quote)\s*$/i, '');
+  // Cek jika ada indikasi status selesai / tuntas
+  if (/\b(?:selesai|selesai\s*pasang|tuntas|kelar|beres)\b/i.test(clientName) || /\b(?:selesai|selesai\s*pasang|tuntas|kelar|beres)\b/i.test(raw)) {
+    isComplete = true;
+  }
+
+  // Bersihkan akhiran frasa dokumen & status dari nama klien (misal: "di faktur", "nominal 8 jt", "selesai")
+  clientName = clientName
+    .replace(/\s*(?:di\s+)?(?:faktur|invoice|penawaran|quote)\s*$/i, '')
+    .replace(/\s*(?:selesai(?:\s+pasang)?|tuntas|kelar|beres|lunas|deal|acc|sukses|ongoing|pending|baru)\s*$/i, '');
   clientName = stripNominalFromText(clientName);
   clientAddr = stripNominalFromText(clientAddr);
 
   // Bersihkan kata sambung di depan nama klien
   clientName = clientName
-    .replace(/^(?:untuk|atas\s*nama|nama|punya|milik|ke)\s+/i, '')
+    .replace(/^(?:untuk|atas\s*nama|nama|punya|milik|ke|proje(?:ct|ck|k|c)|proyek|pekerjaan)\s+/i, '')
     .trim();
 
   // Jika nama klien kosong tapi ada teks asal
@@ -235,7 +245,7 @@ function parseProjectIntentText(raw: string) {
     clientAddr = clientAddr ? `${clientAddr} (${mapsUrl})` : mapsUrl;
   }
 
-  return { clientName, clientAddr, mapsUrl };
+  return { clientName, clientAddr, mapsUrl, isComplete };
 }
 
 async function findQuoteOrInvoice(
@@ -939,6 +949,9 @@ async function ensureProjectAndLinks(
     if (cleanSearchName(exProj.name) === cleanName && exProj.name !== projName) {
       updates.name = projName;
     }
+    if (progressPercent === 100 && (exProj as any).status !== 'Completed') {
+      updates.status = 'Completed';
+    }
     if (Object.keys(updates).length > 0) {
       await db.from('projects').update(updates).eq('id', projectId);
     }
@@ -947,7 +960,7 @@ async function ensureProjectAndLinks(
       user_id: OWNER_ID,
       name: projName,
       client_id: clientId,
-      status: 'Ongoing',
+      status: progressPercent === 100 ? 'Completed' : 'Ongoing',
       description: `Instalasi CCTV ${clientName}`,
       budget: 0,
     }).select('id').maybeSingle();
@@ -1931,6 +1944,10 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
   const isDeleteDoc = /^(?:bro\s+)?(?:hapus|delete|batalkan|buang)\s+(?:faktur|invoice|penawaran|quote)\s*(.*)$/i.exec(trimmed);
   const progressMatch = trimmed.match(/(?:progr?es(?:s)?|kemajuan|tahap)\s*(?:jadi|udah|sudah)?\s*(\d{1,3})\s*%/i) ||
                         trimmed.match(/(\d{1,3})\s*%\s*(?:progr?es(?:s)?|selesai)/i);
+  const isCompleteProject =
+    /^(?:bro\s+)?(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s+(.+?)\s+(?:sudah\s+)?(?:selesai\s*pasang|selesai|tuntas|kelar|beres)$/i.exec(trimmed) ||
+    /^(?:bro\s+)?(?:buat|bikin|tandai|jadikan|set)\s+(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s+(.+?)\s+(?:sudah\s+)?(?:selesai\s*pasang|selesai|tuntas|kelar|beres)$/i.exec(trimmed) ||
+    /^(?:bro\s+)?(?:sudah\s+)?(?:selesai\s*pasang|selesai|tuntas|kelar|beres)(?:\s+(?:bro|ya|dong|proyek|project|pak|ke|untuk))?(?:\s+(.*))?$/i.exec(trimmed);
   const isEditProject = /^(?:bro\s+)?(?:edit|ubah|ganti|update)\s+(?:proje(?:ct|ck|k|c)|proyek)\s*(.*)$/i.exec(trimmed);
   const isAddProject = /^(?:bro\s+)?(?:buat|bikin|tambah(?:kan)?|masukkan)\s+(?:proje(?:ct|ck|k|c)|proyek|pekerjaan)\s*(?:baru\s*)?(.*)$/i.exec(trimmed);
   const isInvoiceQuery = /^(?:bro\s+)?(?:buat(?:kan)?|bikin|terbitkan|cek|lihat|minta|kirim|tampilkan|unduh|buka)?\s*(?:faktur|invoice)\s*(.*)$/i.exec(trimmed);
@@ -2007,6 +2024,18 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       client_name: target,
       reply: `Memperbarui progres proyek jadi ${percent}%...`,
     };
+  } else if (isCompleteProject) {
+    const rawTarget = (isCompleteProject[1] || '').trim();
+    const parsed = parseProjectIntentText(rawTarget);
+    const target = parsed.clientName || chatContext?.client_name || '';
+    r = {
+      intent: 'update_progress',
+      progress_percent: 100,
+      target_text: target,
+      client_name: target,
+      client_address: parsed.clientAddr,
+      reply: `Menandai proyek ${target || 'klien'} telah selesai 100%...`,
+    };
   } else if (isEditProject) {
     const rawTarget = isEditProject[1] || '';
     const parsed = parseProjectIntentText(rawTarget);
@@ -2021,13 +2050,17 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
     const rawTarget = isAddProject[1] || '';
     const parsed = parseProjectIntentText(rawTarget);
     const targetAmount = extractTargetAmount(rawTarget) || extractTargetAmount(trimmed);
+    const isCompleted = parsed.isComplete;
     r = {
-      intent: 'add_project',
+      intent: isCompleted ? 'update_progress' : 'add_project',
+      progress_percent: isCompleted ? 100 : 20,
       target_text: parsed.clientName || '',
       client_name: parsed.clientName || '',
       client_address: parsed.clientAddr,
       target_amount: targetAmount,
-      reply: `Membuat proyek baru untuk ${parsed.clientName || 'klien'}...`,
+      reply: isCompleted
+        ? `Menandai proyek ${parsed.clientName || 'klien'} telah selesai 100%...`
+        : `Membuat proyek baru untuk ${parsed.clientName || 'klien'}...`,
     };
   } else if (isLunasQuery) {
     const rawTarget = (isLunasQuery[1] || '').replace(/^(?:untuk|atas nama|nama|punya|milik|ke|faktur|pak)\s+/i, '').trim();
@@ -2953,11 +2986,11 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         inst = newInst;
       } else {
         await db.from('cctv_installations').update({
-          project_id: projectId || inst.project_id,
-          client_id: syncResult?.clientId || inst.client_id,
+          project_id: inst.project_id || projectId,
+          client_id: inst.client_id || syncResult?.clientId,
           progress: Math.max(inst.progress || 0, initialProgress),
         }).eq('id', inst.id);
-        inst.project_id = projectId || inst.project_id;
+        inst.project_id = inst.project_id || projectId;
       }
 
       await displayProjectCard(chat_id, inst);
@@ -2973,7 +3006,43 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         t = chatContext.client_name;
       }
 
-      const inst: any = await findInstallation(t);
+      let inst: any = await findInstallation(t);
+      if (!inst && t) {
+        // Fallback: cek apakah proyek ada di tabel projects
+        const cleanT = cleanSearchName(t);
+        const { data: pList } = await db.from('projects')
+          .select('id, name, client_id')
+          .eq('user_id', OWNER_ID)
+          .ilike('name', `%${cleanT}%`)
+          .limit(1);
+        if (pList?.[0]) {
+          const p = pList[0];
+          const pProg = r.progress_percent ?? 100;
+          const { data: newInst } = await db.from('cctv_installations').insert({
+            user_id: OWNER_ID,
+            project_id: p.id,
+            client_id: p.client_id,
+            project_name: p.name,
+            public_display_name: `Instalasi CCTV - ${t}`,
+            client_name: t,
+            address_landmark: 'Samarinda, Kalimantan Timur',
+            service_type: 'CCTV',
+            city: 'Samarinda',
+            latitude: -0.502106,
+            longitude: 117.153709,
+            progress: pProg,
+            installed_at: pProg === 100 ? nowParts().iso : null,
+            is_public_portfolio: true,
+            notes: 'Dibuat via Telegram AI Command Center',
+            photos: [],
+          }).select('*').single();
+          inst = newInst;
+          if (pProg === 100) {
+            await db.from('projects').update({ status: 'Completed' }).eq('id', p.id);
+          }
+        }
+      }
+
       if (!inst) {
         return send(chat_id, `Data proyek untuk "${esc(t || 'klien')}" tidak ditemukan bro. Pastikan nama kliennya sesuai ya.`);
       }
@@ -2985,9 +3054,14 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
         const p = Math.min(100, Math.max(0, Number(r.progress_percent)));
         updates.progress = p;
         changedLog.push(`• Progres pengerjaan : <b>${p}%</b>`);
-        if (p === 100 && !inst.installed_at) {
-          updates.installed_at = nowParts().iso;
+        if (p === 100) {
+          if (!inst.installed_at) updates.installed_at = nowParts().iso;
           changedLog.push(`• Status : <b>✅ Pemasangan Selesai 100% (Garansi Resmi Mulai Aktif)</b>`);
+          if (inst.project_id) {
+            await db.from('projects').update({ status: 'Completed' }).eq('id', inst.project_id);
+          }
+        } else if (inst.project_id) {
+          await db.from('projects').update({ status: 'Ongoing' }).eq('id', inst.project_id);
         }
       }
 
@@ -3280,38 +3354,70 @@ async function handleText(chat_id: number, text: string, audioInline?: any) {
       const labaBersihRiil = omset - modalHpp - totalExpenses;
       const marginRiil = omset > 0 ? Math.round((labaBersihRiil / omset) * 100) : 0;
 
-      // 4. Otomatis Terbitkan Faktur Tagihan
-      const { y } = nowParts();
-      const { data: lastInv } = await db.from('invoices').select('invoice_number').eq('user_id', OWNER_ID).like('invoice_number', `INV-${y}-%`).order('created_at', { ascending: false }).limit(1);
-      const lastNum = parseInt(String(lastInv?.[0]?.invoice_number || '').split('-').pop() || '0', 10) || 0;
-      const invNumber = `INV-${y}-${String(lastNum + 1).padStart(3, '0')}`;
+      // 4. Periksa apakah sudah ada Faktur untuk proyek atau penawaran ini
+      let invId: string | null = null;
+      let invNumber = '';
+      if (inst.project_id) {
+        const { data: exInv } = await db.from('invoices')
+          .select('id, invoice_number')
+          .eq('project_id', inst.project_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (exInv) {
+          invId = exInv.id;
+          invNumber = exInv.invoice_number;
+        }
+      }
+      if (!invId && quote?.id) {
+        const { data: exInv } = await db.from('invoices')
+          .select('id, invoice_number')
+          .eq('quote_id', quote.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (exInv) {
+          invId = exInv.id;
+          invNumber = exInv.invoice_number;
+        }
+      }
 
-      const { data: newInv } = await db.from('invoices').insert({
-        user_id: OWNER_ID,
-        quote_id: quote?.id || null,
-        client_id: inst.client_id || null,
-        project_id: inst.project_id || null,
-        from_company: 'Borneo Etam CCTV & Komputer Kasir',
-        to_client: inst.client_name,
-        to_address: inst.address_landmark,
-        to_phone: inst.client_phone,
-        title: `Faktur Pemasangan CCTV - ${inst.client_name}`,
-        discount_amount: quote?.discount_amount || 0,
-        status: 'Draf',
-        invoice_number: invNumber,
-        invoice_date: new Date().toISOString(),
-      }).select('id, invoice_number').single();
+      if (!invId) {
+        const { y } = nowParts();
+        const { data: lastInv } = await db.from('invoices').select('invoice_number').eq('user_id', OWNER_ID).like('invoice_number', `INV-${y}-%`).order('created_at', { ascending: false }).limit(1);
+        const lastNum = parseInt(String(lastInv?.[0]?.invoice_number || '').split('-').pop() || '0', 10) || 0;
+        invNumber = `INV-${y}-${String(lastNum + 1).padStart(3, '0')}`;
 
-      if (newInv && items.length > 0) {
-        const invRows = items.map((i: any) => ({
-          invoice_id: newInv.id,
-          description: i.description || '',
-          quantity: Number(i.quantity) || 0,
-          unit: i.unit || 'Unit',
-          unit_price: Number(i.unit_price) || 0,
-          cost_price: Number(i.cost_price) || 0,
-        }));
-        await db.from('invoice_items').insert(invRows);
+        const { data: newInv } = await db.from('invoices').insert({
+          user_id: OWNER_ID,
+          quote_id: quote?.id || null,
+          client_id: inst.client_id || null,
+          project_id: inst.project_id || null,
+          from_company: 'Borneo Etam CCTV & Komputer Kasir',
+          to_client: inst.client_name,
+          to_address: inst.address_landmark,
+          to_phone: inst.client_phone,
+          title: `Faktur Pemasangan CCTV - ${inst.client_name}`,
+          discount_amount: quote?.discount_amount || 0,
+          status: 'Draf',
+          invoice_number: invNumber,
+          invoice_date: new Date().toISOString(),
+        }).select('id, invoice_number').single();
+
+        if (newInv) {
+          invId = newInv.id;
+          if (items.length > 0) {
+            const invRows = items.map((i: any) => ({
+              invoice_id: newInv.id,
+              description: i.description || '',
+              quantity: Number(i.quantity) || 0,
+              unit: i.unit || 'Unit',
+              unit_price: Number(i.unit_price) || 0,
+              cost_price: Number(i.cost_price) || 0,
+            }));
+            await db.from('invoice_items').insert(invRows);
+          }
+        }
       }
 
       // 5. Generate PDF Faktur Resmi
